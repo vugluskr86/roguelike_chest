@@ -47,7 +47,7 @@
    Структура 1:1 переносится в TS-модули (типы — в JSDoc).
    ============================================================ */
 
-/** @typedef {'pawn'|'knight'|'bishop'|'rook'|'queen'} PieceType */
+/** @typedef {'pawn'|'knight'|'bishop'|'rook'|'queen'|'archbishop'|'chancellor'|'beast'} PieceType */
 /** @typedef {{x:number,y:number}} Cell */
 /** @typedef {{type:PieceType, r:number, improved:boolean, cooldown:number, homeColor:0|1}} Form */
 
@@ -55,11 +55,20 @@ export const CFG = {
   W: 11,
   H: 9,
   TILE: 56,
-  BASE_R: { bishop: 3, rook: 3, queen: 2 },
+  BASE_R: { bishop: 3, rook: 3, queen: 2, archbishop: 3, chancellor: 4, beast: 1 },
   FATIGUE_K: 2, // кулдаун формы после взятия
   ENEMY_CAPTURE_CD: 1, // кулдаун врага после взятия игрока
   EXTRA_SLOTS: 2, // слоты колеса помимо пешки
-  LADDER: { queen: 9, rook: 5, bishop: 3, knight: 3, pawn: 1 },
+  LADDER: {
+    chancellor: 10,
+    archbishop: 10,
+    beast: 8,
+    queen: 9,
+    rook: 5,
+    bishop: 3,
+    knight: 3,
+    pawn: 1,
+  },
   // Сложность этажа: враги «покупаются» из бюджета угрозы (одна кривая вместо таблиц).
   DIFF: {
     budgetBase: 4, // бюджет угрозы на этаже 1
@@ -110,6 +119,9 @@ export const GLYPH = {
   bishop: '♝',
   rook: '♜',
   queen: '♛',
+  archbishop: '♝',
+  chancellor: '♜',
+  beast: '☣',
   king: '♚',
   guardian: '♚',
   necro: '☠',
@@ -124,6 +136,9 @@ export const NAME = {
   bishop: 'слон',
   rook: 'ладья',
   queen: 'ферзь',
+  archbishop: 'архиепископ',
+  chancellor: 'канцлер',
+  beast: 'изверг',
   king: 'король',
   guardian: 'страж',
   necro: 'некромант',
@@ -132,7 +147,16 @@ export const NAME = {
   priest: 'жрец',
   frost: 'морозный маг',
 };
-export const STD_TYPES = new Set(['pawn', 'knight', 'bishop', 'rook', 'queen']); // формы, доступные игроку
+export const STD_TYPES = new Set([
+  'pawn',
+  'knight',
+  'bishop',
+  'rook',
+  'queen',
+  'archbishop',
+  'chancellor',
+  'beast',
+]); // формы, доступные игроку
 export const MOVE_AS = { guardian: 'king', assassin: 'knight', priest: 'bishop' }; // спец-враг → паттерн движения
 
 export const BIOMES = [

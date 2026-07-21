@@ -314,6 +314,16 @@ export function reset() {
     nextFloorStatus: [],
   };
   S.unlocked = new Set(['pawn', 'knight']);
+  // мета-апгрейды: экзотические формы, купленные в магазине
+  const exotic = [];
+  if (META.upgrades.archbishop) exotic.push('archbishop');
+  if (META.upgrades.chancellor) exotic.push('chancellor');
+  if (META.upgrades.beast) exotic.push('beast');
+  exotic.forEach((t) => {
+    S.unlocked.add(t);
+    const slot = S.player.wheel.findIndex((s, i) => i > 0 && s === null);
+    if (slot !== -1) S.player.wheel[slot] = makeForm(t, 0);
+  });
   S.gameOver = false;
   S.floor = 0;
   if (dom.logEl) dom.logEl.innerHTML = '';

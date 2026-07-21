@@ -6,7 +6,7 @@ import { pass, rotate, switchForm, tryMoveTo } from './combat.js';
 import { CFG } from './config.js';
 import { metaLoad } from './meta.js';
 import { playerOptions } from './moves.js';
-import { render, resizeBoard } from './render.js';
+import { render, resizeBoard, startRenderLoop } from './render.js';
 import { enemyAt } from './state.js';
 import { closeModal, openHelp, openTitle } from './ui.js';
 import { inB } from './util.js';
@@ -117,4 +117,5 @@ if (window.matchMedia && window.matchMedia('(hover:hover) and (pointer:fine)').m
 metaLoad();
 reset(); // готовим забег под текущими апгрейдами (рендерит доску под титулом)
 resizeBoard(); // подгоняем канвас под фактическую ширину контейнера (моб./десктоп)
+startRenderLoop(); // запускаем rAF-цикл отрисовки
 openTitle(); // стартуем с меню мета-прогрессии

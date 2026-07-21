@@ -1,0 +1,201 @@
+# Chess Roguelike — Cline Development Rules
+
+## Project Overview
+
+Шахматный рогалик: фигура-игрок спускается по процедурным этажам, меняя форму.
+Vanilla JS (no framework), Canvas + DOM рендер, Vite сборка, Vitest тесты.
+
+## Tech Stack
+
+- **Runtime**: Vanilla JS (ES2022), `type: "module"` in package.json
+- **Build**: Vite 5.x (base: `./`, target: es2020, outDir: dist)
+- **Test**: Vitest 2.x + jsdom (environment: node, setupFiles: `./test/setup.js`)
+- **Lint/Format**: ESLint 10 (flat config) + Prettier 3
+- **Package manager**: npm
+- **No TypeScript**, but JSDoc typedefs are used for type hints (future TS migration planned)
+
+## Naming & Language
+
+- **Code identifiers** (variables, functions, files): English
+- **Comments, log messages, UI strings**: Russian
+- **Module files**: single-word kebab-concept (`board.js`, `combat.js`, `loot.js`)
+
+## Module Architecture (src/)
+
+| File         | Responsibility                                       | Key Exports                                                                                                                                    |
+| ------------ | ---------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
+| `config.js`  | Константы, typedefs, биомы, статусы, таблицы тюнинга | `CFG`, `GLYPH`, `NAME`, `BIOMES`, `STATUS_META`, `RELIC_TIER`, etc.                                                                            |
+| `state.js`   | Глобальное мутабельное состояние `S`                 | `S` (object), `has()`, `curse()`, `enemyAt()`                                                                                                  |
+| `dom.js`     | Кеширование DOM-элементов                            | `dom` (object), `initDom()`                                                                                                                    |
+| `util.js`    | Чистые хелперы, константы направлений                | `ORTHO`, `DIAG`, `KNIGHT_J`, `key()`, `inB()`, `tileColor()`, `cheb()`, `makeForm()`, `randInt()`, `pick()`, `shuffle()`                       |
+| `moves.js`   | Генерация ходов, угрозы, pathfinding                 | `genMoves()`, `enemyThreat()`, `allThreats()`, `playerOptions()`, `activeForm()`, `effectiveForm()`, `attackSquaresFor()`, `movesToThreaten()` |
+| `board.js`   | Генерация этажа, спавн врагов, reset                 | `generateRoom()`, `spawnEnemiesForFloor()`, `newFloor()`, `reset()`                                                                            |
+| `combat.js`  | Действия игрока, поток хода                          | `tryMoveTo()`, `rotate()`, `switchForm()`, `pass()`, `endPlayerTurn()`, `degradePlayer()`                                                      |
+| `enemies.js` | AI врагов: ход каждого типа                          | `enemiesTurn()`                                                                                                                                |
+| `status.js`  | Статусы: яд/оглушение/щит/ускорение                  | `applyStatus()`, `cleanse()`, `statusVal()`                                                                                                    |
+| `render.js`  | Canvas-рендер доски, фигур, угроз, спецклеток        | `render()`, `resizeBoard()`, `drawPiece()`, `drawSpecial()`, `drawStatuses()`                                                                  |
+| `ui.js`      | DOM-UI: лог, колесо, модалки, сводка                 | `log()`, `syncUI()`, `openModal()`, `closeModal()`, `openHelp()`, `openTitle()`, `openRunSummary()`                                            |
+| `loot.js`    | Реликвии, проклятия, награды после этажа             | `offerLoot()`, `applyRelic()`, `applyCurse()`                                                                                                  |
+| `events.js`  | Комнаты-события между этажами                        | `triggerEvent()`                                                                                                                               |
+| `meta.js`    | Мета-прогрессия, достижения, бестиарий               | `META`, `metaLoad()`, `unlockAch()`, `codexSeeEnemy()`                                                                                         |
+| `content.js` | Определения реликвий и проклятий (чистые данные)     | `RELICS`, `CURSES`                                                                                                                             |
+| `main.js`    | Точка входа: ввод, загрузка, старт                   | (no exports)                                                                                                                                   |
+| `styles.css` | Стили                                                | (CSS)                                                                                                                                          |
+
+## State Management Rules
+
+### Global State `S` (state.js)
+
+```js
+export const S = {
+  walls: Set, // Set<string> — ключи "x,y" клеток-стен
+  player: Object, // { x, y, facing, wheel[], active, relics, curses, status, gold, ... }
+  enemies: Array, // [{ type, x, y, facing, cd, status, armor?, ... }]
+  turn: number,
+  promotionUsed: boolean,
+  unlocked: Set, // Set<string> — разблокированные формы
+  gameOver: boolean,
+  floor: number,
+  hoverEnemy: null | Object,
+  selectedEnemy: null | Object,
+  special: Map, // Map<string, Object> — особые клетки (ловушки, порталы, etc.)
+  biome: null | Object,
+  modalOpen: boolean,
+};
+```
+
+- **`S` is mutated directly** — no immutability, no reducers
+- Never reassign `S` itself; mutate its properties
+- **State is the single source of truth**: all modules read/write `S`
+- Player position is at `S.player.x`, `S.player.y`
+- Board uses `x` (column, 0..W-1) and `y` (row, 0=top, H-1=bottom)
+- `facing` is `[dx, dy]`, default `[0, -1]` (up toward promotion line y=0)
+
+### Key Helpers (state.js)
+
+- `has(id)` — check if player has relic `id`
+- `curse(id)` — check if player has curse `id`
+- `enemyAt(x, y)` — find enemy at cell
+
+## Code Patterns
+
+### Cell/BFS/Graph
+
+- Use `key(x, y)` → `"x,y"` string for Sets/Maps (not object keys)
+- `inB(x, y)` for bounds check
+- `tileColor(x, y)` → `0` (светлая) or `1` (тёмная)
+
+### Config Access
+
+- All tuning in `CFG` (config.js): `CFG.W` (11), `CFG.H` (9), `CFG.TILE` (56), `CFG.BASE_R`, `CFG.DIFF`
+- Glyphs: `GLYPH[type]` for display characters
+- Names: `NAME[type]` for Russian names
+
+### Turn Flow
+
+1. Player acts → `tryMoveTo()`, `rotate()`, `switchForm()`, or `pass()`
+2. → `endPlayerTurn()` (reduce cooldowns, check promotion)
+3. → `enemiesTurn()` (each enemy acts)
+4. → `render()` + `syncUI()`
+
+### Enemy Defs
+
+- Standard chess types: pawn, knight, bishop, rook, queen (in `STD_TYPES`)
+- Special enemies: guardian (armor), necro (summoner), mimic (mirrors player), assassin (knight-type, poison), priest (bishop-type, shield), frost (stationary, stun)
+- `MOVE_AS` maps special enemies to move patterns
+- `effectiveForm(e)` returns the effective movement form for an enemy
+
+### Rendering
+
+- Canvas-based (`dom.cv` / `dom.ctx`)
+- `T` (tile size) recalculated on resize via `resizeBoard()`
+- `render()` is the full repaint — call after any state change
+- Special cells rendered via `drawSpecial()`, threats via `hatch()`
+- `drawStatuses()` shows status dot indicators on units
+
+## Testing Rules
+
+### Test Setup
+
+- `test/setup.js` stubs DOM, Canvas, `getElementById`, `createElement`, `localStorage`
+- Access test helpers: `elChildren(id)`, `clickWhere(id, pred)`, `store` (localStorage Map)
+- `import { S } from '../src/state.js'` — mutate S to set up test state
+- Tests run in Node via jsdom; no browser needed
+
+### Test Structure
+
+- One test file per module: `test/board.test.js` matches `src/board.js`
+- Use `describe`/`it` (vitest globals)
+- Re-set state in `beforeEach` as needed (modules share the same `S` reference)
+- Canvas context is a noop proxy — don't test pixel values, test state/logic
+
+### Running Tests
+
+```bash
+npm test          # vitest run (single pass)
+npm run test:watch  # vitest (watch mode)
+```
+
+## Build & Dev Commands
+
+```bash
+npm run dev       # Vite dev server
+npm run build     # Production build → dist/
+npm run preview   # Preview production build
+npm run lint      # ESLint check
+npm run lint:fix  # ESLint auto-fix
+npm run format    # Prettier check
+npm run format:fix # Prettier format
+npm test          # Run tests once
+npm run test:watch # Watch mode
+```
+
+## Constraints & Gotchas
+
+### Immutable Exports
+
+- Modules re-imported share the same reference — `S` mutations are visible everywhere
+- Don't deconstruct mutable values from `S` expecting them to stay current
+
+### jsconfig Paths
+
+- `"@/*": ["src/*"]` alias is configured but Vite doesn't use jsconfig for resolution
+- Always use relative imports like `'./state.js'`, not `'@/state.js'`
+
+### ESLint Flat Config
+
+- Config is in `eslint.config.js` (ESLint 10 flat format)
+- `ecmaVersion: 2022` (supports top-level await in test/setup.js)
+- Test files have vitest globals declared (`describe`, `it`, `expect`, etc.)
+- Browser globals declared in main config block
+
+### Prettier Settings
+
+- Single quotes, semicolons, trailing commas, 100 print width, 2-space indent
+- `eslint-config-prettier` disables conflicting ESLint rules
+
+### Biome System
+
+- 3 biomes cycling every 2 floors: Залы (halls), Коридоры (corridors), Пилоны (pylons)
+- Each has: wallStyle, light/dark colors, accent, favored enemies, favored tiles
+- `biomeFor(floor)` picks biome — always call after `S.floor` changes
+
+### Common Pitfalls
+
+- **Forgetting `render()` after state change** — UI won't update
+- **Not calling `syncUI()`** after wheel/status changes — DOM elements stale
+- **Using object keys instead of `key()`** for Sets/Maps with coordinates
+- **Mutating `S.enemies` while iterating** — use spread `[...S.enemies]` or filter
+- **Assuming `S.special` is non-null** — check with `&&` or `?.`
+- **Resetting `S` instead of mutating** — `reset()` handles clean slate
+- **Adding new enemy types without updating `CFG.DIFF.cost` and `CFG.DIFF.unlockFloor`**
+
+## Adding New Features Checklist
+
+1. Constants/types → `config.js` (CFG, GLYPH, NAME, etc.)
+2. State fields → `state.js` (S + helpers)
+3. Logic → appropriate module or new file in `src/`
+4. Rendering → `render.js` (canvas) or `ui.js` (DOM)
+5. Tests → `test/<module>.test.js`
+6. Import in `main.js` if it's an init hook
+7. Run `npm run lint` and `npm test` before committing

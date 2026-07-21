@@ -72,6 +72,24 @@ export const META_UPGRADES = {
     max: 1,
     costs: [15],
   },
+  archbishop: {
+    name: 'Архиепископ',
+    desc: 'Форма «архиепископ» доступна в забегах (слон + конь).',
+    max: 1,
+    costs: [12],
+  },
+  chancellor: {
+    name: 'Канцлер',
+    desc: 'Форма «канцлер» доступна в забегах (ладья + конь).',
+    max: 1,
+    costs: [12],
+  },
+  beast: {
+    name: 'Изверг',
+    desc: 'Форма «изверг» доступна в забегах (прыжки на 2 в любую сторону).',
+    max: 1,
+    costs: [15],
+  },
 };
 export const ACHIEVEMENTS = {
   first_blood: { name: 'Первая кровь', desc: 'Возьми первого врага.' },

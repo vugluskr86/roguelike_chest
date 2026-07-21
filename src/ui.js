@@ -457,7 +457,8 @@ export function syncUI() {
     `<span class="hb">этаж ${S.floor}</span>` +
     (S.biome ? `<span class="hb">${S.biome.name}</span>` : '') +
     `<span class="hb">ход ${S.turn}</span>` +
-    `<span class="hb gold">${S.player.gold || 0}🪙</span>`;
+    `<span class="hb gold">${S.player.gold || 0}🪙</span>` +
+    `<span class="hb shards">${META.shards || 0}✦</span>`;
   dom.wheelEl.innerHTML = '';
   S.player.wheel.forEach((f, i) => {
     const el = document.createElement('div');

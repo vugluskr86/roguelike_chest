@@ -105,6 +105,10 @@ canvas {
   color: var(--promo);
   border-color: #5a4a1e;
 }
+.hudbar .hb.shards {
+  color: #9b6dd0;
+  border-color: #5a3d7a;
+}
 .wheel {
   display: flex;
   gap: 8px;

@@ -7,6 +7,44 @@ import { key, tileColor } from './util.js';
 
 export let T = CFG.TILE; // логический размер тайла (CSS-пиксели); пересчитывается в resizeBoard()
 
+let needsRedraw = true;
+let loopRunning = false;
+
+// ========== rAF-рендер ==========
+
+/**
+ * Запросить перерисовку на следующем кадре.
+ * Вызывается из всех модулей после изменения состояния.
+ */
+export function requestRender() {
+  needsRedraw = true;
+}
+
+/**
+ * Запустить rAF-цикл (один раз при старте).
+ * В среде без rAF (тесты) renderNow вызывается синхронно.
+ */
+export function startRenderLoop() {
+  if (loopRunning) return;
+  if (typeof requestAnimationFrame === 'undefined') {
+    // jsdom / тесты — синхронный рендер, rAF отсутствует
+    loopRunning = true;
+    renderNow(0);
+    return;
+  }
+  loopRunning = true;
+  function tick(ts) {
+    if (needsRedraw) {
+      needsRedraw = false;
+      renderNow(ts);
+    }
+    requestAnimationFrame(tick);
+  }
+  requestAnimationFrame(tick);
+}
+
+// ========== resize ==========
+
 export function resizeBoard() {
   const cssW = dom.cv.clientWidth || Math.min(CFG.W * CFG.TILE, (window.innerWidth || 616) - 24);
   T = cssW / CFG.W;
@@ -15,9 +53,12 @@ export function resizeBoard() {
   dom.cv.height = Math.round(CFG.H * T * dpr);
   dom.cv.style.height = CFG.H * T + 'px'; // держим соотношение 11:9
   dom.ctx.setTransform(dpr, 0, 0, dpr, 0, 0); // рисуем в логических координатах
-  render();
+  requestRender();
 }
-export function hatch(x, y, color) {
+
+// ========== вспомогательные рисовалки ==========
+
+export function hatch(x, y, color, _ts) {
   dom.ctx.save();
   dom.ctx.beginPath();
   dom.ctx.rect(x * T, y * T, T, T);
@@ -37,7 +78,7 @@ export function hatch(x, y, color) {
   dom.ctx.restore();
 }
 
-export function drawSpecial(x, y, s) {
+export function drawSpecial(x, y, s, _ts) {
   const cx = x * T + T / 2,
     cy = y * T + T / 2;
   dom.ctx.save();
@@ -251,7 +292,13 @@ export function drawPiece(x, y, type, isPlayer, facing, improved, opts) {
   dom.ctx.restore();
 }
 
-export function render() {
+// ========== полный перерендер ==========
+
+/**
+ * Немедленный полный перерендер.
+ * @param {number} ts — timestamp от rAF (для будущих анимаций)
+ */
+export function renderNow(ts) {
   dom.ctx.clearRect(0, 0, CFG.W * T, CFG.H * T);
   const insp = S.hoverEnemy || S.selectedEnemy;
   const threats = insp ? enemyThreat(insp) : allThreats();
@@ -282,13 +329,13 @@ export function render() {
   for (const k of threats) {
     if (S.special && S.special.get(k) && S.special.get(k).type === 'fog') continue;
     const [x, y] = k.split(',').map(Number);
-    hatch(x, y, '#b3423a');
+    hatch(x, y, '#b3423a', ts);
   }
   // особые клетки (под фигурами, над угрозами)
   if (S.special)
     S.special.forEach((s, k) => {
       const [x, y] = k.split(',').map(Number);
-      drawSpecial(x, y, s);
+      drawSpecial(x, y, s, ts);
     });
   if (insp) {
     dom.ctx.strokeStyle = '#d07a3f';
@@ -359,3 +406,11 @@ export function render() {
     dom.ctx.stroke();
   }
 }
+
+// ========== обратная совместимость: render() = requestRender() ==========
+
+/**
+ * Совместимый вызов — запрашивает перерисовку через rAF.
+ * Все существующие вызовы render() продолжают работать.
+ */
+export const render = requestRender;
