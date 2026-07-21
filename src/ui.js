@@ -1,0 +1,344 @@
+import { S } from './state.js';
+import { dom } from './dom.js';
+import { reset } from './board.js';
+import { death, switchForm } from './combat.js';
+import { GLYPH, NAME, TIER_META, relicTier } from './config.js';
+import { ACHIEVEMENTS, CURSES, META_UPGRADES, RELICS } from './content.js';
+import { maybeEvent } from './events.js';
+import { applyOption } from './loot.js';
+import { META, achProgress, buyUpgrade, codexProgress, upgradeCost } from './meta.js';
+import { activeForm } from './moves.js';
+import { curse } from './state.js';
+
+export function openRunSummary(title, subtitle, earned){
+  S.modalOpen=true;
+  dom.modalBox.classList.add('death');
+  dom.mTitle.textContent='Забег окончен';
+  dom.mText.textContent=`${title} — ${subtitle}`;
+  dom.mChoices.innerHTML=''; dom.mChoices.classList.add('loot-list');
+
+  const rids=[...S.player.relics], cids=[...S.player.curses];
+  const formsUnlocked=[...S.unlocked].filter(t=>t!=='pawn').map(t=>NAME[t]);
+  const wrap=document.createElement('div');
+  wrap.className='summary';
+  wrap.innerHTML =
+    `<div class="sfloor"><span class="snum">${S.floor}</span><span class="slbl">этаж</span></div>
+     <div class="sstats">
+       <div><b>${S.player.totalCaptures}</b> взятий за забег</div>
+       <div><b>${rids.length}</b> реликвий · <b>${cids.length}</b> проклятий</div>
+       <div>формы: ${formsUnlocked.length? formsUnlocked.join(', ') : 'только пешка и конь'}</div>
+       <div class="searn">+${earned} осколков · всего ${META.shards}</div>
+       <div class="srec">рекорд: этаж ${META.bestFloor} · забегов ${META.runs}</div>
+     </div>
+     ${rids.length? `<div class="ssec"><div class="sh">Реликвии</div><div class="relics">${
+        rids.map(id=>`<span class="chip" title="${RELICS[id].desc}">${RELICS[id].name}</span>`).join('')
+      }</div></div>`:''}
+     ${cids.length? `<div class="ssec"><div class="sh">Проклятия</div><div class="relics">${
+        cids.map(id=>`<span class="chip curse" title="${CURSES[id].desc}">☠ ${CURSES[id].name}</span>`).join('')
+      }</div></div>`:''}`;
+  dom.mChoices.appendChild(wrap);
+
+  const row=document.createElement('div'); row.className='btnrow2';
+  const again=document.createElement('button'); again.className='again'; again.textContent='Ещё забег (R)';
+  again.onclick=()=>{ closeModal(); reset(); };
+  const menu=document.createElement('button'); menu.textContent='В меню';
+  menu.onclick=()=>{ closeModal(); openTitle(); };
+  row.appendChild(again); row.appendChild(menu);
+  dom.mChoices.appendChild(row);
+  dom.overlay.classList.add('on');
+}
+
+export function openTitle(){
+  S.modalOpen=true;
+  dom.modalBox.classList.remove('death');
+  dom.mTitle.textContent='♟ Chess Roguelike';
+  dom.mText.textContent='Мета-прогресс сохраняется между забегами. Трать осколки на перманентные апгрейды.';
+  dom.mChoices.innerHTML=''; dom.mChoices.classList.add('loot-list');
+
+  const head=document.createElement('div'); head.className='summary';
+  head.innerHTML=
+    `<div class="sstats">
+       <div class="searn">Осколки: <b>${META.shards}</b></div>
+       <div class="srec">рекорд: этаж ${META.bestFloor} · забегов ${META.runs} · всего взятий ${META.totalCaptures}</div>
+     </div>`;
+  dom.mChoices.appendChild(head);
+
+  const shop=document.createElement('div'); shop.className='shop';
+  Object.keys(META_UPGRADES).forEach(id=>{
+    const u=META_UPGRADES[id], lvl=META.upgrades[id]||0, cost=upgradeCost(id);
+    const row=document.createElement('div'); row.className='shoprow';
+    row.innerHTML=`<div class="si"><span class="ln">${u.name} <span class="lvl">${lvl}/${u.max}</span></span><span class="ld">${u.desc}</span></div>`;
+    const buy=document.createElement('button'); buy.className='buy';
+    if(cost==null){ buy.textContent='макс'; buy.disabled=true; }
+    else { buy.textContent=`${cost} ✦`; buy.disabled = META.shards<cost;
+      buy.onclick=()=>{ if(buyUpgrade(id)) openTitle(); }; }   // перерисовать меню
+    row.appendChild(buy); shop.appendChild(row);
+  });
+  dom.mChoices.appendChild(shop);
+
+  const codexN=codexProgress(), achN=achProgress();
+  const nav=document.createElement('div'); nav.className='btnrow2';
+  const bc=document.createElement('button'); bc.textContent=`Бестиарий ${codexN.have}/${codexN.total}`;
+  bc.onclick=()=>{ closeModal(); openCodex(); };
+  const ba=document.createElement('button'); ba.textContent=`Достижения ${achN.have}/${achN.total}`;
+  ba.onclick=()=>{ closeModal(); openAchievements(); };
+  nav.appendChild(bc); nav.appendChild(ba);
+  dom.mChoices.appendChild(nav);
+
+  const start=document.createElement('button'); start.className='again'; start.textContent='Начать забег (R)';
+  start.onclick=()=>{ closeModal(); reset(); };
+  dom.mChoices.appendChild(start);
+  const help=document.createElement('button'); help.textContent='Как играть';
+  help.onclick=()=>{ closeModal(); openHelp('title'); };
+  dom.mChoices.appendChild(help);
+  dom.overlay.classList.add('on');
+}
+
+// прогресс кодекса и достижений
+export function toast(text){
+  try{
+    const d=document.createElement('div'); d.className='toast'; d.textContent=text;
+    document.body.appendChild(d);
+    setTimeout(()=>{ d.classList.add('out'); }, 2200);
+    setTimeout(()=>{ if(d.parentNode) d.parentNode.removeChild(d); }, 2800);
+  }catch(e){}
+}
+
+export function openCodex(){
+  S.modalOpen=true; dom.modalBox.classList.remove('death');
+  dom.mTitle.textContent='Бестиарий'; dom.mText.textContent='Записи открываются по мере встреч в забегах.';
+  dom.mChoices.innerHTML=''; dom.mChoices.classList.add('loot-list');
+  const box=document.createElement('div'); box.className='help';
+  const enemyList=['pawn','knight','bishop','rook','queen','guardian','necro','mimic','assassin','priest','frost'];
+  const enemyDesc={
+    pawn:'шаг вперёд, бьёт по диагоналям', knight:'прыжок буквой Г', bishop:'диагонали',
+    rook:'ортогонали', queen:'все направления', guardian:'король + броня 2',
+    necro:'неподвижен, призывает пешек', mimic:'копирует твою форму',
+    assassin:'конь; отравляет при взятии', priest:'слон; щитует союзников', frost:'неподвижен; оглушает на дистанции' };
+  let html='<div class="hsec"><div class="hh">Враги</div>';
+  enemyList.forEach(t=>{
+    const seen=META.codex.enemies[t], kills=META.codex.kills[t]||0;
+    html += seen
+      ? `<div class="cdx"><b>${GLYPH[t]} ${NAME[t]}</b><span>${enemyDesc[t]} · убито: ${kills}</span></div>`
+      : `<div class="cdx locked"><b>? ??????</b><span>не встречен</span></div>`;
+  });
+  html+='</div>';
+  const relIds=Object.keys(RELICS);
+  html+=`<div class="hsec"><div class="hh">Реликвии ${relIds.filter(id=>META.codex.relics[id]).length}/${relIds.length}</div>`;
+  relIds.forEach(id=>{ html += META.codex.relics[id]
+    ? `<div class="cdx"><b>${RELICS[id].name}</b><span>${RELICS[id].desc}</span></div>`
+    : `<div class="cdx locked"><b>? ??????</b><span>не найдена</span></div>`; });
+  html+='</div>';
+  const curIds=Object.keys(CURSES);
+  html+=`<div class="hsec"><div class="hh">Проклятия ${curIds.filter(id=>META.codex.curses[id]).length}/${curIds.length}</div>`;
+  curIds.forEach(id=>{ html += META.codex.curses[id]
+    ? `<div class="cdx"><b>☠ ${CURSES[id].name}</b><span>${CURSES[id].desc}</span></div>`
+    : `<div class="cdx locked"><b>? ??????</b><span>не встречено</span></div>`; });
+  html+='</div>';
+  box.innerHTML=html; dom.mChoices.appendChild(box);
+  const back=document.createElement('button'); back.className='again'; back.textContent='Назад в меню';
+  back.onclick=()=>{ closeModal(); openTitle(); };
+  dom.mChoices.appendChild(back);
+  dom.overlay.classList.add('on');
+}
+
+export function openAchievements(){
+  S.modalOpen=true; dom.modalBox.classList.remove('death');
+  const p=achProgress();
+  dom.mTitle.textContent='Достижения'; dom.mText.textContent=`Открыто ${p.have} из ${p.total}.`;
+  dom.mChoices.innerHTML=''; dom.mChoices.classList.add('loot-list');
+  const box=document.createElement('div'); box.className='help';
+  let html='<div class="hsec">';
+  Object.keys(ACHIEVEMENTS).forEach(id=>{
+    const a=ACHIEVEMENTS[id], got=META.achievements[id];
+    html += `<div class="cdx${got?'':' locked'}"><b>${got?'🏆':'🔒'} ${a.name}</b><span>${a.desc}</span></div>`;
+  });
+  html+='</div>';
+  box.innerHTML=html; dom.mChoices.appendChild(box);
+  const back=document.createElement('button'); back.className='again'; back.textContent='Назад в меню';
+  back.onclick=()=>{ closeModal(); openTitle(); };
+  dom.mChoices.appendChild(back);
+  dom.overlay.classList.add('on');
+}
+
+export function openHelp(from){
+  S.modalOpen=true;
+  dom.modalBox.classList.remove('death');
+  dom.mTitle.textContent='Как играть';
+  dom.mText.textContent='Шахматный roguelike: ты — фигура, что меняет свой тип по ходу спуска.';
+  dom.mChoices.innerHTML=''; dom.mChoices.classList.add('loot-list');
+
+  const H=document.createElement('div'); H.className='help';
+  H.innerHTML = `
+    <div class="hsec"><div class="hh">Цель</div>
+      Спускайся по этажам, зачищая всех врагов. Каждый следующий этаж — новая случайная доска и более
+      опасные враги. Смерть завершает забег, но осколки и рекорды сохраняются.</div>
+
+    <div class="hsec"><div class="hh">Ход и управление</div>
+      Игра пошаговая: сначала твой ход, затем ходят все враги. За ход — одно действие:
+      переместиться, взять фигуру, сменить форму или спасовать.<br>
+      • <b>Тап по клетке</b> — ход или взятие (бирюзовые точки — ходы, красные кольца — взятия).<br>
+      • <b>Тап по врагу</b> — показать/скрыть его зону боя (красная штриховка).<br>
+      • <b>Тап по слоту формы</b> — сменить форму (тратит ход).<br>
+      • На ПК: <b>1–3</b> формы, <b>Q/E</b> поворот пешки (бесплатно), <b>Space</b> пас.</div>
+
+    <div class="hsec"><div class="hh">Формы фигур</div>
+      Ты играешь одной из шахматных форм; взятие — это перемещение на клетку врага.<br>
+      • <b>${GLYPH.pawn} Пешка</b> — ходит на 1 вперёд, бьёт по передним диагоналям. У неё есть
+        <b>направление взгляда</b> (фасинг) — поворачивай бесплатно (Q/E). Слепа со спины.<br>
+      • <b>${GLYPH.knight} Конь</b> — прыжок буквой «Г» через любые препятствия.<br>
+      • <b>${GLYPH.bishop} Слон</b> — по диагоналям; на клетке <b>своего цвета</b> бьёт на +1 дальше.<br>
+      • <b>${GLYPH.rook} Ладья</b> — по прямым линиям.<br>
+      • <b>${GLYPH.queen} Ферзь</b> — во все стороны, но дальность меньше (плата за универсальность).<br>
+      Слайдеры (слон/ладья/ферзь) упираются в первое препятствие; сквозь ходит только конь.</div>
+
+    <div class="hsec"><div class="hh">Колесо форм и усталость</div>
+      Формы лежат в колесе (слот 0 — неудаляемая пешка). Смена формы <b>тратит ход</b>.
+      Форма, совершившая взятие, <b>устаёт</b> на пару ходов — в неё нельзя переключиться.
+      Новые формы открываются, когда ты берёшь обычную вражескую фигуру её типа.</div>
+
+    <div class="hsec"><div class="hh">Взятия и деградация</div>
+      HP нет: взятие мгновенно. Когда враг берёт тебя — ты не гибнешь сразу, а <b>деградируешь</b>
+      на ступень ниже по ценности (ферзь → ладья → слон/конь → пешка), теряя текущую форму.
+      Взятие <b>в форме пешки — конец забега</b>. Пешка — твоя последняя жизнь.</div>
+
+    <div class="hsec"><div class="hh">Промоушен</div>
+      Верхний ряд — <span style="color:var(--promo)">золотая линия</span>. Закончи ход на ней
+      <b>в форме пешки</b> — превратишься в выбранную форму, улучшенную (★).</div>
+
+    <div class="hsec"><div class="hh">Шах и мат</div>
+      Все битые поля врагов подсвечены. Закончил ход на битой клетке — <b>шах</b>: враг обязан
+      атаковать тебя следующим ходом. Нет ни одного легального хода на битой клетке — <b>мат</b>
+      (аварийная деградация).</div>
+
+    <div class="hsec"><div class="hh">Биомы</div>
+      Этажи идут наборами со своей генерацией, палитрой и пулами (сменяются каждые 2 этажа):<br>
+      • <b>Залы</b> — открытые пространства, слоны/ферзи/двойники.<br>
+      • <b>Коридоры</b> — тесные проходы, ладьи/стражи/ассасины, ворота и плиты.<br>
+      • <b>Пилоны</b> — лабиринт столбов, кони/некроманты/маги, туман и зоны.</div>
+
+    <div class="hsec"><div class="hh">Особые клетки</div>
+      • <span style="color:#c23b30">▲ Шипы</span> — наступишь: теряешь форму; враг — гибнет. Одноразовые (можно заманивать врагов).<br>
+      • <span style="color:#9b6dd0">◎ Портал</span> — переносит к парному кольцу. Инструмент мобильности.<br>
+      • <span style="color:#58b3a4">◈ Руна</span> — снимает усталость со всех форм и статусы. Одноразовая.<br>
+      • <span style="color:#8fd0e6">❄ Лёд</span> — оглушает при входе (и тебя, и врага). Персистентный.<br>
+      • <span style="color:#96a0b0">☁ Туман</span> — скрывает подсветку угрозы: шагаешь вслепую.<br>
+      • <span style="color:#7aa0c0">→ Конвейер</span> — сдвигает фигуру на клетку по стрелке после хода.<br>
+      • <span style="color:#c9a227">→ Ворота</span> — пройти можно только по стрелке (иначе как стена).<br>
+      • <span style="color:#b0a8f0">♝ Цветовая зона</span> — проходима только в форме слона: его личный коридор.<br>
+      • <span style="color:#8fae7a">▣ Плита</span> — наступишь: открывает соседнюю стену (проход/ловушка для врагов).<br>
+      • <span style="color:#d65a28">≈ Лава</span> — растекается по этажу и уничтожает любого, кто в ней окажется.</div>
+
+    <div class="hsec"><div class="hh">Враги</div>
+      Обычные шахматные фигуры двигаются к тебе, стремясь доставить удар. Особые:<br>
+      • <b>${GLYPH.guardian} Страж</b> — ходит как король, но нужен <b>двойной удар</b>: первый снимает щит.<br>
+      • <b>${GLYPH.necro} Некромант</b> — неподвижен и не атакует, но <b>призывает пешек</b>. Дорезай быстро.<br>
+      • <b>${GLYPH.mimic} Двойник</b> — <b>копирует твою активную форму</b>: сменишь форму — сменится и он.<br>
+      • <b>${GLYPH.assassin} Ассасин</b> — ходит конём; при взятии <b>отравляет</b> тебя.<br>
+      • <b>${GLYPH.priest} Жрец</b> — ходит слоном; периодически <b>даёт щит</b> соседним союзникам.<br>
+      • <b>${GLYPH.frost} Морозный маг</b> — неподвижен; <b>оглушает</b> тебя на расстоянии.</div>
+
+    <div class="hsec"><div class="hh">Золото и комнаты-события</div>
+      Враги роняют золото (🪙, копится в рамках забега, отдельно от осколков). Между этажами иногда возникает комната-событие:<br>
+      • <b>Лавка</b> — купить реликвию или снять проклятие за золото.<br>
+      • <b>Алтарь очищения</b> — снять одно проклятие бесплатно (или золото, если проклятий нет).<br>
+      • <b>Святилище</b> — пожертвовать форму ради редкой реликвии.<br>
+      • <b>Азартный алтарь</b> — ставка золотом: реликвия или проклятие.<br>
+      • <b>Алтарь благословения</b> — дар на следующий этаж: щит, ускорение или золото.</div>
+
+    <div class="hsec"><div class="hh">Статусы</div>
+      Эффекты с счётчиком, отмечены цветными кружками у фигуры (работают и на тебе, и на врагах):<br>
+      • <span style="color:#6cbf5a">Яд</span> — обратный отсчёт; на 0 враг гибнет, ты теряешь форму.<br>
+      • <span style="color:#e0c341">Оглушение</span> — пропуск хода.<br>
+      • <span style="color:#5bb6d6">Щит</span> — поглощает следующее взятие.<br>
+      • <span style="color:#e08a3f">Ускорение</span> — +1 дальность слайдерам, доп. шаг коню, двойной шаг пешке.<br>
+      Руна снимает с тебя все статусы.</div>
+
+    <div class="hsec"><div class="hh">Добыча: реликвии и проклятия</div>
+      После зачистки этажа выбираешь награду. Есть безопасные <b>реликвии</b> (перманентные плюсы)
+      и проклятые сделки: <b>⚠ фаустова</b> (2 реликвии + проклятие) и <b>☠ алтарь</b>
+      (3 реликвии + 2 проклятия). <b>Проклятия</b> — перманентные дебаффы. Реликвии копятся
+      в синергии; всё видно в панели «Модификаторы».</div>
+
+    <div class="hsec"><div class="hh">Мета-прогрессия</div>
+      За каждый забег начисляются <b>осколки</b> (этаж×3 + взятия). Трать их в меню на перманентные
+      апгрейды: стартовые слоты, стартовые реликвии, облегчённый первый этаж. Прогресс и рекорд
+      сохраняются между забегами.</div>
+  `;
+  dom.mChoices.appendChild(H);
+
+  const back=document.createElement('button'); back.className='again';
+  back.textContent = from==='title' ? 'Назад в меню' : 'Понятно';
+  back.onclick=()=>{ closeModal(); if(from==='title') openTitle(); };
+  dom.mChoices.appendChild(back);
+  dom.overlay.classList.add('on');
+}
+
+export function openModal(title,text,btns,isDeath){
+  S.modalOpen=true;
+  dom.mTitle.textContent=title; dom.mText.textContent=text; dom.mChoices.innerHTML='';
+  dom.mChoices.classList.remove('loot-list');
+  dom.modalBox.classList.toggle('death',!!isDeath);
+  btns.forEach(b=>{const el=document.createElement('button');el.textContent=b.label;el.onclick=b.fn;dom.mChoices.appendChild(el);});
+  dom.overlay.classList.add('on');
+}
+export function openLoot(options){
+  S.modalOpen=true;
+  dom.modalBox.classList.remove('death');
+  dom.mTitle.textContent='Добыча этажа';
+  dom.mText.textContent='Выбери одно. Проклятые сделки дают больше силы, но вешают перманентный дебафф.';
+  dom.mChoices.innerHTML=''; dom.mChoices.classList.add('loot-list');
+  const KIND={ relic:'', faust:'⚠ Фаустова сделка', altar:'☠ Алтарь жертвы' };
+  options.forEach(opt=>{
+    const el=document.createElement('button');
+    const cursed = opt.curses.length>0;
+    el.className = 'loot'+(cursed?' cursed':'');
+    let html='';
+    if(KIND[opt.kind]) html+=`<span class="lk">${KIND[opt.kind]}</span>`;
+    opt.relics.forEach(id=>{ const tm=TIER_META[relicTier(id)];
+      html+=`<span class="ln ${tm.cls}">✦ ${RELICS[id].name} <em class="tag">${tm.name}</em></span><span class="ld">${RELICS[id].desc}</span>`; });
+    opt.curses.forEach(id=>{ html+=`<span class="cn">☠ ${CURSES[id].name}</span><span class="cd">${CURSES[id].desc}</span>`; });
+    el.innerHTML=html;
+    el.onclick=()=>{ applyOption(opt); closeModal(); maybeEvent(); };
+    dom.mChoices.appendChild(el);
+  });
+  dom.overlay.classList.add('on');
+}
+export function closeModal(){ S.modalOpen=false; dom.overlay.classList.remove('on'); dom.mChoices.classList.remove('loot-list'); }
+
+export function log(msg,cls){ const d=document.createElement('div'); if(cls)d.className=cls; d.innerHTML=msg; dom.logEl.appendChild(d); dom.logEl.scrollTop=dom.logEl.scrollHeight; }
+
+export function syncUI(){
+  document.getElementById('turnNo').innerHTML =
+    `<span class="hb">этаж ${S.floor}</span>`
+    + (S.biome?`<span class="hb">${S.biome.name}</span>`:'')
+    + `<span class="hb">ход ${S.turn}</span>`
+    + `<span class="hb gold">${S.player.gold||0}🪙</span>`;
+  dom.wheelEl.innerHTML='';
+  S.player.wheel.forEach((f,i)=>{
+    const el=document.createElement('div');
+    if(!f){ el.className='slot empty'; el.innerHTML='<div class="glyph">·</div><div class="nm">пусто</div>'; }
+    else{
+      el.className='slot'+(i===S.player.active?' active':'')+(f.cooldown>0?' cd':'');
+      el.innerHTML=`<div class="glyph">${GLYPH[f.type]}</div><div class="nm">${NAME[f.type]}${f.type==='bishop'?(f.homeColor===0?' ◽':' ◾'):''}</div>`
+        +(f.improved?'<span class="star">★</span>':'')
+        +(f.cooldown>0?`<span class="cdn">${f.cooldown}</span>`:'');
+      el.onclick=()=>switchForm(i);
+      el.title = i===S.player.active?'Активная форма':(f.cooldown>0?'Форма устала':'Сменить (тратит ход)');
+    }
+    dom.wheelEl.appendChild(el);
+  });
+  const dirNames={'0,-1':'север','1,0':'восток','0,1':'юг','-1,0':'запад'};
+  dom.faceInfo.textContent = activeForm().type==='pawn' ? 'фасинг: '+dirNames[S.player.facing.join(',')] : '';
+  // реликвии и проклятия
+  const relicCard=document.getElementById('relicCard'), relicsEl=document.getElementById('relics');
+  if(relicCard&&relicsEl){
+    const rids=[...S.player.relics], cids=[...S.player.curses];
+    relicCard.style.display = (rids.length||cids.length) ? 'block' : 'none';
+    relicsEl.innerHTML='';
+    rids.forEach(id=>{ const c=document.createElement('span'); c.className='chip chip-'+TIER_META[relicTier(id)].cls;
+      c.textContent=RELICS[id].name; c.title=RELICS[id].desc+' ('+TIER_META[relicTier(id)].name+')'; relicsEl.appendChild(c); });
+    cids.forEach(id=>{ const c=document.createElement('span'); c.className='chip curse';
+      c.textContent='☠ '+CURSES[id].name; c.title=CURSES[id].desc; relicsEl.appendChild(c); });
+  }
+}

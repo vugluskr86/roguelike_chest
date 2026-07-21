@@ -1,0 +1,26 @@
+{
+  "name": "chess-roguelike",
+  "version": "0.2.0",
+  "private": true,
+  "type": "module",
+  "description": "Шахматный рогалик — фигура-игрок меняет форму, спускаясь по процедурным этажам.",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "lint": "eslint src/ test/",
+    "lint:fix": "eslint src/ test/ --fix",
+    "format": "prettier --check src/ test/",
+    "format:fix": "prettier --write src/ test/"
+  },
+  "devDependencies": {
+    "eslint": "^10.7.0",
+    "eslint-config-prettier": "^10.1.8",
+    "jsdom": "^24.1.0",
+    "prettier": "^3.9.6",
+    "vite": "^5.4.0",
+    "vitest": "^2.0.5"
+  }
+}

@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+  <title>Chess Roguelike</title>
+</head>
+<body>
+<h1>♟ Chess Roguelike <span class="v">прототип v0.2</span></h1>
+<div class="sub">Мгновенные взятия · фасинг пешки · бафф цвета слона · деградация-лестница</div>
+
+<div class="layout">
+  <div class="board-wrap">
+    <canvas id="board" width="616" height="504" aria-label="Игровое поле"></canvas>
+  </div>
+
+  <div class="side">
+    <div class="card">
+      <h2>Колесо форм</h2>
+      <div id="turnNo" class="hudbar"></div>
+      <div class="wheel" id="wheel"></div>
+      <div class="status" style="margin-top:8px">
+        <span class="badge shah" id="shah">Шах</span>
+        <span id="faceInfo"></span>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Действия</h2>
+      <div class="btnrow">
+        <button id="btnCCW" title="Бесплатно">⟲ поворот (Q)</button>
+        <button id="btnCW" title="Бесплатно">⟳ поворот (E)</button>
+        <button id="btnPass">Пас (Space)</button>
+        <button id="btnHelp">Как играть (?)</button>
+        <button id="btnRestart">Заново (R)</button>
+      </div>
+    </div>
+
+    <div class="card" id="relicCard" style="display:none">
+      <h2>Модификаторы</h2>
+      <div class="relics" id="relics"></div>
+    </div>
+
+    <div class="card">
+      <h2>Журнал</h2>
+      <div id="log"></div>
+    </div>
+
+    <div class="card">
+      <h2>Легенда</h2>
+      <div class="legend">
+        <span class="sw" style="background:var(--threat)"></span><b>битые поля</b> врагов (тапни/наведи на врага — его зона)<br>
+        <span class="sw" style="background:var(--promo)"></span><b>линия промоушена</b> — закончи ход пешкой<br>
+        <span style="color:#c23b30">▲</span> <b>шипы</b>: наступишь — теряешь форму; враг — гибнет (одноразово)<br>
+        <span style="color:#9b6dd0">◎</span> <b>портал</b> · <span style="color:#58b3a4">◈</span> <b>руна</b> (снимает усталость) · <span style="color:#8fd0e6">❄</span> <b>лёд</b> (оглушает)<br>
+        <span style="color:#96a0b0">☁</span> <b>туман</b> скрывает угрозу · <span style="color:#7aa0c0">→</span> <b>конвейер</b> сдвигает · <span style="color:#c9a227">→</span> <b>ворота</b> (только по стрелке)<br>
+        <span style="color:#b0a8f0">♝</span> <b>цветовая зона</b> (только слон) · <span style="color:#8fae7a">▣</span> <b>плита</b> открывает стену · <span style="color:#d65a28">≈</span> <b>лава</b> растекается и жжёт<br>
+        <span class="sw" style="background:var(--teal)"></span>твои ходы · <span style="color:var(--ember)">◎</span> взятия<br>
+        Тап по клетке = ход/взятие; тап по слоту = смена формы (тратит ход).<br>
+        Клавиши (на ПК): <kbd>1</kbd>–<kbd>3</kbd> формы, <kbd>Q</kbd>/<kbd>E</kbd> поворот, <kbd>Space</kbd> пас.
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="overlay" id="overlay">
+  <div class="modal" id="modalBox">
+    <h3 id="mTitle"></h3>
+    <p id="mText"></p>
+    <div class="choices" id="mChoices"></div>
+  </div>
+</div>
+  <script type="module" src="/src/main.js"></script>
+</body>
+</html>
