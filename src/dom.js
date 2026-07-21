@@ -1,5 +1,5 @@
 export const dom = {};
-export function initDom(){
+export function initDom() {
   dom.cv = document.getElementById('board');
   dom.ctx = dom.cv.getContext('2d');
   dom.logEl = document.getElementById('log');

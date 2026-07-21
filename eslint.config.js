@@ -6,7 +6,7 @@ export default [
   prettierConfig,
   {
     languageOptions: {
-      ecmaVersion: 2020,
+      ecmaVersion: 2022,
       sourceType: 'module',
       globals: {
         window: 'readonly',
@@ -68,5 +68,24 @@ export default [
   },
   {
     ignores: ['node_modules', 'dist', 'coverage'],
+  },
+  {
+    files: ['test/**/*.js'],
+    languageOptions: {
+      globals: {
+        describe: 'readonly',
+        it: 'readonly',
+        expect: 'readonly',
+        vi: 'readonly',
+        beforeEach: 'readonly',
+        afterEach: 'readonly',
+        beforeAll: 'readonly',
+        afterAll: 'readonly',
+        vitest: 'readonly',
+      },
+    },
+    rules: {
+      'no-unused-vars': 'off',
+    },
   },
 ];

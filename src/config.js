@@ -40,7 +40,7 @@
 // ---------- Биомы: наборы этажей со своей генерацией, палитрой и пулами ----------
 // ---------- Константы правил (таблица тюнинга §7) ----------
 
-"use strict";
+'use strict';
 /* ============================================================
    Chess Roguelike — прототип рулбука v0.2
    Логика изолирована от рендера: Rules / AI / Game / Render.
@@ -52,65 +52,174 @@
 /** @typedef {{type:PieceType, r:number, improved:boolean, cooldown:number, homeColor:0|1}} Form */
 
 export const CFG = {
-  W: 11, H: 9, TILE: 56,
+  W: 11,
+  H: 9,
+  TILE: 56,
   BASE_R: { bishop: 3, rook: 3, queen: 2 },
-  FATIGUE_K: 2,            // кулдаун формы после взятия
-  ENEMY_CAPTURE_CD: 1,     // кулдаун врага после взятия игрока
-  EXTRA_SLOTS: 2,          // слоты колеса помимо пешки
+  FATIGUE_K: 2, // кулдаун формы после взятия
+  ENEMY_CAPTURE_CD: 1, // кулдаун врага после взятия игрока
+  EXTRA_SLOTS: 2, // слоты колеса помимо пешки
   LADDER: { queen: 9, rook: 5, bishop: 3, knight: 3, pawn: 1 },
   // Сложность этажа: враги «покупаются» из бюджета угрозы (одна кривая вместо таблиц).
   DIFF: {
-    budgetBase: 4,          // бюджет угрозы на этаже 1
-    budgetGrow: 2.5,        // прирост бюджета за каждый следующий этаж
-    maxEnemies: 7, minEnemies: 3,
-    cost:        { pawn:1, knight:3, bishop:3, rook:4, queen:7, guardian:5, necro:4, mimic:5, assassin:4, priest:4, frost:5 }, // цена в бюджете
-    unlockFloor: { pawn:1, knight:1, bishop:2, rook:2, queen:3, guardian:3, necro:4, mimic:5, assassin:4, priest:5, frost:6 }, // с какого этажа доступен
-    queenCap: 1, queenCapDeep: 2, queenCapDeepFloor: 7,           // мягкий лимит ферзей
-    rangeBumpFloor: 4, rangeBumpFloor2: 7,                        // +1/+2 к дальности слайдеров
-    necroEvery: 3, enemyCap: 10,                                  // некромант призывает каждые N ходов; общий потолок
-    priestEvery: 3, frostEvery: 2, frostRange: 3,                 // жрец щитует, морозный маг оглушает
+    budgetBase: 4, // бюджет угрозы на этаже 1
+    budgetGrow: 2.5, // прирост бюджета за каждый следующий этаж
+    maxEnemies: 7,
+    minEnemies: 3,
+    cost: {
+      pawn: 1,
+      knight: 3,
+      bishop: 3,
+      rook: 4,
+      queen: 7,
+      guardian: 5,
+      necro: 4,
+      mimic: 5,
+      assassin: 4,
+      priest: 4,
+      frost: 5,
+    }, // цена в бюджете
+    unlockFloor: {
+      pawn: 1,
+      knight: 1,
+      bishop: 2,
+      rook: 2,
+      queen: 3,
+      guardian: 3,
+      necro: 4,
+      mimic: 5,
+      assassin: 4,
+      priest: 5,
+      frost: 6,
+    }, // с какого этажа доступен
+    queenCap: 1,
+    queenCapDeep: 2,
+    queenCapDeepFloor: 7, // мягкий лимит ферзей
+    rangeBumpFloor: 4,
+    rangeBumpFloor2: 7, // +1/+2 к дальности слайдеров
+    necroEvery: 3,
+    enemyCap: 10, // некромант призывает каждые N ходов; общий потолок
+    priestEvery: 3,
+    frostEvery: 2,
+    frostRange: 3, // жрец щитует, морозный маг оглушает
   },
 };
-export const GLYPH = { pawn:'♟', knight:'♞', bishop:'♝', rook:'♜', queen:'♛', king:'♚',
-                guardian:'♚', necro:'☠', mimic:'◆', assassin:'♟', priest:'♝', frost:'✳' };
-export const NAME  = { pawn:'пешка', knight:'конь', bishop:'слон', rook:'ладья', queen:'ферзь', king:'король',
-                guardian:'страж', necro:'некромант', mimic:'двойник',
-                assassin:'ассасин', priest:'жрец', frost:'морозный маг' };
-export const STD_TYPES = new Set(['pawn','knight','bishop','rook','queen']);   // формы, доступные игроку
-export const MOVE_AS = { guardian:'king', assassin:'knight', priest:'bishop' }; // спец-враг → паттерн движения
+export const GLYPH = {
+  pawn: '♟',
+  knight: '♞',
+  bishop: '♝',
+  rook: '♜',
+  queen: '♛',
+  king: '♚',
+  guardian: '♚',
+  necro: '☠',
+  mimic: '◆',
+  assassin: '♟',
+  priest: '♝',
+  frost: '✳',
+};
+export const NAME = {
+  pawn: 'пешка',
+  knight: 'конь',
+  bishop: 'слон',
+  rook: 'ладья',
+  queen: 'ферзь',
+  king: 'король',
+  guardian: 'страж',
+  necro: 'некромант',
+  mimic: 'двойник',
+  assassin: 'ассасин',
+  priest: 'жрец',
+  frost: 'морозный маг',
+};
+export const STD_TYPES = new Set(['pawn', 'knight', 'bishop', 'rook', 'queen']); // формы, доступные игроку
+export const MOVE_AS = { guardian: 'king', assassin: 'knight', priest: 'bishop' }; // спец-враг → паттерн движения
 
 export const BIOMES = [
-  { id:'halls',     name:'Залы',      light:'#39404e', dark:'#2a303c', accent:'#c9a227', wallStyle:'halls',
-    favorEnemies:['bishop','queen','mimic'],     favorTiles:['portal','rune','lava'] },
-  { id:'corridors', name:'Коридоры',  light:'#31393a', dark:'#232a2b', accent:'#58b3a4', wallStyle:'corridors',
-    favorEnemies:['rook','guardian','assassin'], favorTiles:['gate','plate','conveyor'] },
-  { id:'pylons',    name:'Пилоны',    light:'#3b392f', dark:'#2b2a23', accent:'#8fae7a', wallStyle:'pylons',
-    favorEnemies:['knight','necro','frost'],     favorTiles:['fog','colorzone','ice'] },
+  {
+    id: 'halls',
+    name: 'Залы',
+    light: '#39404e',
+    dark: '#2a303c',
+    accent: '#c9a227',
+    wallStyle: 'halls',
+    favorEnemies: ['bishop', 'queen', 'mimic'],
+    favorTiles: ['portal', 'rune', 'lava'],
+  },
+  {
+    id: 'corridors',
+    name: 'Коридоры',
+    light: '#31393a',
+    dark: '#232a2b',
+    accent: '#58b3a4',
+    wallStyle: 'corridors',
+    favorEnemies: ['rook', 'guardian', 'assassin'],
+    favorTiles: ['gate', 'plate', 'conveyor'],
+  },
+  {
+    id: 'pylons',
+    name: 'Пилоны',
+    light: '#3b392f',
+    dark: '#2b2a23',
+    accent: '#8fae7a',
+    wallStyle: 'pylons',
+    favorEnemies: ['knight', 'necro', 'frost'],
+    favorTiles: ['fog', 'colorzone', 'ice'],
+  },
 ];
-export const biomeFor = f => BIOMES[Math.floor((f-1)/2)%BIOMES.length];   // по 2 этажа на биом, циклично
+export const biomeFor = (f) => BIOMES[Math.floor((f - 1) / 2) % BIOMES.length]; // по 2 этажа на биом, циклично
 
 export const STATUS_META = {
-  poison: { name:'яд',        color:'#6cbf5a' },
-  stun:   { name:'оглушение', color:'#e0c341' },
-  shield: { name:'щит',       color:'#5bb6d6' },
-  haste:  { name:'ускорение', color:'#e08a3f' },
+  poison: { name: 'яд', color: '#6cbf5a' },
+  stun: { name: 'оглушение', color: '#e0c341' },
+  shield: { name: 'щит', color: '#5bb6d6' },
+  haste: { name: 'ускорение', color: '#e08a3f' },
 };
-export const GOLD_DROP = { pawn:1, knight:2, bishop:2, rook:3, queen:5, guardian:4, necro:3, mimic:4 };
-export const SPECIAL_ENEMIES=['guardian','necro','mimic','assassin','priest','frost'];
-export const BESTIARY_TRIO=['guardian','necro','mimic'];
+export const GOLD_DROP = {
+  pawn: 1,
+  knight: 2,
+  bishop: 2,
+  rook: 3,
+  queen: 5,
+  guardian: 4,
+  necro: 3,
+  mimic: 4,
+};
+export const SPECIAL_ENEMIES = ['guardian', 'necro', 'mimic', 'assassin', 'priest', 'frost'];
+export const BESTIARY_TRIO = ['guardian', 'necro', 'mimic'];
 export const RELIC_TIER = {
-  pawn_double:1, knight_extra:1, light_lines:1, free_swap:1, guard_pierce:1, silence:1, mirror_break:1, venom:1,
-  pawn_omni:2, slider_reach:2, trophy:2, pawn_shield:2, smoke:2, second_wind:2, concuss:2, toxic_aura:2, bulwark:2,
-  no_fatigue:3, extra_slot:3,
+  pawn_double: 1,
+  knight_extra: 1,
+  light_lines: 1,
+  free_swap: 1,
+  guard_pierce: 1,
+  silence: 1,
+  mirror_break: 1,
+  venom: 1,
+  pawn_omni: 2,
+  slider_reach: 2,
+  trophy: 2,
+  pawn_shield: 2,
+  smoke: 2,
+  second_wind: 2,
+  concuss: 2,
+  toxic_aura: 2,
+  bulwark: 2,
+  no_fatigue: 3,
+  extra_slot: 3,
 };
-export const TIER_META = { 1:{name:'обычная', cls:'t-common'}, 2:{name:'редкая', cls:'t-rare'}, 3:{name:'эпическая', cls:'t-epic'} };
-export const relicTier = id => RELIC_TIER[id] || 1;
+export const TIER_META = {
+  1: { name: 'обычная', cls: 't-common' },
+  2: { name: 'редкая', cls: 't-rare' },
+  3: { name: 'эпическая', cls: 't-epic' },
+};
+export const relicTier = (id) => RELIC_TIER[id] || 1;
 // Вес выбора: обычные ровные; редкие/эпические тем вероятнее, чем глубже; проклятые сделки тянут к редким
-export function tierWeight(tier, flr, biasHigh){
-  let w = tier===1 ? 10 : tier===2 ? (3 + flr*0.6) : (0.5 + flr*0.5);
-  if(biasHigh && tier>1) w *= 2.5;
+export function tierWeight(tier, flr, biasHigh) {
+  let w = tier === 1 ? 10 : tier === 2 ? 3 + flr * 0.6 : 0.5 + flr * 0.5;
+  if (biasHigh && tier > 1) w *= 2.5;
   return w;
 }
-export const SHOP_PRICE = { 1:4, 2:8, 3:14 };   // цена реликвии по редкости
+export const SHOP_PRICE = { 1: 4, 2: 8, 3: 14 }; // цена реликвии по редкости
 export const CURSE_REMOVE_PRICE = 6;
 export const GAMBLE_COST = 5;

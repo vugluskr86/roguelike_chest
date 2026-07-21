@@ -1,174 +1,287 @@
 import { S } from './state.js';
 import { dom } from './dom.js';
 import { reset } from './board.js';
-import { death, switchForm } from './combat.js';
+import { switchForm } from './combat.js';
 import { GLYPH, NAME, TIER_META, relicTier } from './config.js';
 import { ACHIEVEMENTS, CURSES, META_UPGRADES, RELICS } from './content.js';
 import { maybeEvent } from './events.js';
 import { applyOption } from './loot.js';
 import { META, achProgress, buyUpgrade, codexProgress, upgradeCost } from './meta.js';
 import { activeForm } from './moves.js';
-import { curse } from './state.js';
 
-export function openRunSummary(title, subtitle, earned){
-  S.modalOpen=true;
+export function openRunSummary(title, subtitle, earned) {
+  S.modalOpen = true;
   dom.modalBox.classList.add('death');
-  dom.mTitle.textContent='Забег окончен';
-  dom.mText.textContent=`${title} — ${subtitle}`;
-  dom.mChoices.innerHTML=''; dom.mChoices.classList.add('loot-list');
+  dom.mTitle.textContent = 'Забег окончен';
+  dom.mText.textContent = `${title} — ${subtitle}`;
+  dom.mChoices.innerHTML = '';
+  dom.mChoices.classList.add('loot-list');
 
-  const rids=[...S.player.relics], cids=[...S.player.curses];
-  const formsUnlocked=[...S.unlocked].filter(t=>t!=='pawn').map(t=>NAME[t]);
-  const wrap=document.createElement('div');
-  wrap.className='summary';
-  wrap.innerHTML =
-    `<div class="sfloor"><span class="snum">${S.floor}</span><span class="slbl">этаж</span></div>
+  const rids = [...S.player.relics],
+    cids = [...S.player.curses];
+  const formsUnlocked = [...S.unlocked].filter((t) => t !== 'pawn').map((t) => NAME[t]);
+  const wrap = document.createElement('div');
+  wrap.className = 'summary';
+  wrap.innerHTML = `<div class="sfloor"><span class="snum">${S.floor}</span><span class="slbl">этаж</span></div>
      <div class="sstats">
        <div><b>${S.player.totalCaptures}</b> взятий за забег</div>
        <div><b>${rids.length}</b> реликвий · <b>${cids.length}</b> проклятий</div>
-       <div>формы: ${formsUnlocked.length? formsUnlocked.join(', ') : 'только пешка и конь'}</div>
+       <div>формы: ${formsUnlocked.length ? formsUnlocked.join(', ') : 'только пешка и конь'}</div>
        <div class="searn">+${earned} осколков · всего ${META.shards}</div>
        <div class="srec">рекорд: этаж ${META.bestFloor} · забегов ${META.runs}</div>
      </div>
-     ${rids.length? `<div class="ssec"><div class="sh">Реликвии</div><div class="relics">${
-        rids.map(id=>`<span class="chip" title="${RELICS[id].desc}">${RELICS[id].name}</span>`).join('')
-      }</div></div>`:''}
-     ${cids.length? `<div class="ssec"><div class="sh">Проклятия</div><div class="relics">${
-        cids.map(id=>`<span class="chip curse" title="${CURSES[id].desc}">☠ ${CURSES[id].name}</span>`).join('')
-      }</div></div>`:''}`;
+     ${
+       rids.length
+         ? `<div class="ssec"><div class="sh">Реликвии</div><div class="relics">${rids
+             .map((id) => `<span class="chip" title="${RELICS[id].desc}">${RELICS[id].name}</span>`)
+             .join('')}</div></div>`
+         : ''
+     }
+     ${
+       cids.length
+         ? `<div class="ssec"><div class="sh">Проклятия</div><div class="relics">${cids
+             .map(
+               (id) =>
+                 `<span class="chip curse" title="${CURSES[id].desc}">☠ ${CURSES[id].name}</span>`,
+             )
+             .join('')}</div></div>`
+         : ''
+     }`;
   dom.mChoices.appendChild(wrap);
 
-  const row=document.createElement('div'); row.className='btnrow2';
-  const again=document.createElement('button'); again.className='again'; again.textContent='Ещё забег (R)';
-  again.onclick=()=>{ closeModal(); reset(); };
-  const menu=document.createElement('button'); menu.textContent='В меню';
-  menu.onclick=()=>{ closeModal(); openTitle(); };
-  row.appendChild(again); row.appendChild(menu);
+  const row = document.createElement('div');
+  row.className = 'btnrow2';
+  const again = document.createElement('button');
+  again.className = 'again';
+  again.textContent = 'Ещё забег (R)';
+  again.onclick = () => {
+    closeModal();
+    reset();
+  };
+  const menu = document.createElement('button');
+  menu.textContent = 'В меню';
+  menu.onclick = () => {
+    closeModal();
+    openTitle();
+  };
+  row.appendChild(again);
+  row.appendChild(menu);
   dom.mChoices.appendChild(row);
   dom.overlay.classList.add('on');
 }
 
-export function openTitle(){
-  S.modalOpen=true;
+export function openTitle() {
+  S.modalOpen = true;
   dom.modalBox.classList.remove('death');
-  dom.mTitle.textContent='♟ Chess Roguelike';
-  dom.mText.textContent='Мета-прогресс сохраняется между забегами. Трать осколки на перманентные апгрейды.';
-  dom.mChoices.innerHTML=''; dom.mChoices.classList.add('loot-list');
+  dom.mTitle.textContent = '♟ Chess Roguelike';
+  dom.mText.textContent =
+    'Мета-прогресс сохраняется между забегами. Трать осколки на перманентные апгрейды.';
+  dom.mChoices.innerHTML = '';
+  dom.mChoices.classList.add('loot-list');
 
-  const head=document.createElement('div'); head.className='summary';
-  head.innerHTML=
-    `<div class="sstats">
+  const head = document.createElement('div');
+  head.className = 'summary';
+  head.innerHTML = `<div class="sstats">
        <div class="searn">Осколки: <b>${META.shards}</b></div>
        <div class="srec">рекорд: этаж ${META.bestFloor} · забегов ${META.runs} · всего взятий ${META.totalCaptures}</div>
      </div>`;
   dom.mChoices.appendChild(head);
 
-  const shop=document.createElement('div'); shop.className='shop';
-  Object.keys(META_UPGRADES).forEach(id=>{
-    const u=META_UPGRADES[id], lvl=META.upgrades[id]||0, cost=upgradeCost(id);
-    const row=document.createElement('div'); row.className='shoprow';
-    row.innerHTML=`<div class="si"><span class="ln">${u.name} <span class="lvl">${lvl}/${u.max}</span></span><span class="ld">${u.desc}</span></div>`;
-    const buy=document.createElement('button'); buy.className='buy';
-    if(cost==null){ buy.textContent='макс'; buy.disabled=true; }
-    else { buy.textContent=`${cost} ✦`; buy.disabled = META.shards<cost;
-      buy.onclick=()=>{ if(buyUpgrade(id)) openTitle(); }; }   // перерисовать меню
-    row.appendChild(buy); shop.appendChild(row);
+  const shop = document.createElement('div');
+  shop.className = 'shop';
+  Object.keys(META_UPGRADES).forEach((id) => {
+    const u = META_UPGRADES[id],
+      lvl = META.upgrades[id] || 0,
+      cost = upgradeCost(id);
+    const row = document.createElement('div');
+    row.className = 'shoprow';
+    row.innerHTML = `<div class="si"><span class="ln">${u.name} <span class="lvl">${lvl}/${u.max}</span></span><span class="ld">${u.desc}</span></div>`;
+    const buy = document.createElement('button');
+    buy.className = 'buy';
+    if (cost == null) {
+      buy.textContent = 'макс';
+      buy.disabled = true;
+    } else {
+      buy.textContent = `${cost} ✦`;
+      buy.disabled = META.shards < cost;
+      buy.onclick = () => {
+        if (buyUpgrade(id)) openTitle();
+      };
+    } // перерисовать меню
+    row.appendChild(buy);
+    shop.appendChild(row);
   });
   dom.mChoices.appendChild(shop);
 
-  const codexN=codexProgress(), achN=achProgress();
-  const nav=document.createElement('div'); nav.className='btnrow2';
-  const bc=document.createElement('button'); bc.textContent=`Бестиарий ${codexN.have}/${codexN.total}`;
-  bc.onclick=()=>{ closeModal(); openCodex(); };
-  const ba=document.createElement('button'); ba.textContent=`Достижения ${achN.have}/${achN.total}`;
-  ba.onclick=()=>{ closeModal(); openAchievements(); };
-  nav.appendChild(bc); nav.appendChild(ba);
+  const codexN = codexProgress(),
+    achN = achProgress();
+  const nav = document.createElement('div');
+  nav.className = 'btnrow2';
+  const bc = document.createElement('button');
+  bc.textContent = `Бестиарий ${codexN.have}/${codexN.total}`;
+  bc.onclick = () => {
+    closeModal();
+    openCodex();
+  };
+  const ba = document.createElement('button');
+  ba.textContent = `Достижения ${achN.have}/${achN.total}`;
+  ba.onclick = () => {
+    closeModal();
+    openAchievements();
+  };
+  nav.appendChild(bc);
+  nav.appendChild(ba);
   dom.mChoices.appendChild(nav);
 
-  const start=document.createElement('button'); start.className='again'; start.textContent='Начать забег (R)';
-  start.onclick=()=>{ closeModal(); reset(); };
+  const start = document.createElement('button');
+  start.className = 'again';
+  start.textContent = 'Начать забег (R)';
+  start.onclick = () => {
+    closeModal();
+    reset();
+  };
   dom.mChoices.appendChild(start);
-  const help=document.createElement('button'); help.textContent='Как играть';
-  help.onclick=()=>{ closeModal(); openHelp('title'); };
+  const help = document.createElement('button');
+  help.textContent = 'Как играть';
+  help.onclick = () => {
+    closeModal();
+    openHelp('title');
+  };
   dom.mChoices.appendChild(help);
   dom.overlay.classList.add('on');
 }
 
 // прогресс кодекса и достижений
-export function toast(text){
-  try{
-    const d=document.createElement('div'); d.className='toast'; d.textContent=text;
+export function toast(text) {
+  try {
+    const d = document.createElement('div');
+    d.className = 'toast';
+    d.textContent = text;
     document.body.appendChild(d);
-    setTimeout(()=>{ d.classList.add('out'); }, 2200);
-    setTimeout(()=>{ if(d.parentNode) d.parentNode.removeChild(d); }, 2800);
-  }catch(e){}
+    setTimeout(() => {
+      d.classList.add('out');
+    }, 2200);
+    setTimeout(() => {
+      if (d.parentNode) d.parentNode.removeChild(d);
+    }, 2800);
+  } catch (e) {
+    console.error(e);
+  }
 }
 
-export function openCodex(){
-  S.modalOpen=true; dom.modalBox.classList.remove('death');
-  dom.mTitle.textContent='Бестиарий'; dom.mText.textContent='Записи открываются по мере встреч в забегах.';
-  dom.mChoices.innerHTML=''; dom.mChoices.classList.add('loot-list');
-  const box=document.createElement('div'); box.className='help';
-  const enemyList=['pawn','knight','bishop','rook','queen','guardian','necro','mimic','assassin','priest','frost'];
-  const enemyDesc={
-    pawn:'шаг вперёд, бьёт по диагоналям', knight:'прыжок буквой Г', bishop:'диагонали',
-    rook:'ортогонали', queen:'все направления', guardian:'король + броня 2',
-    necro:'неподвижен, призывает пешек', mimic:'копирует твою форму',
-    assassin:'конь; отравляет при взятии', priest:'слон; щитует союзников', frost:'неподвижен; оглушает на дистанции' };
-  let html='<div class="hsec"><div class="hh">Враги</div>';
-  enemyList.forEach(t=>{
-    const seen=META.codex.enemies[t], kills=META.codex.kills[t]||0;
+export function openCodex() {
+  S.modalOpen = true;
+  dom.modalBox.classList.remove('death');
+  dom.mTitle.textContent = 'Бестиарий';
+  dom.mText.textContent = 'Записи открываются по мере встреч в забегах.';
+  dom.mChoices.innerHTML = '';
+  dom.mChoices.classList.add('loot-list');
+  const box = document.createElement('div');
+  box.className = 'help';
+  const enemyList = [
+    'pawn',
+    'knight',
+    'bishop',
+    'rook',
+    'queen',
+    'guardian',
+    'necro',
+    'mimic',
+    'assassin',
+    'priest',
+    'frost',
+  ];
+  const enemyDesc = {
+    pawn: 'шаг вперёд, бьёт по диагоналям',
+    knight: 'прыжок буквой Г',
+    bishop: 'диагонали',
+    rook: 'ортогонали',
+    queen: 'все направления',
+    guardian: 'король + броня 2',
+    necro: 'неподвижен, призывает пешек',
+    mimic: 'копирует твою форму',
+    assassin: 'конь; отравляет при взятии',
+    priest: 'слон; щитует союзников',
+    frost: 'неподвижен; оглушает на дистанции',
+  };
+  let html = '<div class="hsec"><div class="hh">Враги</div>';
+  enemyList.forEach((t) => {
+    const seen = META.codex.enemies[t],
+      kills = META.codex.kills[t] || 0;
     html += seen
       ? `<div class="cdx"><b>${GLYPH[t]} ${NAME[t]}</b><span>${enemyDesc[t]} · убито: ${kills}</span></div>`
       : `<div class="cdx locked"><b>? ??????</b><span>не встречен</span></div>`;
   });
-  html+='</div>';
-  const relIds=Object.keys(RELICS);
-  html+=`<div class="hsec"><div class="hh">Реликвии ${relIds.filter(id=>META.codex.relics[id]).length}/${relIds.length}</div>`;
-  relIds.forEach(id=>{ html += META.codex.relics[id]
-    ? `<div class="cdx"><b>${RELICS[id].name}</b><span>${RELICS[id].desc}</span></div>`
-    : `<div class="cdx locked"><b>? ??????</b><span>не найдена</span></div>`; });
-  html+='</div>';
-  const curIds=Object.keys(CURSES);
-  html+=`<div class="hsec"><div class="hh">Проклятия ${curIds.filter(id=>META.codex.curses[id]).length}/${curIds.length}</div>`;
-  curIds.forEach(id=>{ html += META.codex.curses[id]
-    ? `<div class="cdx"><b>☠ ${CURSES[id].name}</b><span>${CURSES[id].desc}</span></div>`
-    : `<div class="cdx locked"><b>? ??????</b><span>не встречено</span></div>`; });
-  html+='</div>';
-  box.innerHTML=html; dom.mChoices.appendChild(box);
-  const back=document.createElement('button'); back.className='again'; back.textContent='Назад в меню';
-  back.onclick=()=>{ closeModal(); openTitle(); };
-  dom.mChoices.appendChild(back);
-  dom.overlay.classList.add('on');
-}
-
-export function openAchievements(){
-  S.modalOpen=true; dom.modalBox.classList.remove('death');
-  const p=achProgress();
-  dom.mTitle.textContent='Достижения'; dom.mText.textContent=`Открыто ${p.have} из ${p.total}.`;
-  dom.mChoices.innerHTML=''; dom.mChoices.classList.add('loot-list');
-  const box=document.createElement('div'); box.className='help';
-  let html='<div class="hsec">';
-  Object.keys(ACHIEVEMENTS).forEach(id=>{
-    const a=ACHIEVEMENTS[id], got=META.achievements[id];
-    html += `<div class="cdx${got?'':' locked'}"><b>${got?'🏆':'🔒'} ${a.name}</b><span>${a.desc}</span></div>`;
+  html += '</div>';
+  const relIds = Object.keys(RELICS);
+  html += `<div class="hsec"><div class="hh">Реликвии ${relIds.filter((id) => META.codex.relics[id]).length}/${relIds.length}</div>`;
+  relIds.forEach((id) => {
+    html += META.codex.relics[id]
+      ? `<div class="cdx"><b>${RELICS[id].name}</b><span>${RELICS[id].desc}</span></div>`
+      : `<div class="cdx locked"><b>? ??????</b><span>не найдена</span></div>`;
   });
-  html+='</div>';
-  box.innerHTML=html; dom.mChoices.appendChild(box);
-  const back=document.createElement('button'); back.className='again'; back.textContent='Назад в меню';
-  back.onclick=()=>{ closeModal(); openTitle(); };
+  html += '</div>';
+  const curIds = Object.keys(CURSES);
+  html += `<div class="hsec"><div class="hh">Проклятия ${curIds.filter((id) => META.codex.curses[id]).length}/${curIds.length}</div>`;
+  curIds.forEach((id) => {
+    html += META.codex.curses[id]
+      ? `<div class="cdx"><b>☠ ${CURSES[id].name}</b><span>${CURSES[id].desc}</span></div>`
+      : `<div class="cdx locked"><b>? ??????</b><span>не встречено</span></div>`;
+  });
+  html += '</div>';
+  box.innerHTML = html;
+  dom.mChoices.appendChild(box);
+  const back = document.createElement('button');
+  back.className = 'again';
+  back.textContent = 'Назад в меню';
+  back.onclick = () => {
+    closeModal();
+    openTitle();
+  };
   dom.mChoices.appendChild(back);
   dom.overlay.classList.add('on');
 }
 
-export function openHelp(from){
-  S.modalOpen=true;
+export function openAchievements() {
+  S.modalOpen = true;
   dom.modalBox.classList.remove('death');
-  dom.mTitle.textContent='Как играть';
-  dom.mText.textContent='Шахматный roguelike: ты — фигура, что меняет свой тип по ходу спуска.';
-  dom.mChoices.innerHTML=''; dom.mChoices.classList.add('loot-list');
+  const p = achProgress();
+  dom.mTitle.textContent = 'Достижения';
+  dom.mText.textContent = `Открыто ${p.have} из ${p.total}.`;
+  dom.mChoices.innerHTML = '';
+  dom.mChoices.classList.add('loot-list');
+  const box = document.createElement('div');
+  box.className = 'help';
+  let html = '<div class="hsec">';
+  Object.keys(ACHIEVEMENTS).forEach((id) => {
+    const a = ACHIEVEMENTS[id],
+      got = META.achievements[id];
+    html += `<div class="cdx${got ? '' : ' locked'}"><b>${got ? '🏆' : '🔒'} ${a.name}</b><span>${a.desc}</span></div>`;
+  });
+  html += '</div>';
+  box.innerHTML = html;
+  dom.mChoices.appendChild(box);
+  const back = document.createElement('button');
+  back.className = 'again';
+  back.textContent = 'Назад в меню';
+  back.onclick = () => {
+    closeModal();
+    openTitle();
+  };
+  dom.mChoices.appendChild(back);
+  dom.overlay.classList.add('on');
+}
 
-  const H=document.createElement('div'); H.className='help';
+export function openHelp(from) {
+  S.modalOpen = true;
+  dom.modalBox.classList.remove('death');
+  dom.mTitle.textContent = 'Как играть';
+  dom.mText.textContent = 'Шахматный roguelike: ты — фигура, что меняет свой тип по ходу спуска.';
+  dom.mChoices.innerHTML = '';
+  dom.mChoices.classList.add('loot-list');
+
+  const H = document.createElement('div');
+  H.className = 'help';
   H.innerHTML = `
     <div class="hsec"><div class="hh">Цель</div>
       Спускайся по этажам, зачищая всех врагов. Каждый следующий этаж — новая случайная доска и более
@@ -267,78 +380,131 @@ export function openHelp(from){
   `;
   dom.mChoices.appendChild(H);
 
-  const back=document.createElement('button'); back.className='again';
-  back.textContent = from==='title' ? 'Назад в меню' : 'Понятно';
-  back.onclick=()=>{ closeModal(); if(from==='title') openTitle(); };
+  const back = document.createElement('button');
+  back.className = 'again';
+  back.textContent = from === 'title' ? 'Назад в меню' : 'Понятно';
+  back.onclick = () => {
+    closeModal();
+    if (from === 'title') openTitle();
+  };
   dom.mChoices.appendChild(back);
   dom.overlay.classList.add('on');
 }
 
-export function openModal(title,text,btns,isDeath){
-  S.modalOpen=true;
-  dom.mTitle.textContent=title; dom.mText.textContent=text; dom.mChoices.innerHTML='';
+export function openModal(title, text, btns, isDeath) {
+  S.modalOpen = true;
+  dom.mTitle.textContent = title;
+  dom.mText.textContent = text;
+  dom.mChoices.innerHTML = '';
   dom.mChoices.classList.remove('loot-list');
-  dom.modalBox.classList.toggle('death',!!isDeath);
-  btns.forEach(b=>{const el=document.createElement('button');el.textContent=b.label;el.onclick=b.fn;dom.mChoices.appendChild(el);});
-  dom.overlay.classList.add('on');
-}
-export function openLoot(options){
-  S.modalOpen=true;
-  dom.modalBox.classList.remove('death');
-  dom.mTitle.textContent='Добыча этажа';
-  dom.mText.textContent='Выбери одно. Проклятые сделки дают больше силы, но вешают перманентный дебафф.';
-  dom.mChoices.innerHTML=''; dom.mChoices.classList.add('loot-list');
-  const KIND={ relic:'', faust:'⚠ Фаустова сделка', altar:'☠ Алтарь жертвы' };
-  options.forEach(opt=>{
-    const el=document.createElement('button');
-    const cursed = opt.curses.length>0;
-    el.className = 'loot'+(cursed?' cursed':'');
-    let html='';
-    if(KIND[opt.kind]) html+=`<span class="lk">${KIND[opt.kind]}</span>`;
-    opt.relics.forEach(id=>{ const tm=TIER_META[relicTier(id)];
-      html+=`<span class="ln ${tm.cls}">✦ ${RELICS[id].name} <em class="tag">${tm.name}</em></span><span class="ld">${RELICS[id].desc}</span>`; });
-    opt.curses.forEach(id=>{ html+=`<span class="cn">☠ ${CURSES[id].name}</span><span class="cd">${CURSES[id].desc}</span>`; });
-    el.innerHTML=html;
-    el.onclick=()=>{ applyOption(opt); closeModal(); maybeEvent(); };
+  dom.modalBox.classList.toggle('death', !!isDeath);
+  btns.forEach((b) => {
+    const el = document.createElement('button');
+    el.textContent = b.label;
+    el.onclick = b.fn;
     dom.mChoices.appendChild(el);
   });
   dom.overlay.classList.add('on');
 }
-export function closeModal(){ S.modalOpen=false; dom.overlay.classList.remove('on'); dom.mChoices.classList.remove('loot-list'); }
+export function openLoot(options) {
+  S.modalOpen = true;
+  dom.modalBox.classList.remove('death');
+  dom.mTitle.textContent = 'Добыча этажа';
+  dom.mText.textContent =
+    'Выбери одно. Проклятые сделки дают больше силы, но вешают перманентный дебафф.';
+  dom.mChoices.innerHTML = '';
+  dom.mChoices.classList.add('loot-list');
+  const KIND = { relic: '', faust: '⚠ Фаустова сделка', altar: '☠ Алтарь жертвы' };
+  options.forEach((opt) => {
+    const el = document.createElement('button');
+    const cursed = opt.curses.length > 0;
+    el.className = 'loot' + (cursed ? ' cursed' : '');
+    let html = '';
+    if (KIND[opt.kind]) html += `<span class="lk">${KIND[opt.kind]}</span>`;
+    opt.relics.forEach((id) => {
+      const tm = TIER_META[relicTier(id)];
+      html += `<span class="ln ${tm.cls}">✦ ${RELICS[id].name} <em class="tag">${tm.name}</em></span><span class="ld">${RELICS[id].desc}</span>`;
+    });
+    opt.curses.forEach((id) => {
+      html += `<span class="cn">☠ ${CURSES[id].name}</span><span class="cd">${CURSES[id].desc}</span>`;
+    });
+    el.innerHTML = html;
+    el.onclick = () => {
+      applyOption(opt);
+      closeModal();
+      maybeEvent();
+    };
+    dom.mChoices.appendChild(el);
+  });
+  dom.overlay.classList.add('on');
+}
+export function closeModal() {
+  S.modalOpen = false;
+  dom.overlay.classList.remove('on');
+  dom.mChoices.classList.remove('loot-list');
+}
 
-export function log(msg,cls){ const d=document.createElement('div'); if(cls)d.className=cls; d.innerHTML=msg; dom.logEl.appendChild(d); dom.logEl.scrollTop=dom.logEl.scrollHeight; }
+export function log(msg, cls) {
+  const d = document.createElement('div');
+  if (cls) d.className = cls;
+  d.innerHTML = msg;
+  dom.logEl.appendChild(d);
+  dom.logEl.scrollTop = dom.logEl.scrollHeight;
+}
 
-export function syncUI(){
+export function syncUI() {
   document.getElementById('turnNo').innerHTML =
-    `<span class="hb">этаж ${S.floor}</span>`
-    + (S.biome?`<span class="hb">${S.biome.name}</span>`:'')
-    + `<span class="hb">ход ${S.turn}</span>`
-    + `<span class="hb gold">${S.player.gold||0}🪙</span>`;
-  dom.wheelEl.innerHTML='';
-  S.player.wheel.forEach((f,i)=>{
-    const el=document.createElement('div');
-    if(!f){ el.className='slot empty'; el.innerHTML='<div class="glyph">·</div><div class="nm">пусто</div>'; }
-    else{
-      el.className='slot'+(i===S.player.active?' active':'')+(f.cooldown>0?' cd':'');
-      el.innerHTML=`<div class="glyph">${GLYPH[f.type]}</div><div class="nm">${NAME[f.type]}${f.type==='bishop'?(f.homeColor===0?' ◽':' ◾'):''}</div>`
-        +(f.improved?'<span class="star">★</span>':'')
-        +(f.cooldown>0?`<span class="cdn">${f.cooldown}</span>`:'');
-      el.onclick=()=>switchForm(i);
-      el.title = i===S.player.active?'Активная форма':(f.cooldown>0?'Форма устала':'Сменить (тратит ход)');
+    `<span class="hb">этаж ${S.floor}</span>` +
+    (S.biome ? `<span class="hb">${S.biome.name}</span>` : '') +
+    `<span class="hb">ход ${S.turn}</span>` +
+    `<span class="hb gold">${S.player.gold || 0}🪙</span>`;
+  dom.wheelEl.innerHTML = '';
+  S.player.wheel.forEach((f, i) => {
+    const el = document.createElement('div');
+    if (!f) {
+      el.className = 'slot empty';
+      el.innerHTML = '<div class="glyph">·</div><div class="nm">пусто</div>';
+    } else {
+      el.className =
+        'slot' + (i === S.player.active ? ' active' : '') + (f.cooldown > 0 ? ' cd' : '');
+      el.innerHTML =
+        `<div class="glyph">${GLYPH[f.type]}</div><div class="nm">${NAME[f.type]}${f.type === 'bishop' ? (f.homeColor === 0 ? ' ◽' : ' ◾') : ''}</div>` +
+        (f.improved ? '<span class="star">★</span>' : '') +
+        (f.cooldown > 0 ? `<span class="cdn">${f.cooldown}</span>` : '');
+      el.onclick = () => switchForm(i);
+      el.title =
+        i === S.player.active
+          ? 'Активная форма'
+          : f.cooldown > 0
+            ? 'Форма устала'
+            : 'Сменить (тратит ход)';
     }
     dom.wheelEl.appendChild(el);
   });
-  const dirNames={'0,-1':'север','1,0':'восток','0,1':'юг','-1,0':'запад'};
-  dom.faceInfo.textContent = activeForm().type==='pawn' ? 'фасинг: '+dirNames[S.player.facing.join(',')] : '';
+  const dirNames = { '0,-1': 'север', '1,0': 'восток', '0,1': 'юг', '-1,0': 'запад' };
+  dom.faceInfo.textContent =
+    activeForm().type === 'pawn' ? 'фасинг: ' + dirNames[S.player.facing.join(',')] : '';
   // реликвии и проклятия
-  const relicCard=document.getElementById('relicCard'), relicsEl=document.getElementById('relics');
-  if(relicCard&&relicsEl){
-    const rids=[...S.player.relics], cids=[...S.player.curses];
-    relicCard.style.display = (rids.length||cids.length) ? 'block' : 'none';
-    relicsEl.innerHTML='';
-    rids.forEach(id=>{ const c=document.createElement('span'); c.className='chip chip-'+TIER_META[relicTier(id)].cls;
-      c.textContent=RELICS[id].name; c.title=RELICS[id].desc+' ('+TIER_META[relicTier(id)].name+')'; relicsEl.appendChild(c); });
-    cids.forEach(id=>{ const c=document.createElement('span'); c.className='chip curse';
-      c.textContent='☠ '+CURSES[id].name; c.title=CURSES[id].desc; relicsEl.appendChild(c); });
+  const relicCard = document.getElementById('relicCard'),
+    relicsEl = document.getElementById('relics');
+  if (relicCard && relicsEl) {
+    const rids = [...S.player.relics],
+      cids = [...S.player.curses];
+    relicCard.style.display = rids.length || cids.length ? 'block' : 'none';
+    relicsEl.innerHTML = '';
+    rids.forEach((id) => {
+      const c = document.createElement('span');
+      c.className = 'chip chip-' + TIER_META[relicTier(id)].cls;
+      c.textContent = RELICS[id].name;
+      c.title = RELICS[id].desc + ' (' + TIER_META[relicTier(id)].name + ')';
+      relicsEl.appendChild(c);
+    });
+    cids.forEach((id) => {
+      const c = document.createElement('span');
+      c.className = 'chip curse';
+      c.textContent = '☠ ' + CURSES[id].name;
+      c.title = CURSES[id].desc;
+      relicsEl.appendChild(c);
+    });
   }
 }
