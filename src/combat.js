@@ -5,7 +5,7 @@ import { enemiesTurn } from './enemies.js';
 import { offerLoot } from './loot.js';
 import { endRunMeta, recordKill, unlockAch } from './meta.js';
 import { activeForm, allThreats, playerOptions } from './moves.js';
-import { render } from './render.js';
+import { render, startMoveAnim } from './render.js';
 import { curse, enemyAt, has } from './state.js';
 import { applyStatus, cleanse, statusVal } from './status.js';
 import { closeModal, log, openModal, openRunSummary, syncUI } from './ui.js';
@@ -58,8 +58,12 @@ export function tryMoveTo(x, y) {
     log(`Ты берёшь ${GLYPH[e.type]} ${NAME[e.type]} формой ${NAME[activeForm().type]}.`, 'p');
     unlockType(e.type, tileColor(x, y));
   }
+  // запоминаем старую позицию для анимации
+  const fx = S.player.x,
+    fy = S.player.y;
   S.player.x = x;
   S.player.y = y;
+  startMoveAnim(S.player, fx, fy, x, y);
   triggerSpecialForPlayer();
   if (S.gameOver) {
     render();

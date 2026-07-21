@@ -56,6 +56,8 @@ export const CFG = {
   H: 9,
   TILE: 56,
   BASE_R: { bishop: 3, rook: 3, queen: 2, archbishop: 3, chancellor: 4, beast: 1 },
+  MOVE_ANIM_MS: 300, // длительность анимации перемещения фигур
+  TILE_ANIM_SPEED: 0.3, // множитель скорости анимации тайлов (1=норма, 2=×2 быстрее)
   FATIGUE_K: 2, // кулдаун формы после взятия
   ENEMY_CAPTURE_CD: 1, // кулдаун врага после взятия игрока
   EXTRA_SLOTS: 2, // слоты колеса помимо пешки

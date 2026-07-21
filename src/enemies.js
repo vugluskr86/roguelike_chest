@@ -9,7 +9,7 @@ import {
   movesToThreaten,
   necroInterval,
 } from './moves.js';
-import { render } from './render.js';
+import { render, startMoveAnim } from './render.js';
 import { enemyAt } from './state.js';
 import { applyStatus, statusVal } from './status.js';
 import { log, syncUI } from './ui.js';
@@ -100,8 +100,11 @@ export function enemiesTurn() {
     }
     if (e.status && e.status.haste > 0) e.status.haste--; // тик ускорения по итогам хода
     if (bestMove) {
+      const fx = e.x,
+        fy = e.y;
       e.x = bestMove.x;
       e.y = bestMove.y;
+      startMoveAnim(e, fx, fy, bestMove.x, bestMove.y);
       const st = S.special.get(key(e.x, e.y));
       if (st && st.type === 'trap') {
         // враг наступил на шипы — гибнет, ловушка тратится

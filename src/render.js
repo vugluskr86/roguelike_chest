@@ -10,6 +10,61 @@ export let T = CFG.TILE; // логический размер тайла (CSS-п
 let needsRedraw = true;
 let loopRunning = false;
 
+// ========== анимация перемещения ==========
+
+const animState = {
+  player: null, // { fromX, fromY, toX, toY, startTs }
+  enemies: new Map(), // враг -> { fromX, fromY, toX, toY, startTs }
+};
+
+/**
+ * Запустить анимацию плавного перемещения фигуры из (fx,fy) в (tx,ty).
+ * @param {object} unit — S.player или объект врага
+ * @param {number} fx
+ * @param {number} fy
+ * @param {number} tx
+ * @param {number} ty
+ * @param {number} ts — текущий timestamp от rAF
+ */
+export function startMoveAnim(unit, fx, fy, tx, ty) {
+  if (typeof requestAnimationFrame === 'undefined') return; // тесты — без анимации
+  const entry = { fromX: fx, fromY: fy, toX: tx, toY: ty, startTs: null };
+  if (unit === S.player) {
+    animState.player = entry;
+  } else {
+    animState.enemies.set(unit, entry);
+  }
+  requestRender();
+}
+
+/**
+ * Получить интерполированные координаты для юнита.
+ * Возвращает { x, y } — либо анимированные, либо реальные.
+ */
+function getAnimPos(unit, realX, realY, ts) {
+  let entry;
+  if (unit === S.player) {
+    entry = animState.player;
+  } else {
+    entry = animState.enemies.get(unit);
+  }
+  if (!entry || !ts) return { x: realX, y: realY };
+  if (entry.startTs === null) entry.startTs = ts;
+  const elapsed = ts - entry.startTs;
+  if (elapsed >= CFG.MOVE_ANIM_MS) {
+    // анимация завершена — удаляем
+    if (unit === S.player) animState.player = null;
+    else animState.enemies.delete(unit);
+    return { x: realX, y: realY };
+  }
+  const raw = Math.min(elapsed / CFG.MOVE_ANIM_MS, 1);
+  const t = raw * (2 - raw); // ease-out quad
+  return {
+    x: entry.fromX + (entry.toX - entry.fromX) * t,
+    y: entry.fromY + (entry.toY - entry.fromY) * t,
+  };
+}
+
 // ========== rAF-рендер ==========
 
 /**
@@ -18,6 +73,30 @@ let loopRunning = false;
  */
 export function requestRender() {
   needsRedraw = true;
+}
+
+/**
+ * Проверить, есть ли на доске клетки, требующие анимации (лава).
+ */
+function hasActiveAnim() {
+  if (animState.player) return true;
+  return animState.enemies.size > 0;
+}
+
+function hasAnimatedSpecials() {
+  if (!S.special) return false;
+  for (const s of S.special.values()) {
+    if (
+      s.type === 'lava' ||
+      s.type === 'fog' ||
+      s.type === 'conveyor' ||
+      s.type === 'gate' ||
+      s.type === 'ice' ||
+      s.type === 'portal'
+    )
+      return true;
+  }
+  return false;
 }
 
 /**
@@ -34,7 +113,7 @@ export function startRenderLoop() {
   }
   loopRunning = true;
   function tick(ts) {
-    if (needsRedraw) {
+    if (needsRedraw || hasAnimatedSpecials() || hasActiveAnim()) {
       needsRedraw = false;
       renderNow(ts);
     }
@@ -78,29 +157,82 @@ export function hatch(x, y, color, _ts) {
   dom.ctx.restore();
 }
 
-export function drawSpecial(x, y, s, _ts) {
+export function drawSpecial(x, y, s, ts) {
   const cx = x * T + T / 2,
     cy = y * T + T / 2;
+  const ats = (ts || 0) * CFG.TILE_ANIM_SPEED;
   dom.ctx.save();
   if (s.type === 'trap') {
-    // шипы — тёмные треугольники
-    dom.ctx.fillStyle = '#c23b30';
-    const base = y * T + T * 0.72,
-      w = T * 0.14,
-      gap = T * 0.16,
-      x0 = x * T + T * 0.2;
-    for (let i = 0; i < 3; i++) {
-      const bx = x0 + i * gap;
-      dom.ctx.beginPath();
-      dom.ctx.moveTo(bx, base);
-      dom.ctx.lineTo(bx + w / 2, base - T * 0.34);
-      dom.ctx.lineTo(bx + w, base);
-      dom.ctx.closePath();
-      dom.ctx.fill();
+    // яма-ловушка с кольями
+    const tp = ats / 550;
+    const holePulse = T * (0.02 + Math.sin(tp * Math.PI * 2) * 0.015);
+    const rx = T * 0.3 + holePulse,
+      ry = T * 0.24 + holePulse * 0.8;
+    // тень под ямой
+    dom.ctx.fillStyle = 'rgba(30,25,20,.55)';
+    dom.ctx.beginPath();
+    dom.ctx.ellipse(cx, cy, rx + 5, ry + 5, 0, 0, Math.PI * 2);
+    dom.ctx.fill();
+    // яма — рваный эллипс
+    dom.ctx.fillStyle = '#0d0b08';
+    dom.ctx.beginPath();
+    const segs = 14;
+    for (let i = 0; i < segs; i++) {
+      const a = (i / segs) * Math.PI * 2;
+      const jx = Math.cos(a) * 1.8,
+        jy = Math.sin(a) * 1.8;
+      const px = cx + Math.cos(a) * rx + jx,
+        py = cy + Math.sin(a) * ry + jy;
+      if (i === 0) dom.ctx.moveTo(px, py);
+      else dom.ctx.lineTo(px, py);
     }
-    dom.ctx.strokeStyle = 'rgba(0,0,0,.35)';
-    dom.ctx.lineWidth = 1;
-    dom.ctx.strokeRect(x * T + 2, y * T + 2, T - 4, T - 4);
+    dom.ctx.closePath();
+    dom.ctx.fill();
+    // колья — 4 шт., торчат из центра под углами
+    const sway = Math.sin(tp * Math.PI * 1.3) * 1.2;
+    const stakeAngles = [-0.6, -2.5, 0.7, 2.5]; // влево-вверх, вправо-вверх, влево-вниз, вправо-вниз
+    const stakeLen = T * 0.32,
+      stakeW = T * 0.04;
+    stakeAngles.forEach((a, i) => {
+      const angle = a + sway * (i % 2 === 0 ? 1 : -1) * 0.06;
+      const tipX = cx + Math.cos(angle) * stakeLen;
+      const tipY = cy + Math.sin(angle) * stakeLen;
+      const perpX = Math.cos(angle + Math.PI / 2) * stakeW;
+      const perpY = Math.sin(angle + Math.PI / 2) * stakeW;
+      dom.ctx.beginPath();
+      dom.ctx.moveTo(cx - perpX, cy - perpY);
+      dom.ctx.lineTo(tipX, tipY);
+      dom.ctx.lineTo(cx + perpX, cy + perpY);
+      dom.ctx.closePath();
+      dom.ctx.fillStyle = '#6e6e5e';
+      dom.ctx.fill();
+      // блик по центру кола
+      dom.ctx.strokeStyle = '#b0b0a0';
+      dom.ctx.lineWidth = 0.7;
+      dom.ctx.beginPath();
+      dom.ctx.moveTo(cx, cy);
+      dom.ctx.lineTo(tipX, tipY);
+      dom.ctx.stroke();
+      // тёмная обводка
+      dom.ctx.strokeStyle = 'rgba(0,0,0,.5)';
+      dom.ctx.lineWidth = 0.6;
+      dom.ctx.stroke();
+    });
+    // внутренний ободок ямы (кромка)
+    dom.ctx.strokeStyle = 'rgba(50,40,30,.7)';
+    dom.ctx.lineWidth = 1.5;
+    dom.ctx.beginPath();
+    for (let i = 0; i < segs; i++) {
+      const a = (i / segs) * Math.PI * 2;
+      const jx = Math.cos(a) * 1.8,
+        jy = Math.sin(a) * 1.8;
+      const px = cx + Math.cos(a) * rx + jx,
+        py = cy + Math.sin(a) * ry + jy;
+      if (i === 0) dom.ctx.moveTo(px, py);
+      else dom.ctx.lineTo(px, py);
+    }
+    dom.ctx.closePath();
+    dom.ctx.stroke();
   } else if (s.type === 'rune') {
     // руна — светящийся ромб
     dom.ctx.strokeStyle = '#58b3a4';
@@ -119,72 +251,146 @@ export function drawSpecial(x, y, s, _ts) {
     dom.ctx.fillStyle = '#58b3a4';
     dom.ctx.fill();
   } else if (s.type === 'portal') {
-    // портал — фиолетовое кольцо
+    // портал — пульсирующие кольца + glow-свечение
+    const pp = ats / 600;
+    const pulse1 = Math.sin(pp * Math.PI * 2) * T * 0.06;
+    const pulse2 = Math.sin(pp * Math.PI * 2 + Math.PI) * T * 0.04;
+    const r1 = T * 0.28 + pulse1;
+    const r2 = T * 0.16 + pulse2;
+    // glow — внешние дуги с убывающей прозрачностью
+    for (let k = 0; k < 3; k++) {
+      const gr = r1 + k * T * 0.06;
+      const ga = 0.18 - k * 0.05;
+      dom.ctx.strokeStyle = `rgba(155,109,208,${ga})`;
+      dom.ctx.lineWidth = 2;
+      dom.ctx.beginPath();
+      dom.ctx.arc(cx, cy, gr, 0, 7);
+      dom.ctx.stroke();
+    }
+    // основное внешнее кольцо
     dom.ctx.strokeStyle = '#9b6dd0';
     dom.ctx.lineWidth = 3;
     dom.ctx.beginPath();
-    dom.ctx.arc(cx, cy, T * 0.28, 0, 7);
+    dom.ctx.arc(cx, cy, r1, 0, 7);
     dom.ctx.stroke();
+    // внутреннее кольцо (пульсирует в противофазе)
     dom.ctx.strokeStyle = 'rgba(155,109,208,.5)';
     dom.ctx.lineWidth = 2;
     dom.ctx.beginPath();
-    dom.ctx.arc(cx, cy, T * 0.16, 0, 7);
+    dom.ctx.arc(cx, cy, r2, 0, 7);
     dom.ctx.stroke();
   } else if (s.type === 'ice') {
-    // лёд — голубая заливка с бликом
+    // лёд — голубая заливка + трещины, расходящиеся из центра по кругу
+    const ip = ats / 4000;
     dom.ctx.fillStyle = 'rgba(143,208,230,.22)';
     dom.ctx.fillRect(x * T, y * T, T, T);
-    dom.ctx.strokeStyle = 'rgba(143,208,230,.6)';
+    const sway = Math.sin(ip * Math.PI * 1.2) * 0.1;
     dom.ctx.lineWidth = 1.5;
-    dom.ctx.beginPath();
-    dom.ctx.moveTo(x * T + T * 0.25, y * T + T * 0.7);
-    dom.ctx.lineTo(x * T + T * 0.5, y * T + T * 0.3);
-    dom.ctx.lineTo(x * T + T * 0.6, y * T + T * 0.55);
-    dom.ctx.lineTo(x * T + T * 0.78, y * T + T * 0.35);
-    dom.ctx.stroke();
-  } else if (s.type === 'lava') {
-    // лава — раскалённая заливка
-    dom.ctx.fillStyle = 'rgba(214,90,40,.5)';
-    dom.ctx.fillRect(x * T, y * T, T, T);
-    dom.ctx.fillStyle = 'rgba(240,170,60,.55)';
-    for (let b = 0; b < 4; b++) {
+    dom.ctx.lineCap = 'round';
+    const N = 9;
+    for (let i = 0; i < N; i++) {
+      const baseAngle = (i / N) * Math.PI * 2;
+      const angle = baseAngle + sway * (i % 2 === 0 ? 1 : -1);
+      const maxLen = T * (0.35 + (i % 3) * 0.03);
+      // анимация роста: цикл 0→1 со смещением фазы для каждой трещины
+      const growPhase = (i * 0.41) % 1;
+      let grow = (ip + growPhase) % 1;
+      // smoothstep: резкий рост + плавное угасание
+      let alphaMul;
+      if (grow < 0.2)
+        alphaMul = grow / 0.2; // 0→1 резкое появление
+      else if (grow > 0.8)
+        alphaMul = (1 - grow) / 0.2; // 1→0 плавное угасание
+      else alphaMul = 1;
+      const len = maxLen * grow;
+      dom.ctx.strokeStyle = `rgba(143,208,230,${0.5 * alphaMul})`;
       dom.ctx.beginPath();
-      dom.ctx.arc(x * T + 8 + ((b * 13) % (T - 12)), y * T + 10 + ((b * 17) % (T - 16)), 2.5, 0, 7);
+      dom.ctx.moveTo(cx, cy);
+      const segs = [
+        [0.35, ((i * 1.7) % 2.5) - 1.2],
+        [0.65, ((i * 2.3) % 2.5) - 1.2],
+        [1.0, ((i * 1.1) % 2.5) - 1.2],
+      ];
+      segs.forEach(([t, jitter]) => {
+        const px = cx + Math.cos(angle) * len * t + Math.cos(angle + Math.PI / 2) * jitter;
+        const py = cy + Math.sin(angle) * len * t + Math.sin(angle + Math.PI / 2) * jitter;
+        dom.ctx.lineTo(px, py);
+      });
+      dom.ctx.stroke();
+    }
+  } else if (s.type === 'lava') {
+    // лава — пульсирующая заливка + движущиеся пузырьки
+    const phase = ats / 800;
+    const bgAlpha = 0.4 + Math.sin(phase * Math.PI * 2) * 0.1;
+    dom.ctx.fillStyle = `rgba(214,90,40,${bgAlpha})`;
+    dom.ctx.fillRect(x * T, y * T, T, T);
+    for (let b = 0; b < 4; b++) {
+      const bp = phase * Math.PI * 2 + b * 1.7;
+      const bubbleAlpha = 0.4 + Math.sin(bp * 1.3) * 0.15;
+      const offsetY = Math.sin(bp) * T * 0.12;
+      dom.ctx.beginPath();
+      dom.ctx.fillStyle = `rgba(240,170,60,${bubbleAlpha})`;
+      dom.ctx.arc(
+        x * T + 8 + ((b * 13) % (T - 12)),
+        y * T + 10 + ((b * 17) % (T - 16)) + offsetY,
+        2.5,
+        0,
+        7,
+      );
       dom.ctx.fill();
     }
   } else if (s.type === 'fog') {
-    // туман — серое облако
-    dom.ctx.fillStyle = 'rgba(150,155,165,.42)';
+    // туман — дрейфующие облака
+    const fp = ats / 1200;
+    const bgAlpha = 0.38 + Math.sin(fp * Math.PI * 2) * 0.04;
+    dom.ctx.fillStyle = `rgba(150,155,165,${bgAlpha})`;
     dom.ctx.fillRect(x * T, y * T, T, T);
     dom.ctx.fillStyle = 'rgba(190,195,205,.3)';
     dom.ctx.beginPath();
-    dom.ctx.arc(cx - 6, cy, 9, 0, 7);
-    dom.ctx.arc(cx + 7, cy - 2, 8, 0, 7);
-    dom.ctx.arc(cx, cy + 6, 7, 0, 7);
+    const driftX1 = Math.sin(fp * Math.PI * 2) * 3;
+    const driftX2 = Math.sin(fp * Math.PI * 2 + 2.1) * 3;
+    const driftX3 = Math.sin(fp * Math.PI * 2 + 4.2) * 3;
+    const r1 = 9 + Math.sin(fp * Math.PI * 1.8) * 3.5;
+    const r2 = 8 + Math.sin(fp * Math.PI * 1.8 + 1.5) * 3.5;
+    const r3 = 7 + Math.sin(fp * Math.PI * 1.8 + 3.0) * 3.5;
+    dom.ctx.arc(cx - 6 + driftX1, cy, r1, 0, 7);
+    dom.ctx.arc(cx + 7 + driftX2, cy - 2, r2, 0, 7);
+    dom.ctx.arc(cx + driftX3, cy + 6, r3, 0, 7);
     dom.ctx.fill();
   } else if (s.type === 'conveyor' || s.type === 'gate') {
-    // стрелка направления
+    // стрелка — пунктир с setLineDash + lineDashOffset для бегущей анимации
     const [dx, dy] = s.dir;
-    const col = s.type === 'gate' ? '#c9a227' : '#7aa0c0';
     if (s.type === 'gate') {
       dom.ctx.fillStyle = 'rgba(201,162,39,.12)';
       dom.ctx.fillRect(x * T, y * T, T, T);
     }
-    dom.ctx.strokeStyle = col;
-    dom.ctx.fillStyle = col;
-    dom.ctx.lineWidth = 2.5;
-    const ax = cx + dx * T * 0.22,
-      ay = cy + dy * T * 0.22,
-      bx = cx - dx * T * 0.22,
-      by = cy - dy * T * 0.22;
+    const lineW = T * 0.18;
+    // вершина наконечника (ax,ay) и основание (baseX,baseY) — широкая часть
+    const ax = cx + dx * T * 0.34,
+      ay = cy + dy * T * 0.34;
+    const baseX = ax - dx * T * 0.5,
+      baseY = ay - dy * T * 0.5;
+    // хвост стрелки — от центра в противоположную сторону
+    const bx = cx - dx * T * 0.34,
+      by = cy - dy * T * 0.34;
+    // пунктирная линия от хвоста до основания наконечника
+    dom.ctx.lineWidth = lineW;
+    dom.ctx.lineCap = 'butt';
+    dom.ctx.setLineDash([T * 0.28, T * 0.18]);
+    dom.ctx.lineDashOffset = -(ats / 8);
+    dom.ctx.strokeStyle = '#c9a227';
     dom.ctx.beginPath();
     dom.ctx.moveTo(bx, by);
-    dom.ctx.lineTo(ax, ay);
+    dom.ctx.lineTo(baseX, baseY);
     dom.ctx.stroke();
+    dom.ctx.setLineDash([]); // сброс
+    // наконечник — треугольник от вершины к основанию, мигающий вместе с фазой пунктира
+    const turn = Math.floor((ts || 0) / 350) % 2;
+    dom.ctx.fillStyle = turn % 2 === 0 ? '#c9a227' : '#1a1a1a';
     dom.ctx.beginPath();
     dom.ctx.moveTo(ax, ay);
-    dom.ctx.lineTo(ax - dx * 8 + dy * 6, ay - dy * 8 + dx * 6);
-    dom.ctx.lineTo(ax - dx * 8 - dy * 6, ay - dy * 8 - dx * 6);
+    dom.ctx.lineTo(baseX + dy * T * 0.28, baseY + dx * T * 0.28);
+    dom.ctx.lineTo(baseX - dy * T * 0.28, baseY - dx * T * 0.28);
     dom.ctx.closePath();
     dom.ctx.fill();
   } else if (s.type === 'plate') {
@@ -361,9 +567,12 @@ export function renderNow(ts) {
   }
   // фигуры
   for (const e of S.enemies) {
+    const ep = getAnimPos(e, e.x, e.y, ts);
+    const ex = ep.x,
+      ey = ep.y;
     if (e.type === 'mimic') {
       const t = (S.player.wheel[S.player.active] || { type: 'pawn' }).type;
-      drawPiece(e.x, e.y, t, false, t === 'pawn' ? e.facing : null, false, { mimic: true });
+      drawPiece(ex, ey, t, false, t === 'pawn' ? e.facing : null, false, { mimic: true });
     } else {
       const tint =
         e.type === 'assassin'
@@ -373,23 +582,17 @@ export function renderNow(ts) {
             : e.type === 'frost'
               ? '#8fd0e6'
               : null;
-      drawPiece(e.x, e.y, e.type, false, e.type === 'pawn' ? e.facing : null, false, {
+      drawPiece(ex, ey, e.type, false, e.type === 'pawn' ? e.facing : null, false, {
         armor: e.armor,
         tint,
       });
     }
-    drawStatuses(e.x, e.y, e);
+    drawStatuses(ex, ey, e);
   }
   const f = activeForm();
-  drawPiece(
-    S.player.x,
-    S.player.y,
-    f.type,
-    true,
-    f.type === 'pawn' ? S.player.facing : null,
-    f.improved,
-  );
-  drawStatuses(S.player.x, S.player.y, S.player);
+  const pp = getAnimPos(S.player, S.player.x, S.player.y, ts);
+  drawPiece(pp.x, pp.y, f.type, true, f.type === 'pawn' ? S.player.facing : null, f.improved);
+  drawStatuses(pp.x, pp.y, S.player);
   // сетка
   dom.ctx.strokeStyle = 'rgba(20,22,28,.35)';
   dom.ctx.lineWidth = 1;
