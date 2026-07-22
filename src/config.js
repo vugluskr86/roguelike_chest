@@ -132,6 +132,16 @@ export const CFG = {
     frostRange: 3, // жрец щитует, морозный маг оглушает
   },
 };
+export const KEY_COLORS = ['red', 'blue', 'green', 'gold', 'purple'];
+export const KEY_GLYPH = { red: '🔴', blue: '🔵', green: '🟢', gold: '🟡', purple: '🟣' };
+export const KEY_COLOR_HEX = {
+  red: '#c0392b',
+  blue: '#2980b9',
+  green: '#27ae60',
+  gold: '#d4a017',
+  purple: '#8e44ad',
+};
+
 export const GLYPH = {
   pawn: '♟',
   knight: '♞',

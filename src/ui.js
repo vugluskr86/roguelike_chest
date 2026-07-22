@@ -2,7 +2,7 @@ import { S } from './state.js';
 import { dom } from './dom.js';
 import { reset } from './board.js';
 import { switchForm } from './combat.js';
-import { CFG, GLYPH, NAME, TIER_META, relicTier, saveSettings } from './config.js';
+import { CFG, GLYPH, KEY_GLYPH, NAME, TIER_META, relicTier, saveSettings } from './config.js';
 import { ACHIEVEMENTS, CHALLENGES, CURSES, META_UPGRADES, RELICS } from './content.js';
 import { maybeEvent } from './events.js';
 import { applyOption } from './loot.js';
@@ -584,7 +584,10 @@ export function syncUI() {
     (S.biome ? `<span class="hb">${S.biome.name}</span>` : '') +
     `<span class="hb">ход ${S.turn}</span>` +
     `<span class="hb gold">${S.player.gold || 0}🪙</span>` +
-    `<span class="hb shards">${META.shards || 0}✦</span>`;
+    `<span class="hb shards">${META.shards || 0}✦</span>` +
+    (S.keys.size > 0
+      ? `<span class="hb keys">${[...S.keys].map((k) => KEY_GLYPH[k]).join('')}</span>`
+      : '');
   dom.wheelEl.innerHTML = '';
   S.player.wheel.forEach((f, i) => {
     const el = document.createElement('div');

@@ -1,0 +1,20 @@
+{
+  "W": 11,
+  "H": 9,
+  "walls": ["5,3", "5,4", "5,5", "6,3", "6,5", "3,3", "3,4", "3,5"],
+  "playerStart": { "x": 5, "y": 8 },
+  "enemies": [
+    { "type": "pawn", "x": 2, "y": 2, "facing": [0, 1] },
+    { "type": "knight", "x": 8, "y": 2 },
+    { "type": "bishop", "x": 9, "y": 4 }
+  ],
+  "special": {
+    "4,6": { "type": "trap" },
+    "7,4": { "type": "rune" },
+    "2,6": { "type": "scroll" },
+    "9,7": { "type": "portal", "pair": { "x": 1, "y": 3 } },
+    "1,3": { "type": "portal", "pair": { "x": 9, "y": 7 } }
+  },
+  "biome": "halls",
+  "floor": 1
+}

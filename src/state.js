@@ -15,6 +15,9 @@ export const S = {
   hoveredCell: null,
   godMode: false, // чит-режим неуязвимости
   challenge: null, // id активного челленджа
+  currentRoom: 0, // id активной комнаты на этаже
+  rooms: [], // массив комнат [{ walls, enemies, special, cleared }]
+  keys: new Set(), // Set<'red'|'blue'|'green'|'gold'|'purple'> — собранные ключи
 };
 
 export const has = (id) => S.player && S.player.relics && S.player.relics.has(id);

@@ -1,6 +1,6 @@
 import { S } from './state.js';
 import { dom } from './dom.js';
-import { CFG, GLYPH, biomeFor } from './config.js';
+import { CFG, GLYPH, BIOMES, biomeFor, KEY_COLORS } from './config.js';
 import { RELICS } from './content.js';
 import { applyRelic } from './loot.js';
 import { META, codexSeeEnemy, unlockAch } from './meta.js';
@@ -250,6 +250,12 @@ export function placeSpecials(wset, reach, start) {
     const c = take();
     if (c) sp.set(c.k, { type: 'lava' });
   }
+  // свитки — 1–2 на этаж (случайная реликвия или проклятие)
+  const nScroll = 1 + randInt(2);
+  for (let s = 0; s < nScroll; s++) {
+    const c = take();
+    if (c) sp.set(c.k, { type: 'scroll' });
+  }
   return sp;
 }
 
@@ -334,7 +340,7 @@ export function spawnEnemiesForFloor(f, reach) {
 }
 
 export function newFloor() {
-  seedRNG(S.floor * 1000000 + S.turn + 1); // детерминированная генерация этажа
+  // seedRNG(S.floor * 1000000 + S.turn + 1);
   screenFade('#000', 350);
   S.floor++;
   // прогрессия размера карты с этажом
@@ -352,42 +358,188 @@ export function newFloor() {
     CFG.H = 15;
   }
   S.biome = biomeFor(S.floor);
-  const room = generateRoom();
-  S.walls = room.walls;
-  S.special = room.specials;
-  S.player.x = room.playerStart.x;
-  S.player.y = room.playerStart.y;
+  S.currentRoom = 0;
+  S.rooms = [];
+
+  const nRooms = 2 + randInt(3); // 2–4 комнаты
+  for (let r = 0; r < nRooms; r++) {
+    const room = generateRoom();
+    S.walls = room.walls;
+    S.special = room.specials;
+    spawnEnemiesForFloor(S.floor, room.reach);
+    S.rooms.push({ walls: room.walls, enemies: S.enemies, special: room.specials, cleared: false });
+  }
+  // соединяем соседние комнаты дверями
+  for (let r = 0; r < nRooms; r++) {
+    const next = (r + 1) % nRooms;
+    // дверь A→B на правой стене комнаты A
+    const doorX = CFG.W - 1;
+    const doorY = Math.floor(CFG.H / 2);
+    const locked = random() < 0.6 ? pick(KEY_COLORS) : null;
+    // безопасная клетка выхода в комнате B (ищем ближайшую без стен/ловушек)
+    let safeB = { x: 2, y: doorY };
+    for (let sx = 2; sx <= 4; sx++) {
+      if (
+        !S.rooms[next].walls.has(key(sx, Math.floor(CFG.H / 2))) &&
+        S.rooms[next].special.get(key(sx, Math.floor(CFG.H / 2)))?.type !== 'trap'
+      ) {
+        safeB = { x: sx, y: Math.floor(CFG.H / 2) };
+        break;
+      }
+      for (let sy = doorY - 2; sy <= doorY + 2; sy++) {
+        if (
+          sy > 0 &&
+          sy < CFG.H - 1 &&
+          !S.rooms[next].walls.has(key(sx, sy)) &&
+          S.rooms[next].special.get(key(sx, sy))?.type !== 'trap'
+        ) {
+          safeB = { x: sx, y: sy };
+          break;
+        }
+      }
+      if (safeB.x !== 2) break;
+    }
+    S.rooms[r].special.set(key(doorX, doorY), {
+      type: 'door',
+      color: locked,
+      targetRoom: next,
+      targetPos: safeB,
+    });
+    // дверь B→A на левой стене комнаты B
+    safeB = { x: CFG.W - 2, y: doorY };
+    for (let sx = CFG.W - 2; sx >= CFG.W - 4; sx--) {
+      if (
+        !S.rooms[r].walls.has(key(sx, Math.floor(CFG.H / 2))) &&
+        S.rooms[r].special.get(key(sx, Math.floor(CFG.H / 2)))?.type !== 'trap'
+      ) {
+        safeB = { x: sx, y: Math.floor(CFG.H / 2) };
+        break;
+      }
+      for (let sy = doorY - 2; sy <= doorY + 2; sy++) {
+        if (
+          sy > 0 &&
+          sy < CFG.H - 1 &&
+          !S.rooms[r].walls.has(key(sx, sy)) &&
+          S.rooms[r].special.get(key(sx, sy))?.type !== 'trap'
+        ) {
+          safeB = { x: sx, y: sy };
+          break;
+        }
+      }
+      if (safeB.x !== CFG.W - 2) break;
+    }
+    S.rooms[next].special.set(key(2, doorY), {
+      type: 'door',
+      color: locked,
+      targetRoom: r,
+      targetPos: safeB,
+    });
+    // если дверь заперта — кладём ключ в комнату r
+    if (locked) {
+      const kx = 1 + randInt(CFG.W - 2);
+      const ky = 1 + randInt(CFG.H - 2);
+      if (!S.rooms[r].special.get(key(kx, ky)) && !(kx === doorX && ky === doorY))
+        S.rooms[r].special.set(key(kx, ky), { type: 'key', color: locked });
+    }
+  }
+  // удаляем стены в клетках дверей
+  for (const room of S.rooms) {
+    room.special.forEach((s, k) => {
+      if (s.type === 'door') room.walls.delete(k);
+    });
+  }
+
+  loadRoom(0);
+  const startRoom = S.rooms[0];
+  S.player.x = Math.floor(CFG.W / 2);
+  S.player.y = CFG.H - 1;
   S.player.facing = [0, -1];
-  S.player.active = 0; // спускаемся пешкой — иначе промоушен-петля обрывается
+  S.player.active = 0;
   S.promotionUsed = false;
   S.hoverEnemy = null;
   S.selectedEnemy = null;
   S.turn = 1;
   S.player.freeSwapUsed = false;
   S.player.capturedThisFloor = 0;
-  cleanse(S.player); // статусы не переносятся между этажами
-  S.player.lostFormThisFloor = false; // для достижения «Безупречно»
+  cleanse(S.player);
+  S.player.lostFormThisFloor = false;
   if (S.floor >= 5) unlockAch('deep');
   if (S.floor >= 10) unlockAch('abyss');
-  if (has('smoke')) applyStatus(S.player, 'shield', 1); // «Дымовая завеса» — щит в начале этажа
-  if (has('second_wind')) applyStatus(S.player, 'haste', 2); // «Второе дыхание» — ускорение в начале этажа
+  if (has('smoke')) applyStatus(S.player, 'shield', 1);
+  if (has('second_wind')) applyStatus(S.player, 'haste', 2);
   if (S.player.nextFloorStatus && S.player.nextFloorStatus.length) {
-    // благословение алтаря
     S.player.nextFloorStatus.forEach((s) => applyStatus(S.player, s.k, s.n));
     S.player.nextFloorStatus = [];
   }
-  spawnEnemiesForFloor(S.floor, room.reach);
-  // челлендж «Эскалация»: +1 дальность врагам каждый этаж, броня с эт.5
+  // челлендж «Эскалация»
   if (S.challenge === 'escalation') {
-    S.enemies.forEach((e) => {
-      e.r = (e.r || 1) + S.floor;
-      e.rb = (e.rb || 0) + 1;
-      if (S.floor >= 5 && !e.armor) e.armor = 1;
-    });
+    for (const room of S.rooms)
+      room.enemies.forEach((e) => {
+        e.r = (e.r || 1) + S.floor;
+        e.rb = (e.rb || 0) + 1;
+        if (S.floor >= 5 && !e.armor) e.armor = 1;
+      });
   }
-  const rb = enemyRangeBonus(S.floor);
+  const totalEnemies = S.rooms.reduce((sum, r) => sum + r.enemies.length, 0);
+  log(`── Этаж ${S.floor} · ${S.biome.name} · ${nRooms} комн. ── врагов: ${totalEnemies}`, 'e');
+  render();
+  syncUI();
+}
+
+/** Сохранить текущую комнату в S.rooms. */
+export function snapshotRoom() {
+  const id = S.currentRoom;
+  S.rooms[id] = {
+    walls: S.walls,
+    enemies: S.enemies,
+    special: S.special,
+    cleared: S.rooms[id].cleared,
+  };
+}
+
+/** Загрузить комнату из S.rooms. */
+export function loadRoom(id) {
+  S.currentRoom = id;
+  const r = S.rooms[id];
+  S.walls = r.walls;
+  S.enemies = r.enemies;
+  S.special = r.special;
+}
+
+/**
+ * Загрузить уровень из JSON (для отладки и редактора уровней).
+ * @param {object} data — распарсенный JSON
+ */
+export function loadLevel(data) {
+  CFG.W = data.W || 11;
+  CFG.H = data.H || 9;
+  S.floor = data.floor || 1;
+  S.biome = BIOMES.find((b) => b.id === data.biome) || BIOMES[0];
+  S.walls = new Set(data.walls || []);
+  S.special = new Map(Object.entries(data.special || {}));
+  S.player.x = (data.playerStart && data.playerStart.x) || Math.floor(CFG.W / 2);
+  S.player.y = (data.playerStart && data.playerStart.y) || CFG.H - 1;
+  S.player.facing = [0, -1];
+  S.player.active = 0;
+  S.enemies = (data.enemies || []).map((e) => ({
+    type: e.type,
+    x: e.x,
+    y: e.y,
+    facing: e.facing || [0, 1],
+    cd: 0,
+    status: {},
+    homeColor: tileColor(e.x, e.y),
+    r: CFG.BASE_R[e.type] || 1,
+    rb: enemyRangeBonus(S.floor),
+  }));
+  S.turn = 1;
+  S.promotionUsed = false;
+  S.hoverEnemy = null;
+  S.selectedEnemy = null;
+  S.player.freeSwapUsed = false;
+  S.player.capturedThisFloor = 0;
   log(
-    `── Этаж ${S.floor} · ${S.biome.name} ── врагов: ${S.enemies.map((e) => GLYPH[e.type]).join(' ') || '—'}${rb ? `  · дальность +${rb}` : ''}`,
+    `── Загружен уровень · ${S.biome.name} ── врагов: ${S.enemies.map((e) => GLYPH[e.type]).join(' ') || '—'}`,
     'e',
   );
   render();

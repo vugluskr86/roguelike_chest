@@ -64,6 +64,22 @@
   color: var(--teal);
   line-height: 1.5;
 }
+.loading-hint {
+  margin-top: 28px;
+  font-size: 14px;
+  color: var(--promo);
+  letter-spacing: 0.06em;
+  animation: hintPulse 1.8s ease-in-out infinite;
+}
+@keyframes hintPulse {
+  0%,
+  100% {
+    opacity: 0.3;
+  }
+  50% {
+    opacity: 1;
+  }
+}
 body {
   background: var(--ink);
   color: var(--txt);

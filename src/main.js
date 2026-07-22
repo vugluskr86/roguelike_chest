@@ -45,14 +45,35 @@ function showLoadingScreen() {
   document.body.style.overflow = 'hidden';
   loreEl.textContent = LORE[Math.floor(Math.random() * LORE.length)];
   tipEl.textContent = '💡 ' + TIPS[Math.floor(Math.random() * TIPS.length)];
-  setTimeout(() => {
+
+  const dismiss = () => {
+    cleanup();
     el.classList.add('hidden');
     setTimeout(() => {
       el.style.display = 'none';
       document.body.style.overflow = '';
       startGame();
-    }, 600); // ждём завершения fade-out
-  }, 2500);
+    }, 600);
+  };
+
+  const onEv = (e) => {
+    e.stopPropagation();
+    dismiss();
+  };
+  const onKey = (e) => {
+    e.stopPropagation();
+    dismiss();
+  };
+
+  el.addEventListener('click', onEv);
+  el.addEventListener('touchend', onEv);
+  document.addEventListener('keydown', onKey, { once: true });
+
+  function cleanup() {
+    el.removeEventListener('click', onEv);
+    el.removeEventListener('touchend', onEv);
+    document.removeEventListener('keydown', onKey);
+  }
 }
 
 function startGame() {

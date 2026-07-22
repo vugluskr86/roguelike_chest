@@ -1,14 +1,25 @@
 import { S } from './state.js';
 import { dom } from './dom.js';
-import { CFG, GLYPH, NAME, STD_TYPES } from './config.js';
+import { CFG, GLYPH, KEY_GLYPH, NAME, STD_TYPES } from './config.js';
+import { RELICS, CURSES } from './content.js';
 import { enemiesTurn } from './enemies.js';
+import { snapshotRoom, loadRoom } from './board.js';
 import { offerLoot } from './loot.js';
 import { endRunMeta, recordKill, unlockAch } from './meta.js';
 import { activeForm, allThreats, playerOptions } from './moves.js';
-import { render, startMoveAnim, startCaptureFlash, spawnParticles } from './render.js';
+import { render, screenFade, startMoveAnim, startCaptureFlash, spawnParticles } from './render.js';
 import { curse, enemyAt, has } from './state.js';
 import { applyStatus, cleanse, statusVal } from './status.js';
-import { playMove, playCapture, playPromotion, playTrap, playPortal, playRune } from './audio.js';
+import { applyCurse as applyCurseLoot, applyRelic as applyRelicLoot } from './loot.js';
+import {
+  playMove,
+  playCapture,
+  playPromotion,
+  playTrap,
+  playPortal,
+  playRune,
+  playLoot,
+} from './audio.js';
 import { closeModal, log, openModal, openRunSummary, syncUI } from './ui.js';
 import { ORTHO, cheb, inB, key, makeForm, pick, tileColor } from './util.js';
 
@@ -124,6 +135,48 @@ export function triggerSpecialForPlayer() {
   } else if (s.type === 'lava') {
     log('Ты в лаве! Форма разрушена.', 'r');
     degradePlayer(null);
+  } else if (s.type === 'door') {
+    snapshotRoom();
+    if (s.color && S.keys.has(s.color)) {
+      S.keys.delete(s.color);
+      s.color = null;
+    }
+    if (s.color && !S.keys.has(s.color)) {
+      log(`Дверь заперта — нужен ${KEY_GLYPH[s.color]} ключ.`, 'r');
+      return;
+    }
+    loadRoom(s.targetRoom);
+    S.player.x = s.targetPos.x;
+    S.player.y = s.targetPos.y;
+    screenFade('#000', 250);
+    log(`Переход в комнату ${s.targetRoom + 1}.`, 'p');
+    playPortal();
+    render();
+    syncUI();
+    return;
+  } else if (s.type === 'key') {
+    S.keys.add(s.color);
+    S.special.delete(k);
+    log(`Ты нашёл ${KEY_GLYPH[s.color]} ключ.`, 'g');
+    playLoot();
+  } else if (s.type === 'scroll') {
+    S.special.delete(k);
+    playLoot();
+    if (Math.random() < 0.5) {
+      const pool = Object.keys(RELICS).filter((id) => !S.player.relics.has(id));
+      if (pool.length) {
+        const id = pool[Math.floor(Math.random() * pool.length)];
+        applyRelicLoot(id);
+        log(`Свиток: <b>${RELICS[id].name}</b> — ${RELICS[id].desc}`, 'g');
+      }
+    } else {
+      const pool = Object.keys(CURSES).filter((id) => !S.player.curses.has(id));
+      if (pool.length) {
+        const id = pool[Math.floor(Math.random() * pool.length)];
+        applyCurseLoot(id);
+        log(`Свиток: <b>☠ ${CURSES[id].name}</b> — ${CURSES[id].desc}`, 'r');
+      }
+    }
   }
 }
 

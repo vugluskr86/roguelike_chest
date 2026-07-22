@@ -1,9 +1,10 @@
 import { S } from './state.js';
 import { dom } from './dom.js';
-import { CFG, GLYPH, NAME, STATUS_META } from './config.js';
+import { CFG, GLYPH, KEY_COLOR_HEX, NAME, STATUS_META } from './config.js';
 import { activeForm, allThreats, enemyThreat, playerOptions } from './moves.js';
 import { statusVal } from './status.js';
 import { key, tileColor } from './util.js';
+import { RELICS, CURSES } from './content.js';
 
 export let T = CFG.TILE; // логический размер тайла (CSS-пиксели); пересчитывается в resizeBoard()
 
@@ -38,7 +39,6 @@ const animState = {
  * @param {number} fy
  * @param {number} tx
  * @param {number} ty
- * @param {number} ts — текущий timestamp от rAF
  */
 export function startMoveAnim(unit, fx, fy, tx, ty) {
   if (!CFG.ANIM_ENABLED || typeof requestAnimationFrame === 'undefined') return;
@@ -144,6 +144,9 @@ function hasActiveAnim() {
   if (particles.length > 0) return true;
   if (captureFlash) return true;
   if (screenOverlay.alpha > 0) return true;
+  if (modPulses.size > 0) return true;
+  // аура модификаторов дышит и вращается — нужен покадровый рендер
+  if (CFG.ANIM_ENABLED && S.player && modCount() > 0) return true;
   return false;
 }
 
@@ -248,6 +251,253 @@ function glow(c, cx, cy, r, rgb, a) {
   c.beginPath();
   c.arc(cx, cy, r, 0, 7);
   c.fill();
+}
+
+// ============================================================================
+//  МОДИФИКАТОРЫ: реликвии и проклятия
+//  Задача — читаемость при любом количестве (у игрока могут быть все сразу).
+//  Три уровня подачи:
+//    1) сегментные кольца вокруг фигуры — сегментов ровно столько, сколько
+//       модификаторов; цвет сегмента детерминирован по id (узнаваем со временем);
+//    2) аура + счётчики — «глазомер»: насколько ты нагружен и насколько проклят;
+//    3) панель по наведению на свою фигуру — точный список с теми же маркерами.
+// ============================================================================
+
+const modPulses = new Map(); // id -> startTs (вспышка сегмента)
+const MOD_PULSE_MS = 550;
+
+/** Подсветить конкретный модификатор — вызывать в момент его срабатывания. */
+export function pulseModifier(id) {
+  modPulses.set(id, null);
+  requestRender();
+}
+
+/** Стабильный хеш строки → 0..1 (одинаковый цвет у модификатора между забегами). */
+function hashUnit(str) {
+  let h = 2166136261;
+  for (let i = 0; i < str.length; i++) {
+    h ^= str.charCodeAt(i);
+    h = Math.imul(h, 16777619);
+  }
+  return ((h >>> 0) % 10000) / 10000;
+}
+
+/** Цвет модификатора: реликвии — холодная зелёно-золотая гамма, проклятия — багрово-пурпурная. */
+function modColor(id, isCurse, alpha = 1) {
+  const u = hashUnit(id);
+  const hue = isCurse ? (330 + u * 60) % 360 : 120 + u * 80;
+  const sat = isCurse ? 62 : 58;
+  const lit = isCurse ? 52 : 58;
+  return `hsla(${hue.toFixed(0)},${sat}%,${lit}%,${alpha})`;
+}
+
+function relicIds() {
+  return S.player && S.player.relics ? [...S.player.relics].sort() : [];
+}
+function curseIds() {
+  return S.player && S.player.curses ? [...S.player.curses].sort() : [];
+}
+function modCount() {
+  return relicIds().length + curseIds().length;
+}
+
+/** Величина вспышки сегмента 0..1 (затухает за MOD_PULSE_MS). */
+function pulseAmount(id, ts) {
+  if (!modPulses.has(id)) return 0;
+  let start = modPulses.get(id);
+  if (start === null) {
+    start = ts || 0;
+    modPulses.set(id, start);
+  }
+  const e = (ts || 0) - start;
+  if (e >= MOD_PULSE_MS) {
+    modPulses.delete(id);
+    return 0;
+  }
+  return 1 - e / MOD_PULSE_MS;
+}
+
+/**
+ * Кольцо из сегментов: один сегмент = один модификатор.
+ * Масштабируется до любого количества — при 19 сегментах кольцо читается
+ * как «плотный венец», при 2–3 — как отдельные дуги.
+ */
+function drawModRing(c, cx, cy, radius, ids, isCurse, ts) {
+  const n = ids.length;
+  if (!n) return;
+  const seg = (Math.PI * 2) / n;
+  const gap = n > 14 ? seg * 0.18 : n > 6 ? seg * 0.14 : seg * 0.1;
+  // проклятия вращаются в обратную сторону — визуальный «конфликт» двух сил
+  const rot = ((ts || 0) / (isCurse ? -14000 : 18000)) * Math.PI * 2;
+  c.lineCap = 'butt';
+  for (let i = 0; i < n; i++) {
+    const id = ids[i];
+    const pulse = pulseAmount(id, ts);
+    const a0 = rot + i * seg + gap / 2;
+    const a1 = rot + (i + 1) * seg - gap / 2;
+    c.strokeStyle = modColor(id, isCurse, 0.72 + pulse * 0.28);
+    c.lineWidth = (isCurse ? 2.1 : 2.5) + pulse * 2.4;
+    c.beginPath();
+    c.arc(cx, cy, radius + pulse * T * 0.05, a0, a1);
+    c.stroke();
+  }
+}
+
+/**
+ * Аура и кольца под фигурой игрока.
+ * @param {number} px,py — координаты в клетках (могут быть дробными при анимации)
+ */
+function drawModifierAura(px, py, ts) {
+  if (!S.player) return;
+  const rel = relicIds();
+  const cur = curseIds();
+  const total = rel.length + cur.length;
+  if (!total) return;
+  const c = dom.ctx;
+  const cx = px * T + T / 2,
+    cy = py * T + T / 2;
+  const breathe = 0.5 + 0.5 * Math.sin(((ts || 0) / 2600) * Math.PI * 2);
+
+  c.save();
+  // свечение: цвет смешивается к багровому по доле проклятий, размер — по общему числу
+  const mix = cur.length / total;
+  const rr = Math.round(88 + (198 - 88) * mix);
+  const gg = Math.round(179 - (179 - 58) * mix);
+  const bb = Math.round(164 - (164 - 74) * mix);
+  const strength = Math.min(total, 14) / 14;
+  glow(
+    c,
+    cx,
+    cy,
+    T * (0.5 + strength * 0.16),
+    `${rr},${gg},${bb}`,
+    0.1 + strength * 0.12 + breathe * 0.05,
+  );
+
+  // «порча»: при большом числе проклятий добавляем тёмный ободок
+  if (cur.length >= 4) {
+    c.strokeStyle = `rgba(46,10,16,${0.25 + Math.min(cur.length, 10) * 0.03})`;
+    c.lineWidth = 3;
+    c.beginPath();
+    c.arc(cx, cy, T * 0.52, 0, 7);
+    c.stroke();
+  }
+
+  drawModRing(c, cx, cy, T * 0.47, rel, false, ts); // внешнее кольцо — реликвии
+  drawModRing(c, cx, cy, T * 0.38, cur, true, ts); // внутреннее — проклятия
+  c.restore();
+}
+
+/** Компактные счётчики у нижнего края клетки игрока: ✦реликвии ☠проклятия. */
+function drawModifierCounters(px, py, ts) {
+  const rel = relicIds().length;
+  const cur = curseIds().length;
+  if (!rel && !cur) return;
+  const c = dom.ctx;
+  const bx = px * T,
+    by = py * T + T;
+  c.save();
+  c.font = `${Math.max(8, T * 0.2).toFixed(0)}px system-ui,sans-serif`;
+  c.textBaseline = 'bottom';
+  const pulse = 0.5 + 0.5 * Math.sin(((ts || 0) / 2600) * Math.PI * 2);
+  if (rel) {
+    c.textAlign = 'left';
+    c.fillStyle = 'rgba(0,0,0,.55)';
+    c.fillText(`✦${rel}`, bx + T * 0.09, by - T * 0.04 + 1);
+    c.fillStyle = `rgba(126,214,190,${0.85 + pulse * 0.15})`;
+    c.fillText(`✦${rel}`, bx + T * 0.08, by - T * 0.05);
+  }
+  if (cur) {
+    c.textAlign = 'right';
+    c.fillStyle = 'rgba(0,0,0,.55)';
+    c.fillText(`☠${cur}`, bx + T * 0.93, by - T * 0.04 + 1);
+    c.fillStyle = `rgba(232,124,124,${0.85 + pulse * 0.15})`;
+    c.fillText(`☠${cur}`, bx + T * 0.92, by - T * 0.05);
+  }
+  c.restore();
+}
+
+/**
+ * Панель со списком модификаторов — рисуется в координатах вьюпорта
+ * (после restore), поэтому не обрезается камерой и вмещает все 30 записей.
+ * Показывается при наведении на клетку игрока.
+ */
+function drawModifierPanel(playerScreenX) {
+  const rel = relicIds();
+  const cur = curseIds();
+  const total = rel.length + cur.length;
+  if (!total) return;
+  const c = dom.ctx;
+  const entries = [
+    ...rel.map((id) => ({ id, curse: false, name: (RELICS[id] || {}).name || id })),
+    ...cur.map((id) => ({ id, curse: true, name: (CURSES[id] || {}).name || id })),
+  ];
+  c.save();
+  c.font = '11px Georgia, serif';
+  c.textBaseline = 'middle';
+  const padX = 10,
+    padY = 8,
+    lineH = 14,
+    titleH = 16;
+  const vw = CFG.VIEW_W * T,
+    vh = CFG.VIEW_H * T;
+  /** Обрезать строку по ширине, чтобы гарантированно не вылезти за коробку. */
+  const fit = (s, w) => {
+    if (c.measureText(s).width <= w) return s;
+    let t = s;
+    while (t.length > 1 && c.measureText(t + '…').width > w) t = t.slice(0, -1);
+    return t + '…';
+  };
+  // колонок столько, чтобы список влезал по высоте вьюпорта
+  let cols = total > 16 ? 3 : total > 8 ? 2 : 1;
+  let rows = Math.ceil(total / cols);
+  while (titleH + rows * lineH + padY * 2 > vh - 16 && cols < 4) {
+    cols++;
+    rows = Math.ceil(total / cols);
+  }
+  const title = `Модификаторы · ✦${rel.length} ☠${cur.length}`;
+  let widest = 0;
+  entries.forEach((e) => {
+    widest = Math.max(widest, c.measureText(e.name).width);
+  });
+  const colW = widest + 22;
+  // ширина коробки: не уже заголовка и не шире вьюпорта
+  const boxW = Math.min(
+    Math.max(cols * colW + padX * 2, c.measureText(title).width + padX * 2),
+    vw - 16,
+  );
+  const boxH = titleH + rows * lineH + padY * 2;
+  const cellTextW = (boxW - padX * 2) / cols - 17; // место под текст записи в колонке
+  // ставим панель с противоположной стороны от фигуры, чтобы её не закрывать
+  const bx = Math.max(8, playerScreenX < vw / 2 ? vw - boxW - 8 : 8);
+  const by = 8;
+
+  c.fillStyle = 'rgba(8,10,14,.88)';
+  c.strokeStyle = 'rgba(120,128,144,.5)';
+  c.lineWidth = 1;
+  c.beginPath();
+  c.roundRect(bx, by, boxW, boxH, 6);
+  c.fill();
+  c.stroke();
+
+  c.textAlign = 'left';
+  c.fillStyle = '#8b91a0';
+  c.fillText(fit(title, boxW - padX * 2), bx + padX, by + padY + 6);
+
+  const stepX = (boxW - padX * 2) / cols; // колонки делят реальную ширину коробки
+  entries.forEach((e, i) => {
+    const col = Math.floor(i / rows);
+    const row = i % rows;
+    const ex = bx + padX + col * stepX;
+    const ey = by + padY + titleH + row * lineH + 6;
+    c.fillStyle = modColor(e.id, e.curse, 0.95);
+    c.beginPath();
+    c.arc(ex + 4, ey, 3.2, 0, 7);
+    c.fill();
+    c.fillStyle = e.curse ? '#e6b3ae' : '#cfe8e0';
+    c.fillText(fit(e.name, cellTextW), ex + 13, ey);
+  });
+  c.restore();
 }
 
 export function drawSpecial(x, y, s, ts) {
@@ -675,6 +925,284 @@ export function drawSpecial(x, y, s, ts) {
     c.beginPath();
     c.arc(cx, cy, T * 0.07 + breathe * 1.1, 0, 7);
     c.fill();
+  } else if (s.type === 'door') {
+    // ── ДВЕРЬ: каменная арка с проёмом; светящаяся скважина — заперта ──
+    const p = ats / 2200 + seed;
+    const breathe = 0.5 + 0.5 * Math.sin(p * Math.PI * 2);
+    const locked = !!s.color;
+    const kHex = locked ? KEY_COLOR_HEX[s.color] || '#d4a017' : '#6f6f5c';
+    const toRgb = (h) => {
+      let v = String(h).replace('#', '');
+      if (v.length === 3) v = v[0] + v[0] + v[1] + v[1] + v[2] + v[2];
+      const n = parseInt(v, 16) || 0;
+      return `${(n >> 16) & 255},${(n >> 8) & 255},${n & 255}`;
+    };
+    const kRgb = toRgb(kHex);
+    const hw = T * 0.27, // половина ширины арки
+      base = cy + T * 0.33, // порог
+      archY = cy - T * 0.04; // отсюда начинается свод
+    // контур арки: прямые стены + полукруглый свод
+    const archPath = (inset) => {
+      c.beginPath();
+      c.moveTo(cx - hw + inset, base - inset);
+      c.lineTo(cx - hw + inset, archY);
+      c.arc(cx, archY, hw - inset, Math.PI, 0);
+      c.lineTo(cx + hw - inset, base - inset);
+      c.closePath();
+    };
+
+    // свечение: у запертой пульсирует в цвет ключа, у открытой — тусклое
+    glow(c, cx, cy, T * 0.46, kRgb, locked ? 0.1 + breathe * 0.14 : 0.07);
+
+    // рама — каменный градиент
+    const fg = c.createLinearGradient(cx - hw, archY - hw, cx + hw, base);
+    fg.addColorStop(0, locked ? '#4a4438' : '#3e3d34');
+    fg.addColorStop(1, locked ? '#241f19' : '#20201b');
+    c.fillStyle = fg;
+    c.strokeStyle = `rgba(${kRgb},${locked ? 0.85 : 0.5})`;
+    c.lineWidth = 2;
+    archPath(0);
+    c.fill();
+    c.stroke();
+
+    // проём — уходит в темноту (у открытой двери глубже)
+    const dg = c.createLinearGradient(cx, archY - hw * 0.6, cx, base);
+    dg.addColorStop(0, locked ? '#171410' : '#0a0a0c');
+    dg.addColorStop(1, locked ? '#0c0a08' : '#000000');
+    c.fillStyle = dg;
+    archPath(T * 0.055);
+    c.fill();
+
+    // замковый камень свода
+    c.fillStyle = `rgba(${kRgb},${locked ? 0.55 + breathe * 0.25 : 0.3})`;
+    c.beginPath();
+    c.moveTo(cx - T * 0.045, archY - hw + T * 0.01);
+    c.lineTo(cx + T * 0.045, archY - hw + T * 0.01);
+    c.lineTo(cx + T * 0.03, archY - hw + T * 0.075);
+    c.lineTo(cx - T * 0.03, archY - hw + T * 0.075);
+    c.closePath();
+    c.fill();
+
+    // порог
+    c.fillStyle = 'rgba(0,0,0,.35)';
+    c.fillRect(cx - hw, base - 1.5, hw * 2, 2.5);
+
+    if (locked) {
+      // засовы поперёк проёма
+      c.strokeStyle = `rgba(${kRgb},.45)`;
+      c.lineWidth = 2;
+      [-0.2, 0.2].forEach((k) => {
+        const by = cy + T * k;
+        c.beginPath();
+        c.moveTo(cx - hw * 0.76, by);
+        c.lineTo(cx + hw * 0.76, by);
+        c.stroke();
+      });
+      // пластина замка
+      c.fillStyle = 'rgba(12,10,8,.85)';
+      c.beginPath();
+      c.arc(cx, cy + T * 0.06, T * 0.085, 0, 7);
+      c.fill();
+      // скважина: круг + сужающаяся прорезь, пульсирует
+      const ka = 0.75 + breathe * 0.25;
+      c.fillStyle = `rgba(${kRgb},${ka})`;
+      c.beginPath();
+      c.arc(cx, cy + T * 0.045, T * 0.032, 0, 7);
+      c.fill();
+      c.beginPath();
+      c.moveTo(cx - T * 0.022, cy + T * 0.06);
+      c.lineTo(cx + T * 0.022, cy + T * 0.06);
+      c.lineTo(cx + T * 0.012, cy + T * 0.115);
+      c.lineTo(cx - T * 0.012, cy + T * 0.115);
+      c.closePath();
+      c.fill();
+      // ореол вокруг скважины
+      glow(c, cx, cy + T * 0.06, T * 0.14, kRgb, 0.22 + breathe * 0.28);
+    } else {
+      // открытая дверь: пылинки тянет вглубь проёма
+      for (let i = 0; i < 4; i++) {
+        const ph = (p * 0.8 + i / 4) % 1;
+        const mx = cx + Math.sin(ph * 5 + i) * hw * 0.5;
+        const my = base - ph * (base - archY + hw * 0.4);
+        const fade = smoothstep(0, 0.2, ph) * (1 - smoothstep(0.7, 1, ph));
+        c.fillStyle = `rgba(190,200,210,${0.35 * fade})`;
+        c.beginPath();
+        c.arc(mx, my, 1.2, 0, 7);
+        c.fill();
+      }
+    }
+  } else if (s.type === 'key') {
+    // ── КЛЮЧ: парящий ключ с кольцом и бородкой, в цвет своей двери ──
+    const p = ats / 1600 + seed;
+    const breathe = 0.5 + 0.5 * Math.sin(p * Math.PI * 2);
+    const kHex = KEY_COLOR_HEX[s.color] || '#d4a017';
+    const toRgb = (h) => {
+      let v = String(h).replace('#', '');
+      if (v.length === 3) v = v[0] + v[0] + v[1] + v[1] + v[2] + v[2];
+      const n = parseInt(v, 16) || 0;
+      return `${(n >> 16) & 255},${(n >> 8) & 255},${n & 255}`;
+    };
+    const kRgb = toRgb(kHex);
+    const float = Math.sin(p * Math.PI * 2) * T * 0.022; // парение
+    const tilt = Math.sin(p * Math.PI * 2 + 0.6) * 0.09; // покачивание
+
+    // свечение в цвет ключа
+    glow(c, cx, cy + float, T * 0.34, kRgb, 0.13 + breathe * 0.14);
+    // тень на полу — сплюснутый круг (как у свитка)
+    c.save();
+    c.translate(cx, cy + T * 0.26);
+    c.scale(1, 0.24);
+    c.fillStyle = 'rgba(14,12,8,.38)';
+    c.beginPath();
+    c.arc(0, 0, T * 0.16, 0, 7);
+    c.fill();
+    c.restore();
+
+    c.save();
+    c.translate(cx, cy + float);
+    c.rotate(tilt);
+    // металлический градиент поперёк ключа: блик сверху, тень снизу
+    const mg = c.createLinearGradient(0, -T * 0.09, 0, T * 0.09);
+    mg.addColorStop(0, 'rgba(255,255,255,.8)');
+    mg.addColorStop(0.38, kHex);
+    mg.addColorStop(1, `rgba(${kRgb},.5)`);
+    const ringX = -T * 0.12;
+
+    // тёмная подложка кольца — даёт контур на светлых клетках
+    c.strokeStyle = 'rgba(28,20,8,.55)';
+    c.lineWidth = T * 0.064;
+    c.beginPath();
+    c.arc(ringX, 0, T * 0.085, 0, 7);
+    c.stroke();
+    // само кольцо (отверстие остаётся видимым)
+    c.strokeStyle = mg;
+    c.lineWidth = T * 0.048;
+    c.beginPath();
+    c.arc(ringX, 0, T * 0.085, 0, 7);
+    c.stroke();
+
+    // стержень
+    c.fillStyle = mg;
+    c.strokeStyle = 'rgba(28,20,8,.5)';
+    c.lineWidth = 0.8;
+    c.beginPath();
+    c.roundRect(ringX + T * 0.06, -T * 0.022, T * 0.27, T * 0.044, T * 0.018);
+    c.fill();
+    c.stroke();
+
+    // бородка — два зубца разной длины
+    [
+      [0.16, 0.06],
+      [0.245, 0.09],
+    ].forEach(([kx, kh]) => {
+      c.beginPath();
+      c.roundRect(ringX + T * kx, T * 0.018, T * 0.036, T * kh, T * 0.012);
+      c.fill();
+      c.stroke();
+    });
+
+    // блик, пробегающий по стержню
+    const gp = (p * 0.9) % 1;
+    const ga = smoothstep(0, 0.15, gp) * (1 - smoothstep(0.6, 1, gp));
+    if (ga > 0) {
+      c.fillStyle = `rgba(255,255,255,${0.55 * ga})`;
+      c.beginPath();
+      c.roundRect(ringX + T * 0.06 + gp * T * 0.26, -T * 0.019, T * 0.03, T * 0.038, T * 0.014);
+      c.fill();
+    }
+    c.restore();
+
+    // искры по орбите — «можно подобрать»
+    for (let i = 0; i < 3; i++) {
+      const a = p * Math.PI * 0.8 + (i / 3) * Math.PI * 2;
+      const orb = T * (0.29 + 0.025 * Math.sin(p * Math.PI * 4 + i));
+      const sx = cx + Math.cos(a) * orb,
+        sy = cy + float + Math.sin(a) * orb * 0.7;
+      c.fillStyle = `rgba(${kRgb},${0.25 + 0.5 * pingPong(p + i / 3)})`;
+      c.beginPath();
+      c.arc(sx, sy, 1.5, 0, 7);
+      c.fill();
+    }
+  } else if (s.type === 'scroll') {
+    // ── СВИТОК: пергамент с валиками, строками текста и пульсирующим «?» ──
+    const p = ats / 2000 + seed;
+    const breathe = 0.5 + 0.5 * Math.sin(p * Math.PI * 2);
+    const sway = Math.sin(p * Math.PI * 2) * T * 0.015; // лёгкое парение
+    const hw = T * 0.2, // половина ширины полотна
+      hh = T * 0.24;
+    const yc = cy + sway;
+
+    // тёплое свечение — «здесь есть что взять»
+    glow(c, cx, yc, T * 0.42, '214,180,90', 0.1 + breathe * 0.12);
+    // мягкая тень под свитком (сплюснутый круг вместо ellipse — как в конвейере)
+    c.save();
+    c.translate(cx, cy + T * 0.3);
+    c.scale(1, 0.26);
+    c.fillStyle = 'rgba(18,14,8,.4)';
+    c.beginPath();
+    c.arc(0, 0, hw * 1.15, 0, 7);
+    c.fill();
+    c.restore();
+
+    // полотно пергамента: сверху светлее, снизу уходит в тень
+    const pg = c.createLinearGradient(cx, yc - hh, cx, yc + hh);
+    pg.addColorStop(0, '#e8dcac');
+    pg.addColorStop(0.55, '#d5c693');
+    pg.addColorStop(1, '#bdac78');
+    c.fillStyle = pg;
+    c.strokeStyle = 'rgba(94,78,44,.85)';
+    c.lineWidth = 1.1;
+    c.beginPath();
+    c.roundRect(cx - hw, yc - hh, hw * 2, hh * 2, 2.5);
+    c.fill();
+    c.stroke();
+
+    // строки «текста» — тонкие штрихи разной длины
+    c.strokeStyle = 'rgba(110,88,50,.42)';
+    c.lineWidth = 1;
+    [-0.5, 0.52].forEach((k, i) => {
+      const ly = yc + hh * k;
+      const lw = hw * (i ? 0.48 : 0.64);
+      c.beginPath();
+      c.moveTo(cx - lw, ly);
+      c.lineTo(cx + lw, ly);
+      c.stroke();
+    });
+
+    // валики сверху и снизу — свиток свёрнут с обоих концов
+    [-1, 1].forEach((side) => {
+      const ry = yc + side * hh;
+      const rg = c.createLinearGradient(cx, ry - T * 0.05, cx, ry + T * 0.05);
+      rg.addColorStop(0, '#ab9158');
+      rg.addColorStop(0.5, '#dcca90');
+      rg.addColorStop(1, '#8a7340');
+      c.fillStyle = rg;
+      c.strokeStyle = 'rgba(78,62,32,.9)';
+      c.lineWidth = 1;
+      c.beginPath();
+      c.roundRect(cx - hw * 1.18, ry - T * 0.045, hw * 2.36, T * 0.09, T * 0.045);
+      c.fill();
+      c.stroke();
+    });
+
+    // вопросительный знак — содержимое неизвестно
+    c.fillStyle = `rgba(92,58,24,${0.7 + breathe * 0.3})`;
+    c.font = `bold ${(T * 0.26).toFixed(1)}px Georgia, serif`;
+    c.textAlign = 'center';
+    c.textBaseline = 'middle';
+    c.fillText('?', cx, yc);
+
+    // искры по орбите — подсказывают интерактивность (как у руны)
+    for (let i = 0; i < 3; i++) {
+      const a = p * Math.PI + (i / 3) * Math.PI * 2;
+      const orb = T * (0.3 + 0.03 * Math.sin(p * Math.PI * 4 + i));
+      const sx = cx + Math.cos(a) * orb,
+        sy = yc + Math.sin(a) * orb * 0.72;
+      c.fillStyle = `rgba(244,216,142,${0.25 + 0.45 * pingPong(p + i / 3)})`;
+      c.beginPath();
+      c.arc(sx, sy, 1.5, 0, 7);
+      c.fill();
+    }
   } else if (s.type === 'colorzone') {
     // ── ЦВЕТОВАЯ ЗОНА: бегущие диагональные полосы + уголки + глиф слона ──
     const p = ats / 2200 + seed;
@@ -920,8 +1448,10 @@ export function renderNow(ts) {
   }
   const f = activeForm();
   const pp = getAnimPos(S.player, S.player.x, S.player.y, ts);
+  drawModifierAura(pp.x, pp.y, ts); // аура и кольца — ПОД фигурой
   drawPiece(pp.x, pp.y, f.type, true, f.type === 'pawn' ? S.player.facing : null, f.improved);
   drawStatuses(pp.x, pp.y, S.player);
+  drawModifierCounters(pp.x, pp.y, ts); // счётчики ✦/☠ у нижнего края клетки
   // --- эффекты ---
   // вспышка взятия
   if (captureFlash) {
@@ -985,6 +1515,9 @@ export function renderNow(ts) {
     gate: 'Ворота',
     plate: 'Плита',
     colorzone: 'Цветовая зона',
+    door: 'Дверь',
+    key: 'Ключ',
+    scroll: 'Свиток',
   };
   const drawTooltip = (label, tx, ty, color) => {
     dom.ctx.font = '11px Georgia, serif';
@@ -1057,6 +1590,15 @@ export function renderNow(ts) {
   dom.ctx.moveTo(0, 0);
   dom.ctx.lineTo(CFG.VIEW_W * T, 0);
   dom.ctx.stroke();
+  // панель модификаторов — при наведении на свою фигуру (координаты вьюпорта)
+  if (
+    S.hoveredCell &&
+    S.player &&
+    S.hoveredCell.x === S.player.x &&
+    S.hoveredCell.y === S.player.y
+  ) {
+    drawModifierPanel((pp.x - camera.x) * T);
+  }
 }
 
 // ========== обратная совместимость: render() = requestRender() ==========

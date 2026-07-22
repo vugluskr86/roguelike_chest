@@ -4,6 +4,8 @@
  */
 import { S } from './state.js';
 import { dom } from './dom.js';
+import { KEY_COLORS, KEY_GLYPH } from './config.js';
+import { loadLevel } from './board.js';
 import { afterEnemies } from './combat.js';
 import { META, metaSave } from './meta.js';
 import { render } from './render.js';
@@ -41,6 +43,7 @@ function openDebugMenu() {
     { label: '✦ +50 осколков', fn: () => addShards(50) },
     { label: '🛡 Неуязвимость: ' + (S.godMode ? 'ВЫКЛ' : 'ВКЛ'), fn: toggleGodMode },
     { label: '💊 Исцелиться (снять кулдауны и статусы)', fn: healAll },
+    { label: '🔑 Все ключи', fn: addAllKeys },
     { label: '♟ Добавить случайную форму', fn: addRandomForm },
     { label: 'Закрыть', fn: closeMenu },
   ].forEach((b) => {
@@ -52,6 +55,52 @@ function openDebugMenu() {
     };
     dom.mChoices.appendChild(btn);
   });
+
+  // поле ввода + загрузка уровня
+  const loadRow = document.createElement('div');
+  loadRow.style.cssText = 'display:flex;gap:6px;margin-top:4px;';
+  const input = document.createElement('input');
+  input.type = 'text';
+  input.placeholder = 'название уровня (level1)';
+  input.style.cssText =
+    'flex:1;background:#181b22;border:1px solid #3a3e49;border-radius:5px;padding:5px 8px;color:var(--txt);font-family:inherit;font-size:13px;';
+  const loadBtn = document.createElement('button');
+  loadBtn.textContent = 'Загрузить';
+  loadBtn.style.cssText = 'min-height:unset;padding:5px 10px;font-size:12px;';
+  loadBtn.onclick = async () => {
+    const name = input.value.trim() || 'level1';
+    try {
+      const res = await fetch(`/data/${encodeURIComponent(name)}.json`);
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data = await res.json();
+      closeMenu();
+      loadLevel(data);
+      log(`✅ Уровень "${name}" загружен.`, 'g');
+    } catch (err) {
+      log(`❌ Ошибка загрузки "${name}": ${err.message}`, 'r');
+    }
+  };
+  loadRow.appendChild(input);
+  loadRow.appendChild(loadBtn);
+  dom.mChoices.appendChild(loadRow);
+
+  // кнопка сброса прогресса
+  const resetBtn = document.createElement('button');
+  resetBtn.textContent = '🗑 Сбросить прогресс (localStorage)';
+  resetBtn.style.cssText = 'margin-top:6px;border-color:#b3423a;color:#d66a62;';
+  resetBtn.onclick = () => {
+    localStorage.removeItem('chessrogue_meta_v1');
+    localStorage.removeItem('chessrogue_settings_v1');
+    log('🗑 Весь прогресс в localStorage сброшен. Перезапустите страницу.', 'r');
+    closeMenu();
+  };
+  dom.mChoices.appendChild(resetBtn);
+
+  // оригинальная кнопка закрыть — после поля ввода
+  const closeBtn = document.createElement('button');
+  closeBtn.textContent = 'Закрыть';
+  closeBtn.onclick = closeMenu;
+  dom.mChoices.appendChild(closeBtn);
   dom.overlay.classList.add('on');
 }
 
@@ -103,6 +152,12 @@ function healAll() {
     if (e.status) e.status = {};
   });
   log('💊 Все кулдауны и статусы сняты.', 'g');
+}
+
+function addAllKeys() {
+  KEY_COLORS.forEach((c) => S.keys.add(c));
+  log(`🔑 Все ключи получены: ${KEY_COLORS.map((c) => KEY_GLYPH[c]).join('')}`, 'g');
+  syncUI();
 }
 
 function addRandomForm() {
