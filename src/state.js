@@ -13,6 +13,7 @@ export const S = {
   biome: null,
   modalOpen: false,
   hoveredCell: null,
+  godMode: false, // чит-режим неуязвимости
   challenge: null, // id активного челленджа
 };
 

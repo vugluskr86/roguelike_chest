@@ -10,6 +10,7 @@ import { camera, render, resizeBoard, startRenderLoop } from './render.js';
 import { enemyAt } from './state.js';
 import { closeModal, openHelp, openSettings, openTitle } from './ui.js';
 import { inB, seedRNG } from './util.js';
+import { feedDebugChar } from './debug.js';
 import { initAudio } from './audio.js';
 
 // ===== экран загрузки =====
@@ -154,6 +155,11 @@ document.getElementById('btnRestart').onclick = () => {
 };
 
 initDom();
+
+// слушатель для секретного слова "debug" — открывает читы
+document.body.addEventListener('keydown', (ev) => {
+  if (ev.key.length === 1) feedDebugChar(ev.key);
+});
 
 dom.cv.addEventListener('click', handleTap);
 // Наведение мышью — только на устройствах с настоящим курсором, чтобы не конфликтовать с тачем

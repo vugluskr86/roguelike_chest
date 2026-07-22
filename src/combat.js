@@ -285,6 +285,7 @@ export function spreadLava() {
 }
 
 export function degradePlayer(byEnemy) {
+  if (S.godMode) return; // чит-режим — неуязвимость
   const f = activeForm();
   if (S.challenge === 'lone_figure') {
     death();
