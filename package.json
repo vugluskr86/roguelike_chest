@@ -13,7 +13,8 @@
     "lint": "eslint src/ test/",
     "lint:fix": "eslint src/ test/ --fix",
     "format": "prettier --check src/ test/",
-    "format:fix": "prettier --write src/ test/"
+    "format:fix": "prettier --write src/ test/",
+    "deploy": "npm run build && git add docs/ && git commit -m 'Deploy to GitHub Pages' && git push"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
