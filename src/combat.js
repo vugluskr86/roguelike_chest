@@ -119,13 +119,34 @@ export function triggerSpecialForPlayer() {
       playPortal();
     }
   } else if (s.type === 'conveyor') {
-    const [dx, dy] = s.dir,
-      nx = S.player.x + dx,
-      ny = S.player.y + dy;
+    // Первый шаг конвейера
+    const [dx, dy] = s.dir;
+    let nx = S.player.x + dx;
+    let ny = S.player.y + dy;
     if (inB(nx, ny) && !S.walls.has(key(nx, ny)) && !enemyAt(nx, ny)) {
       S.player.x = nx;
       S.player.y = ny;
+      // Цепочка конвейеров: продолжаем движение, пока клетка под игроком — конвейер
+      const visited = new Set();
+      visited.add(k); // начальный конвейер уже обработан
+      while (true) {
+        const ck = key(S.player.x, S.player.y);
+        if (visited.has(ck)) break; // защита от зацикливания
+        visited.add(ck);
+        const cs = S.special.get(ck);
+        if (!cs || cs.type !== 'conveyor') break;
+        nx = S.player.x + cs.dir[0];
+        ny = S.player.y + cs.dir[1];
+        if (!inB(nx, ny) || S.walls.has(key(nx, ny)) || enemyAt(nx, ny)) break;
+        S.player.x = nx;
+        S.player.y = ny;
+      }
       log('Конвейер сдвигает тебя.', 'p');
+      // Проверить особую клетку на финальной позиции (ловушка, лава, лед, портал и т.д.)
+      const finalSpecial = S.special.get(key(S.player.x, S.player.y));
+      if (finalSpecial && finalSpecial.type !== 'conveyor') {
+        triggerSpecialForPlayer();
+      }
     }
   } else if (s.type === 'plate') {
     if (s.opens && S.walls.has(key(s.opens.x, s.opens.y))) {
