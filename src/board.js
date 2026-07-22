@@ -436,10 +436,20 @@ export function newFloor() {
     });
     // если дверь заперта — кладём ключ в комнату r
     if (locked) {
-      const kx = 1 + randInt(CFG.W - 2);
-      const ky = 1 + randInt(CFG.H - 2);
-      if (!S.rooms[r].special.get(key(kx, ky)) && !(kx === doorX && ky === doorY))
-        S.rooms[r].special.set(key(kx, ky), { type: 'key', color: locked });
+      let kx,
+        ky,
+        tries = 0;
+      do {
+        kx = 1 + randInt(CFG.W - 2);
+        ky = 1 + randInt(CFG.H - 2);
+        tries++;
+      } while (
+        tries < 50 &&
+        (S.rooms[r].walls.has(key(kx, ky)) ||
+          S.rooms[r].special.get(key(kx, ky)) ||
+          (kx === doorX && ky === doorY))
+      );
+      if (tries < 50) S.rooms[r].special.set(key(kx, ky), { type: 'key', color: locked });
     }
   }
   // удаляем стены в клетках дверей
