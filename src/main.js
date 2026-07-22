@@ -6,7 +6,7 @@ import { pass, rotate, switchForm, tryMoveTo } from './combat.js';
 import { CFG, loadSettings } from './config.js';
 import { metaLoad } from './meta.js';
 import { playerOptions } from './moves.js';
-import { render, resizeBoard, startRenderLoop } from './render.js';
+import { camera, render, resizeBoard, startRenderLoop } from './render.js';
 import { enemyAt } from './state.js';
 import { closeModal, openHelp, openSettings, openTitle } from './ui.js';
 import { inB, seedRNG } from './util.js';
@@ -79,8 +79,8 @@ function cellFromEvent(ev) {
   const cx = ev.clientX != null ? ev.clientX : t ? t.clientX : 0;
   const cy = ev.clientY != null ? ev.clientY : t ? t.clientY : 0;
   return {
-    x: Math.floor((cx - r.left) / (r.width / CFG.W)),
-    y: Math.floor((cy - r.top) / (r.height / CFG.H)),
+    x: Math.floor((cx - r.left) / (r.width / CFG.VIEW_W) + camera.x),
+    y: Math.floor((cy - r.top) / (r.height / CFG.VIEW_H) + camera.y),
   };
 }
 // Основной ввод — click: надёжно срабатывает и на тач, и на ПК (touch-action:manipulation убирает задержку)

@@ -9,6 +9,20 @@ export let T = CFG.TILE; // логический размер тайла (CSS-п
 
 let needsRedraw = true;
 let loopRunning = false;
+export let camera = { x: 0, y: 0 }; // смещение viewport в клетках
+
+// ========== камера ==========
+
+export function centerCamera() {
+  if (!S.player) return;
+  const tx = S.player.x - CFG.VIEW_W / 2 + 0.5;
+  const ty = S.player.y - CFG.VIEW_H / 2 + 0.5;
+  camera.x += (tx - camera.x) * 0.15;
+  camera.y += (ty - camera.y) * 0.15;
+  // clamp к границам карты
+  camera.x = Math.max(0, Math.min(camera.x, CFG.W - CFG.VIEW_W));
+  camera.y = Math.max(0, Math.min(camera.y, CFG.H - CFG.VIEW_H));
+}
 
 // ========== анимация перемещения ==========
 
@@ -176,12 +190,13 @@ export function startRenderLoop() {
 // ========== resize ==========
 
 export function resizeBoard() {
-  const cssW = dom.cv.clientWidth || Math.min(CFG.W * CFG.TILE, (window.innerWidth || 616) - 24);
-  T = cssW / CFG.W;
+  const cssW =
+    dom.cv.clientWidth || Math.min(CFG.VIEW_W * CFG.TILE, (window.innerWidth || 616) - 24);
+  T = cssW / CFG.VIEW_W;
   const dpr = window.devicePixelRatio || 1;
   dom.cv.width = Math.round(cssW * dpr);
-  dom.cv.height = Math.round(CFG.H * T * dpr);
-  dom.cv.style.height = CFG.H * T + 'px'; // держим соотношение 11:9
+  dom.cv.height = Math.round(CFG.VIEW_H * T * dpr);
+  dom.cv.style.height = CFG.VIEW_H * T + 'px';
   dom.ctx.setTransform(dpr, 0, 0, dpr, 0, 0); // рисуем в логических координатах
   requestRender();
 }
@@ -521,6 +536,9 @@ export function drawPiece(x, y, type, isPlayer, facing, improved, opts) {
  * @param {number} ts — timestamp от rAF (для будущих анимаций)
  */
 export function renderNow(ts) {
+  centerCamera();
+  dom.ctx.save();
+  dom.ctx.translate(-camera.x * T, -camera.y * T);
   dom.ctx.clearRect(0, 0, CFG.W * T, CFG.H * T);
   const insp = S.hoverEnemy || S.selectedEnemy;
   const threats = insp ? enemyThreat(insp) : allThreats();
@@ -539,12 +557,15 @@ export function renderNow(ts) {
         dom.ctx.strokeStyle = 'rgba(0,0,0,.5)';
         dom.ctx.strokeRect(x * T + 3.5, y * T + 3.5, T - 7, T - 7);
       }
+      // подсветка промо-клеток (y=0, не стена) с анимированной прозрачностью
       if (y === 0 && !S.walls.has(key(x, y))) {
-        // линия промоушена
-        dom.ctx.fillStyle = 'rgba(201,162,39,' + (S.promotionUsed ? 0.1 : 0.24) + ')';
+        const pp = (ts || 0) / 900;
+        const pa = S.promotionUsed ? 0.05 : 0.18 + Math.sin(pp * Math.PI * 2) * 0.1;
+        dom.ctx.fillStyle = `rgba(201,162,39,${pa})`;
         dom.ctx.fillRect(x * T, y * T, T, T);
-        dom.ctx.fillStyle = 'rgba(201,162,39,.8)';
-        dom.ctx.fillRect(x * T, y * T, T, 3);
+        dom.ctx.strokeStyle = `rgba(201,162,39,${pa + 0.2})`;
+        dom.ctx.lineWidth = 2;
+        dom.ctx.strokeRect(x * T + 2, y * T + 2, T - 4, T - 4);
       }
     }
   // челлендж «Слепой спуск»: затемняем всё за пределами радиуса 2 от игрока
@@ -725,6 +746,18 @@ export function renderNow(ts) {
     dom.ctx.lineTo(CFG.W * T, y * T);
     dom.ctx.stroke();
   }
+  dom.ctx.restore();
+  // бордюр промоушена — в координатах вьюпорта, всегда сверху (после restore!)
+  const promoPhase = (ts || 0) / 900;
+  const promoAlpha = S.promotionUsed ? 0.05 : 0.18 + Math.sin(promoPhase * Math.PI * 2) * 0.1;
+  const glowAlpha = S.promotionUsed ? 0.1 : 0.4 + Math.sin(promoPhase * Math.PI * 2) * 0.2;
+  dom.ctx.fillStyle = `rgba(201,162,39,${promoAlpha})`;
+  dom.ctx.strokeStyle = `rgba(201,162,39,${glowAlpha})`;
+  dom.ctx.lineWidth = 4;
+  dom.ctx.beginPath();
+  dom.ctx.moveTo(0, 0);
+  dom.ctx.lineTo(CFG.VIEW_W * T, 0);
+  dom.ctx.stroke();
 }
 
 // ========== обратная совместимость: render() = requestRender() ==========

@@ -52,8 +52,10 @@
 /** @typedef {{type:PieceType, r:number, improved:boolean, cooldown:number, homeColor:0|1}} Form */
 
 export const CFG = {
-  W: 11,
-  H: 9,
+  W: 13,
+  H: 11,
+  VIEW_W: 11, // ширина вьюпорта в клетках
+  VIEW_H: 9, // высота вьюпорта в клетках
   TILE: 56,
   BASE_R: { bishop: 3, rook: 3, queen: 2, archbishop: 3, chancellor: 4, beast: 1 },
   MOVE_ANIM_MS: 300, // длительность анимации перемещения фигур

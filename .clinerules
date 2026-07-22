@@ -2,17 +2,20 @@
 
 ## Project Overview
 
-Шахматный рогалик: фигура-игрок спускается по процедурным этажам, меняя форму.
+Шахматный рогалик: фигура-игрок спускается по процедурным этажам с камерой, меняя форму.
 Vanilla JS (no framework), Canvas + DOM рендер, Vite сборка, Vitest тесты.
+Web Audio API для звуков, Mersenne Twister для RNG с seed.
 
 ## Tech Stack
 
 - **Runtime**: Vanilla JS (ES2022), `type: "module"` in package.json
-- **Build**: Vite 5.x (base: `./`, target: es2020, outDir: dist)
-- **Test**: Vitest 2.x + jsdom (environment: node, setupFiles: `./test/setup.js`)
+- **Build**: Vite 8.x (base: `./`, target: es2020, outDir: dist)
+- **Test**: Vitest 4.x + jsdom (environment: node, setupFiles: `./test/setup.js`)
 - **Lint/Format**: ESLint 10 (flat config) + Prettier 3
+- **Audio**: Web Audio API (OscillatorNode, синтезированные звуки без файлов)
+- **RNG**: Mersenne Twister (32-bit) с `seedRNG()` — вся генерация детерминирована
 - **Package manager**: npm
-- **No TypeScript**, but JSDoc typedefs are used for type hints (future TS migration planned)
+- **No TypeScript**, but JSDoc typedefs are used for type hints
 
 ## Naming & Language
 
@@ -22,25 +25,26 @@ Vanilla JS (no framework), Canvas + DOM рендер, Vite сборка, Vitest 
 
 ## Module Architecture (src/)
 
-| File         | Responsibility                                       | Key Exports                                                                                                                                    |
-| ------------ | ---------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
-| `config.js`  | Константы, typedefs, биомы, статусы, таблицы тюнинга | `CFG`, `GLYPH`, `NAME`, `BIOMES`, `STATUS_META`, `RELIC_TIER`, etc.                                                                            |
-| `state.js`   | Глобальное мутабельное состояние `S`                 | `S` (object), `has()`, `curse()`, `enemyAt()`                                                                                                  |
-| `dom.js`     | Кеширование DOM-элементов                            | `dom` (object), `initDom()`                                                                                                                    |
-| `util.js`    | Чистые хелперы, константы направлений                | `ORTHO`, `DIAG`, `KNIGHT_J`, `key()`, `inB()`, `tileColor()`, `cheb()`, `makeForm()`, `randInt()`, `pick()`, `shuffle()`                       |
-| `moves.js`   | Генерация ходов, угрозы, pathfinding                 | `genMoves()`, `enemyThreat()`, `allThreats()`, `playerOptions()`, `activeForm()`, `effectiveForm()`, `attackSquaresFor()`, `movesToThreaten()` |
-| `board.js`   | Генерация этажа, спавн врагов, reset                 | `generateRoom()`, `spawnEnemiesForFloor()`, `newFloor()`, `reset()`                                                                            |
-| `combat.js`  | Действия игрока, поток хода                          | `tryMoveTo()`, `rotate()`, `switchForm()`, `pass()`, `endPlayerTurn()`, `degradePlayer()`                                                      |
-| `enemies.js` | AI врагов: ход каждого типа                          | `enemiesTurn()`                                                                                                                                |
-| `status.js`  | Статусы: яд/оглушение/щит/ускорение                  | `applyStatus()`, `cleanse()`, `statusVal()`                                                                                                    |
-| `render.js`  | Canvas-рендер доски, фигур, угроз, спецклеток        | `render()`, `resizeBoard()`, `drawPiece()`, `drawSpecial()`, `drawStatuses()`                                                                  |
-| `ui.js`      | DOM-UI: лог, колесо, модалки, сводка                 | `log()`, `syncUI()`, `openModal()`, `closeModal()`, `openHelp()`, `openTitle()`, `openRunSummary()`                                            |
-| `loot.js`    | Реликвии, проклятия, награды после этажа             | `offerLoot()`, `applyRelic()`, `applyCurse()`                                                                                                  |
-| `events.js`  | Комнаты-события между этажами                        | `triggerEvent()`                                                                                                                               |
-| `meta.js`    | Мета-прогрессия, достижения, бестиарий               | `META`, `metaLoad()`, `unlockAch()`, `codexSeeEnemy()`                                                                                         |
-| `content.js` | Определения реликвий и проклятий (чистые данные)     | `RELICS`, `CURSES`                                                                                                                             |
-| `main.js`    | Точка входа: ввод, загрузка, старт                   | (no exports)                                                                                                                                   |
-| `styles.css` | Стили                                                | (CSS)                                                                                                                                          |
+| File         | Responsibility                                     | Key Exports                                                                                                                                        |
+| ------------ | -------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `config.js`  | Константы, typedefs, биомы (6), статусы, настройки | `CFG`, `GLYPH`, `NAME`, `BIOMES`, `STATUS_META`, `loadSettings()`, `saveSettings()`                                                                |
+| `state.js`   | Глобальное мутабельное состояние `S`               | `S` (object), `has()`, `curse()`, `enemyAt()`                                                                                                      |
+| `dom.js`     | Кеширование DOM-элементов                          | `dom` (object), `initDom()`                                                                                                                        |
+| `util.js`    | Хелперы, направления, Mersenne Twister             | `ORTHO`, `DIAG`, `KNIGHT_J`, `key()`, `inB()`, `tileColor()`, `cheb()`, `makeForm()`, `randInt()`, `pick()`, `shuffle()`, `seedRNG()`, `random()`  |
+| `moves.js`   | Генерация ходов, угрозы, pathfinding               | `genMoves()`, `enemyThreat()`, `allThreats()`, `playerOptions()`, `activeForm()`, `effectiveForm()`, `attackSquaresFor()`, `movesToThreaten()`     |
+| `board.js`   | Генерация этажа (6 стилей), спавн врагов           | `generateRoom()`, `spawnEnemiesForFloor()`, `newFloor()`, `reset()`                                                                                |
+| `combat.js`  | Действия игрока, поток хода, челленджи             | `tryMoveTo()`, `rotate()`, `switchForm()`, `pass()`, `endPlayerTurn()`, `degradePlayer()`                                                          |
+| `enemies.js` | AI врагов, челлендж «Шторм»                        | `enemiesTurn()`                                                                                                                                    |
+| `status.js`  | Статусы: яд/оглушение/щит/ускорение                | `applyStatus()`, `cleanse()`, `statusVal()`                                                                                                        |
+| `render.js`  | Canvas-рендер, камера, анимации, эффекты           | `render()`, `resizeBoard()`, `drawPiece()`, `drawSpecial()`, `camera`, `spawnParticles()`, `startCaptureFlash()`, `screenFade()`, `centerCamera()` |
+| `ui.js`      | DOM-UI, модалки, настройки, челленджи              | `log()`, `syncUI()`, `openModal()`, `openSettings()`, `openTitle()`, `openRunSummary()`                                                            |
+| `loot.js`    | Реликвии, проклятия, награды                       | `offerLoot()`, `applyRelic()`, `applyCurse()`                                                                                                      |
+| `events.js`  | Комнаты-события между этажами                      | `triggerEvent()`                                                                                                                                   |
+| `meta.js`    | Мета-прогрессия, достижения, бестиарий             | `META`, `metaLoad()`, `unlockAch()`, `codexSeeEnemy()`                                                                                             |
+| `content.js` | Реликвии, проклятия, апгрейды, челленджи           | `RELICS`, `CURSES`, `META_UPGRADES`, `CHALLENGES`                                                                                                  |
+| `audio.js`   | Звуки через Web Audio API (синтез)                 | `playMove()`, `playCapture()`, `playDeath()`, `playTrap()`, `playPortal()`, `playRune()`, `playPromotion()`, `playLoot()`, `initAudio()`           |
+| `main.js`    | Точка входа, загрузка, настройки, ввод             | (no exports)                                                                                                                                       |
+| `styles.css` | Стили, мобильная адаптация, скроллбары             | (CSS)                                                                                                                                              |
 
 ## State Management Rules
 
@@ -58,9 +62,11 @@ export const S = {
   floor: number,
   hoverEnemy: null | Object,
   selectedEnemy: null | Object,
-  special: Map, // Map<string, Object> — особые клетки (ловушки, порталы, etc.)
+  special: Map, // Map<string, Object> — особые клетки
   biome: null | Object,
   modalOpen: boolean,
+  hoveredCell: null | { x, y }, // для тултипов
+  challenge: null | string, // id активного челленджа
 };
 ```
 
@@ -87,31 +93,76 @@ export const S = {
 
 ### Config Access
 
-- All tuning in `CFG` (config.js): `CFG.W` (11), `CFG.H` (9), `CFG.TILE` (56), `CFG.BASE_R`, `CFG.DIFF`
+- All tuning in `CFG` (config.js): `CFG.W`, `CFG.H`, `CFG.VIEW_W`, `CFG.VIEW_H`, `CFG.TILE`, `CFG.BASE_R`, `CFG.DIFF`
+- `CFG.MOVE_ANIM_MS: 300` — длительность анимации перемещения
+- `CFG.TILE_ANIM_SPEED: 1.0` — множитель скорости анимаций тайлов
+- `CFG.SFX_ENABLED`, `CFG.ANIM_ENABLED` — настройки (сохраняются в localStorage)
 - Glyphs: `GLYPH[type]` for display characters
 - Names: `NAME[type]` for Russian names
 
 ### Turn Flow
 
 1. Player acts → `tryMoveTo()`, `rotate()`, `switchForm()`, or `pass()`
-2. → `endPlayerTurn()` (reduce cooldowns, check promotion)
-3. → `enemiesTurn()` (each enemy acts)
+2. → `endPlayerTurn()` (reduce cooldowns, chaos_wheel check, promotion check)
+3. → `enemiesTurn()` (each enemy acts — double in storm challenge)
 4. → `render()` + `syncUI()`
 
-### Enemy Defs
+### RNG
 
-- Standard chess types: pawn, knight, bishop, rook, queen (in `STD_TYPES`)
-- Special enemies: guardian (armor), necro (summoner), mimic (mirrors player), assassin (knight-type, poison), priest (bishop-type, shield), frost (stationary, stun)
-- `MOVE_AS` maps special enemies to move patterns
-- `effectiveForm(e)` returns the effective movement form for an enemy
+- Mersenne Twister (32-bit) in `util.js`
+- `seedRNG(seed)` — set global RNG seed
+- `random()` — returns [0,1)
+- `randInt(n)`, `pick(a)`, `shuffle(a)` — use seeded RNG
+- `newFloor()` calls `seedRNG(S.floor * 1000000 + S.turn + 1)` — deterministic floors
+- Restart (btn/key) calls `seedRNG(Date.now() * Math.random())` — random runs
+
+### Audio
+
+- Web Audio API — `OscillatorNode` + `GainNode`, no external files
+- `initAudio()` — lazy AudioContext resume on first tap
+- `playMove()`, `playCapture()`, `playDeath()`, `playTrap()`, `playPortal()`, `playRune()`, `playPromotion()`, `playLoot()`
+- All check `CFG.SFX_ENABLED` — silent when disabled
 
 ### Rendering
 
 - Canvas-based (`dom.cv` / `dom.ctx`)
 - `T` (tile size) recalculated on resize via `resizeBoard()`
-- `render()` is the full repaint — call after any state change
-- Special cells rendered via `drawSpecial()`, threats via `hatch()`
-- `drawStatuses()` shows status dot indicators on units
+- Viewport: `CFG.VIEW_W` × `CFG.VIEW_H` cells, camera follows player with easing
+- `render()` = `requestRender()` — deferred to rAF
+- `renderNow(ts)` — full repaint with `ctx.translate(-camera.x*T, -camera.y*T)`
+- Promotion border drawn after `ctx.restore()` — always at viewport top
+- Special cells: animated lava (bubbles), fog (drifting clouds), conveyor/gate (setLineDash), ice (cracks), portal (pulsing glow), trap (web)
+- Effects: particles (death), capture flash (ring), screen fade (floor transition)
+- Tooltips on special cells via `S.hoveredCell`
+
+### Enemy Defs
+
+- Standard chess types: pawn, knight, bishop, rook, queen (in `STD_TYPES`)
+- Playable exotic forms: archbishop (bishop+knight), chancellor (rook+knight), beast (leap-2)
+- Special enemies: guardian (armor), necro (summoner), mimic (mirrors player), assassin (knight-type, poison), priest (bishop-type, shield), frost (stationary, stun)
+- `MOVE_AS` maps special enemies to move patterns
+- `effectiveForm(e)` returns the effective movement form for an enemy
+
+### Biome System
+
+- 6 biomes cycling every 2 floors: Залы (halls), Коридоры (corridors), Лабиринт (maze), Решётка (grid), Арена (arena), Пилоны (pylons)
+- Wall styles: halls (clusters), corridors (barriers), maze (DFS), grid (3×3 cells), arena (open), pylons (pillars)
+- Each biome has: wallStyle, light/dark colors, accent, favored enemies, favored tiles
+- `biomeFor(floor)` picks biome — always call after `S.floor` changes
+- Guaranteed: border and promotion row always clear, BFS reachability checked
+
+### Challenge Modes
+
+- `lone_figure` — single form, no switching, capture = death
+- `blind_descent` — only visible within Chebyshev distance ≤ 2 from player
+- `storm` — enemies act twice per turn
+- `chaos_wheel` — random form switch every 3 turns
+- `escalation` — enemies gain +range per floor, armor from floor 5
+
+### Loading Screen
+
+- Splash screen 2.5s with random lore + tip, fade-out transition
+- Falls back to immediate start in test environment
 
 ## Testing Rules
 
@@ -121,6 +172,7 @@ export const S = {
 - Access test helpers: `elChildren(id)`, `clickWhere(id, pred)`, `store` (localStorage Map)
 - `import { S } from '../src/state.js'` — mutate S to set up test state
 - Tests run in Node via jsdom; no browser needed
+- RNG is seeded — tests are deterministic
 
 ### Test Structure
 
@@ -128,6 +180,7 @@ export const S = {
 - Use `describe`/`it` (vitest globals)
 - Re-set state in `beforeEach` as needed (modules share the same `S` reference)
 - Canvas context is a noop proxy — don't test pixel values, test state/logic
+- Board tests validate all 6 biome styles (400 iterations each)
 
 ### Running Tests
 
@@ -167,18 +220,18 @@ npm run test:watch # Watch mode
 - Config is in `eslint.config.js` (ESLint 10 flat format)
 - `ecmaVersion: 2022` (supports top-level await in test/setup.js)
 - Test files have vitest globals declared (`describe`, `it`, `expect`, etc.)
-- Browser globals declared in main config block
+- Browser globals declared in main config block (including `AudioContext`)
 
 ### Prettier Settings
 
 - Single quotes, semicolons, trailing commas, 100 print width, 2-space indent
 - `eslint-config-prettier` disables conflicting ESLint rules
 
-### Biome System
+### Camera & Viewport
 
-- 3 biomes cycling every 2 floors: Залы (halls), Коридоры (corridors), Пилоны (pylons)
-- Each has: wallStyle, light/dark colors, accent, favored enemies, favored tiles
-- `biomeFor(floor)` picks biome — always call after `S.floor` changes
+- `CFG.VIEW_W` / `CFG.VIEW_H` — viewport size in cells (always 11×9)
+- `CFG.W` / `CFG.H` — board size (can be larger for scrolling)
+- `camera` exported from render.js — used in `cellFromEvent()` for input mapping
 
 ### Common Pitfalls
 
@@ -189,6 +242,8 @@ npm run test:watch # Watch mode
 - **Assuming `S.special` is non-null** — check with `&&` or `?.`
 - **Resetting `S` instead of mutating** — `reset()` handles clean slate
 - **Adding new enemy types without updating `CFG.DIFF.cost` and `CFG.DIFF.unlockFloor`**
+- **Camera clipping** — promotion border must be drawn after `ctx.restore()`, not during translate
+- **RNG seed** — must be set at `startGame()` and each `newFloor()`
 
 ## Adding New Features Checklist
 
@@ -196,6 +251,7 @@ npm run test:watch # Watch mode
 2. State fields → `state.js` (S + helpers)
 3. Logic → appropriate module or new file in `src/`
 4. Rendering → `render.js` (canvas) or `ui.js` (DOM)
-5. Tests → `test/<module>.test.js`
-6. Import in `main.js` if it's an init hook
-7. Run `npm run lint` and `npm test` before committing
+5. Audio → `audio.js` (if sound is needed)
+6. Tests → `test/<module>.test.js`
+7. Import in `main.js` if it's an init hook
+8. Run `npm run lint` and `npm test` before committing

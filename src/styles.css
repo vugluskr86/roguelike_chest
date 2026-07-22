@@ -602,23 +602,35 @@ button.again {
   width: 100%;
 }
 .scroll-shop {
-  height: 420px;
+  max-height: 260px;
   overflow-y: auto;
+}
+.scroll-shop,
+#log,
+.modal {
   scrollbar-width: thin;
   scrollbar-color: #3a3e49 #181b22;
 }
-.scroll-shop::-webkit-scrollbar {
+.scroll-shop::-webkit-scrollbar,
+#log::-webkit-scrollbar,
+.modal::-webkit-scrollbar {
   width: 6px;
 }
-.scroll-shop::-webkit-scrollbar-track {
+.scroll-shop::-webkit-scrollbar-track,
+#log::-webkit-scrollbar-track,
+.modal::-webkit-scrollbar-track {
   background: #181b22;
   border-radius: 3px;
 }
-.scroll-shop::-webkit-scrollbar-thumb {
+.scroll-shop::-webkit-scrollbar-thumb,
+#log::-webkit-scrollbar-thumb,
+.modal::-webkit-scrollbar-thumb {
   background: #3a3e49;
   border-radius: 3px;
 }
-.scroll-shop::-webkit-scrollbar-thumb:hover {
+.scroll-shop::-webkit-scrollbar-thumb:hover,
+#log::-webkit-scrollbar-thumb:hover,
+.modal::-webkit-scrollbar-thumb:hover {
   background: var(--promo);
 }
 .help {
