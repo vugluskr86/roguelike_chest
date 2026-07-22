@@ -47,7 +47,7 @@
    Структура 1:1 переносится в TS-модули (типы — в JSDoc).
    ============================================================ */
 
-/** @typedef {'pawn'|'knight'|'bishop'|'rook'|'queen'|'archbishop'|'chancellor'|'beast'} PieceType */
+/** @typedef {'pawn'|'knight'|'bishop'|'rook'|'queen'|'archbishop'|'chancellor'|'beast'|'king'|'infiltrator'|'bastion'} PieceType */
 /** @typedef {{x:number,y:number}} Cell */
 /** @typedef {{type:PieceType, r:number, improved:boolean, cooldown:number, homeColor:0|1}} Form */
 
@@ -57,7 +57,17 @@ export const CFG = {
   VIEW_W: 11, // ширина вьюпорта в клетках
   VIEW_H: 9, // высота вьюпорта в клетках
   TILE: 56,
-  BASE_R: { bishop: 3, rook: 3, queen: 2, archbishop: 3, chancellor: 4, beast: 1 },
+  BASE_R: {
+    bishop: 3,
+    rook: 3,
+    queen: 2,
+    archbishop: 3,
+    chancellor: 4,
+    beast: 1,
+    king: 1,
+    infiltrator: 1,
+    bastion: 0,
+  },
   MOVE_ANIM_MS: 300, // длительность анимации перемещения фигур
   TILE_ANIM_SPEED: 1.0, // множитель скорости анимации тайлов (1=норма, 2=×2 быстрее)
   SFX_ENABLED: true, // звуки включены
@@ -66,6 +76,9 @@ export const CFG = {
   ENEMY_CAPTURE_CD: 1, // кулдаун врага после взятия игрока
   EXTRA_SLOTS: 2, // слоты колеса помимо пешки
   LADDER: {
+    king: 6,
+    infiltrator: 4,
+    bastion: 1,
     chancellor: 10,
     archbishop: 10,
     beast: 8,
@@ -127,6 +140,8 @@ export const GLYPH = {
   queen: '♛',
   archbishop: '♝',
   chancellor: '♜',
+  infiltrator: '◆',
+  bastion: '◈',
   beast: '☣',
   king: '♚',
   guardian: '♚',
@@ -144,6 +159,8 @@ export const NAME = {
   queen: 'ферзь',
   archbishop: 'архиепископ',
   chancellor: 'канцлер',
+  infiltrator: 'лазутчик',
+  bastion: 'бастион',
   beast: 'изверг',
   king: 'король',
   guardian: 'страж',
@@ -162,6 +179,9 @@ export const STD_TYPES = new Set([
   'archbishop',
   'chancellor',
   'beast',
+  'king',
+  'infiltrator',
+  'bastion',
 ]); // формы, доступные игроку
 export const MOVE_AS = { guardian: 'king', assassin: 'knight', priest: 'bishop' }; // спец-враг → паттерн движения
 

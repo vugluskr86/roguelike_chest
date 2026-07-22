@@ -155,6 +155,31 @@ export function genMoves(piece, form, isEnemyCell, isBlocked) {
       }
       break;
     }
+    case 'infiltrator': {
+      // пешка без фасинга — бьёт по всем 4 диагоналям, ходит вперёд
+      const [fx, fy] = piece.facing;
+      const mx = piece.x + fx,
+        my = piece.y + fy;
+      if (free(mx, my) && !blk(mx, my, [fx, fy])) {
+        moves.push({ x: mx, y: my });
+        if ((mine && has('pawn_double')) || hasteOn) {
+          const x2 = piece.x + fx * 2,
+            y2 = piece.y + fy * 2;
+          if (free(x2, y2) && !blk(x2, y2, [fx, fy])) moves.push({ x: x2, y: y2 });
+        }
+      }
+      // бьёт по всем четырём диагоналям всегда
+      for (const [dx, dy] of DIAG) {
+        const x = piece.x + dx,
+          y = piece.y + dy;
+        if (inB(x, y) && isEnemyCell(x, y) && !blk(x, y, [dx, dy])) captures.push({ x, y });
+      }
+      break;
+    }
+    case 'bastion': {
+      // стационарный танк — не ходит
+      break;
+    }
     case 'king': {
       for (const [dx, dy] of [...ORTHO, ...DIAG]) {
         const x = piece.x + dx,

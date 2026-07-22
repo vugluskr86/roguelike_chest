@@ -417,6 +417,8 @@ export function reset() {
   if (META.upgrades.archbishop) exotic.push('archbishop');
   if (META.upgrades.chancellor) exotic.push('chancellor');
   if (META.upgrades.beast) exotic.push('beast');
+  if (META.upgrades.infiltrator) exotic.push('infiltrator');
+  if (META.upgrades.bastion) exotic.push('bastion');
   exotic.forEach((t) => {
     S.unlocked.add(t);
     const slot = S.player.wheel.findIndex((s, i) => i > 0 && s === null);

@@ -1,6 +1,6 @@
 import { S } from './state.js';
 import { dom } from './dom.js';
-import { CFG, GLYPH, STATUS_META } from './config.js';
+import { CFG, GLYPH, NAME, STATUS_META } from './config.js';
 import { activeForm, allThreats, enemyThreat, playerOptions } from './moves.js';
 import { statusVal } from './status.js';
 import { key, tileColor } from './util.js';
@@ -973,34 +973,61 @@ export function renderNow(ts) {
       dom.ctx.globalAlpha = 1;
     }
   }
-  // тултип спец-клетки
-  if (S.challenge !== 'blind_descent' && S.hoveredCell && S.special) {
+  // тултипы: клетка + враг (стек, если вместе)
+  const TOOLTIPS = {
+    trap: 'Паутина',
+    portal: 'Портал',
+    rune: 'Руна перезарядки',
+    ice: 'Лёд',
+    lava: 'Лава',
+    fog: 'Туман',
+    conveyor: 'Конвейер',
+    gate: 'Ворота',
+    plate: 'Плита',
+    colorzone: 'Цветовая зона',
+  };
+  const drawTooltip = (label, tx, ty, color) => {
+    dom.ctx.font = '11px Georgia, serif';
+    dom.ctx.textAlign = 'center';
+    const w = dom.ctx.measureText(label).width + 10;
+    dom.ctx.fillStyle = 'rgba(0,0,0,.8)';
+    dom.ctx.beginPath();
+    dom.ctx.roundRect(tx - w / 2, ty - 16, w, 15, 4);
+    dom.ctx.fill();
+    dom.ctx.fillStyle = color;
+    dom.ctx.fillText(label, tx, ty - 5);
+    return ty - 18; // следующий тултип выше
+  };
+  let tipY = -4;
+  if (insp) {
+    // враг наводит курсор — центр клетки врага
+    const tx = insp.x * T + T / 2;
+    tipY = insp.y * T + tipY;
+    let label = `${GLYPH[insp.type]} ${NAME[insp.type]}`;
+    if (insp.armor > 1) label += ` · броня ${insp.armor}`;
+    if (insp.status) {
+      const st = [];
+      if (insp.status.poison > 0) st.push(`яд(${insp.status.poison})`);
+      if (insp.status.stun > 0) st.push(`оглуш.(${insp.status.stun})`);
+      if (insp.status.shield > 0) st.push(`щит(${insp.status.shield})`);
+      if (insp.status.haste > 0) st.push(`уск.(${insp.status.haste})`);
+      if (st.length) label += ' · ' + st.join(' ');
+    }
+    tipY = drawTooltip(label, tx, tipY, '#d07a3f');
+    // если враг стоит на спец-клетке — тултип клетки под ним
+    const sp = S.special && S.special.get(key(insp.x, insp.y));
+    if (sp) {
+      const cellLabel = TOOLTIPS[sp.type] || sp.type;
+      drawTooltip(cellLabel, tx, tipY, '#f2e9d8');
+    }
+  } else if (S.challenge !== 'blind_descent' && S.hoveredCell && S.special) {
+    // только клетка (без врага)
     const sp = S.special.get(key(S.hoveredCell.x, S.hoveredCell.y));
     if (sp) {
-      const TOOLTIPS = {
-        trap: 'Паутина',
-        portal: 'Портал',
-        rune: 'Руна перезарядки',
-        ice: 'Лёд',
-        lava: 'Лава',
-        fog: 'Туман',
-        conveyor: 'Конвейер',
-        gate: 'Ворота',
-        plate: 'Плита',
-        colorzone: 'Цветовая зона',
-      };
-      const label = TOOLTIPS[sp.type] || sp.type;
       const tx = S.hoveredCell.x * T + T / 2;
-      const ty = S.hoveredCell.y * T - 4;
-      dom.ctx.font = '11px Georgia, serif';
-      dom.ctx.textAlign = 'center';
-      const w = dom.ctx.measureText(label).width + 10;
-      dom.ctx.fillStyle = 'rgba(0,0,0,.8)';
-      dom.ctx.beginPath();
-      dom.ctx.roundRect(tx - w / 2, ty - 16, w, 15, 4);
-      dom.ctx.fill();
-      dom.ctx.fillStyle = '#f2e9d8';
-      dom.ctx.fillText(label, tx, ty - 5);
+      const ty = S.hoveredCell.y * T + tipY;
+      const cellLabel = TOOLTIPS[sp.type] || sp.type;
+      drawTooltip(cellLabel, tx, ty, '#f2e9d8');
     }
   }
   // сетка
