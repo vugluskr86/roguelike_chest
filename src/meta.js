@@ -33,7 +33,7 @@ export function metaLoad() {
       };
       META.achievements = o.achievements || {};
 
-      META.shards = 1000;
+      // META.shards = 1000;
     }
   } catch (e) {
     /* хранилище недоступно (напр. песочница) — играем без персистентности */

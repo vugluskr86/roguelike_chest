@@ -12,6 +12,8 @@ export const S = {
   special: null,
   biome: null,
   modalOpen: false,
+  hoveredCell: null,
+  challenge: null, // id активного челленджа
 };
 
 export const has = (id) => S.player && S.player.relics && S.player.relics.has(id);

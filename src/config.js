@@ -57,7 +57,9 @@ export const CFG = {
   TILE: 56,
   BASE_R: { bishop: 3, rook: 3, queen: 2, archbishop: 3, chancellor: 4, beast: 1 },
   MOVE_ANIM_MS: 300, // длительность анимации перемещения фигур
-  TILE_ANIM_SPEED: 0.3, // множитель скорости анимации тайлов (1=норма, 2=×2 быстрее)
+  TILE_ANIM_SPEED: 1.0, // множитель скорости анимации тайлов (1=норма, 2=×2 быстрее)
+  SFX_ENABLED: true, // звуки включены
+  ANIM_ENABLED: true, // анимации включены
   FATIGUE_K: 2, // кулдаун формы после взятия
   ENEMY_CAPTURE_CD: 1, // кулдаун врага после взятия игрока
   EXTRA_SLOTS: 2, // слоты колеса помимо пешки
@@ -246,6 +248,34 @@ export function tierWeight(tier, flr, biasHigh) {
   if (biasHigh && tier > 1) w *= 2.5;
   return w;
 }
+export const SETTINGS_KEY = 'chessrogue_settings_v1';
+
+/** Загрузить настройки из localStorage. */
+export function loadSettings() {
+  try {
+    const raw = localStorage.getItem(SETTINGS_KEY);
+    if (raw) {
+      const data = JSON.parse(raw);
+      if (typeof data.SFX_ENABLED === 'boolean') CFG.SFX_ENABLED = data.SFX_ENABLED;
+      if (typeof data.ANIM_ENABLED === 'boolean') CFG.ANIM_ENABLED = data.ANIM_ENABLED;
+    }
+  } catch {
+    /* localStorage недоступен */
+  }
+}
+
+/** Сохранить настройки в localStorage. */
+export function saveSettings() {
+  try {
+    localStorage.setItem(
+      SETTINGS_KEY,
+      JSON.stringify({ SFX_ENABLED: CFG.SFX_ENABLED, ANIM_ENABLED: CFG.ANIM_ENABLED }),
+    );
+  } catch {
+    /* localStorage недоступен */
+  }
+}
+
 export const SHOP_PRICE = { 1: 4, 2: 8, 3: 14 }; // цена реликвии по редкости
 export const CURSE_REMOVE_PRICE = 6;
 export const GAMBLE_COST = 5;

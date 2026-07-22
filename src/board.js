@@ -5,7 +5,7 @@ import { RELICS } from './content.js';
 import { applyRelic } from './loot.js';
 import { META, codexSeeEnemy, unlockAch } from './meta.js';
 import { necroInterval, threatCellsFrom } from './moves.js';
-import { render } from './render.js';
+import { render, screenFade } from './render.js';
 import { curse, enemyAt, has } from './state.js';
 import { applyStatus, cleanse } from './status.js';
 import { log, syncUI } from './ui.js';
@@ -260,6 +260,7 @@ export function spawnEnemiesForFloor(f, reach) {
 }
 
 export function newFloor() {
+  screenFade('#000', 350);
   S.floor++;
   S.biome = biomeFor(S.floor);
   const room = generateRoom();
@@ -287,6 +288,14 @@ export function newFloor() {
     S.player.nextFloorStatus = [];
   }
   spawnEnemiesForFloor(S.floor, room.reach);
+  // челлендж «Эскалация»: +1 дальность врагам каждый этаж, броня с эт.5
+  if (S.challenge === 'escalation') {
+    S.enemies.forEach((e) => {
+      e.r = (e.r || 1) + S.floor;
+      e.rb = (e.rb || 0) + 1;
+      if (S.floor >= 5 && !e.armor) e.armor = 1;
+    });
+  }
   const rb = enemyRangeBonus(S.floor);
   log(
     `── Этаж ${S.floor} · ${S.biome.name} ── врагов: ${S.enemies.map((e) => GLYPH[e.type]).join(' ') || '—'}${rb ? `  · дальность +${rb}` : ''}`,

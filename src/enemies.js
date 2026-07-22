@@ -9,14 +9,16 @@ import {
   movesToThreaten,
   necroInterval,
 } from './moves.js';
-import { render, startMoveAnim } from './render.js';
+import { render, startMoveAnim, spawnParticles } from './render.js';
 import { enemyAt } from './state.js';
 import { applyStatus, statusVal } from './status.js';
+import { playDeath } from './audio.js';
 import { log, syncUI } from './ui.js';
 import { DIAG, ORTHO, cheb, inB, key, pick, tileColor } from './util.js';
 
 export function enemiesTurn() {
-  for (const e of [...S.enemies]) {
+  const enemiesToAct = S.challenge === 'storm' ? [...S.enemies, ...S.enemies] : [...S.enemies];
+  for (const e of enemiesToAct) {
     if (!S.enemies.includes(e)) continue;
     // --- статусы врага ---
     if (statusVal(e, 'poison') > 0) {
@@ -24,6 +26,8 @@ export function enemiesTurn() {
       e.status.poison--;
       if (e.status.poison <= 0) {
         S.enemies = S.enemies.filter((v) => v !== e);
+        spawnParticles(e.x, e.y, '#d07a3f', 6);
+        playDeath();
         recordKill(e.type, true);
         log(`${GLYPH[e.type]} ${NAME[e.type]} гибнет от яда.`, 'p');
         continue;
@@ -110,6 +114,8 @@ export function enemiesTurn() {
         // враг наступил на шипы — гибнет, ловушка тратится
         S.special.delete(key(e.x, e.y));
         S.enemies = S.enemies.filter((v) => v !== e);
+        spawnParticles(e.x, e.y, '#d07a3f', 6);
+        playDeath();
         recordKill(e.type, false);
         log(`${GLYPH[e.type]} ${NAME[e.type]} гибнет на шипах.`, 'p');
       } else if (st && st.type === 'ice') {
@@ -118,6 +124,8 @@ export function enemiesTurn() {
       } else if (st && st.type === 'lava') {
         // враг в лаве — гибнет
         S.enemies = S.enemies.filter((v) => v !== e);
+        spawnParticles(e.x, e.y, '#d07a3f', 6);
+        playDeath();
         recordKill(e.type, false);
         log(`${GLYPH[e.type]} ${NAME[e.type]} сгорает в лаве.`, 'p');
       } else if (st && st.type === 'conveyor') {

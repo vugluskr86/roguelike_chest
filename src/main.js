@@ -3,13 +3,66 @@ import { S } from './state.js';
 import { dom, initDom } from './dom.js';
 import { reset } from './board.js';
 import { pass, rotate, switchForm, tryMoveTo } from './combat.js';
-import { CFG } from './config.js';
+import { CFG, loadSettings } from './config.js';
 import { metaLoad } from './meta.js';
 import { playerOptions } from './moves.js';
 import { render, resizeBoard, startRenderLoop } from './render.js';
 import { enemyAt } from './state.js';
-import { closeModal, openHelp, openTitle } from './ui.js';
+import { closeModal, openHelp, openSettings, openTitle } from './ui.js';
 import { inB } from './util.js';
+import { initAudio } from './audio.js';
+
+// ===== экран загрузки =====
+const LORE = [
+  'Глубоко под землёй, где законы шахмат обрели физическую форму, пробудился древний лабиринт.',
+  'Мастера Колеса выковали фигуры, способные менять свою суть — но плата за это велика.',
+  'Каждый спуск в Подземелье — новая партия против самой судьбы. Правила едины для всех.',
+  'Говорят, на дне лабиринта покоится Корона Превращения — артефакт абсолютной власти над формой.',
+  'Пешка, прошедшая весь путь, становится легендой. Но пока ты — лишь искра в темноте.',
+];
+const TIPS = [
+  'Поворот пешки (Q/E) бесплатен — разворачивайся к угрозе каждым ходом.',
+  'Стой на клетке своего цвета слоном — получишь +1 к дальности.',
+  'Туман скрывает угрозу: заманивай врагов в ловушки вслепую.',
+  'Шипы убивают врагов мгновенно — используй их как оружие.',
+  'Портал переносит мгновенно — отличный способ сбежать из окружения.',
+  'Меняй форму только когда нужно: каждая смена тратит ход.',
+  'Некромант призывает пешек — убей его первым.',
+  'Страж носит броню: первый удар только снимает щит.',
+  'Золото тратится только в лавке между этажами — копи на редкие реликвии.',
+  'Деградация спасает от смерти: теряешь форму, но продолжаешь забег.',
+];
+
+function showLoadingScreen() {
+  const el = document.getElementById('loadingScreen');
+  if (!el || typeof el.querySelector !== 'function') {
+    startGame();
+    return;
+  } // тесты — без экрана загрузки
+  const loreEl = el.querySelector('.loading-lore');
+  const tipEl = el.querySelector('.loading-tip');
+  loreEl.textContent = LORE[Math.floor(Math.random() * LORE.length)];
+  tipEl.textContent = '💡 ' + TIPS[Math.floor(Math.random() * TIPS.length)];
+  setTimeout(() => {
+    el.classList.add('hidden');
+    setTimeout(() => {
+      el.style.display = 'none';
+      startGame();
+    }, 600); // ждём завершения fade-out
+  }, 2500);
+}
+
+function startGame() {
+  loadSettings();
+  metaLoad();
+  reset();
+  resizeBoard();
+  startRenderLoop();
+  openTitle();
+}
+
+// ===== запуск =====
+showLoadingScreen();
 
 let _rt;
 window.addEventListener('resize', () => {
@@ -31,6 +84,7 @@ function cellFromEvent(ev) {
 }
 // Основной ввод — click: надёжно срабатывает и на тач, и на ПК (touch-action:manipulation убирает задержку)
 function handleTap(ev) {
+  initAudio();
   const { x, y } = cellFromEvent(ev);
   if (!inB(x, y) || S.gameOver || S.modalOpen) return;
   const { moves, captures } = playerOptions();
@@ -87,6 +141,7 @@ document.addEventListener('keydown', (ev) => {
 document.getElementById('btnCCW').onclick = () => rotate(-1);
 document.getElementById('btnCW').onclick = () => rotate(1);
 document.getElementById('btnPass').onclick = pass;
+document.getElementById('btnSettings').onclick = () => openSettings();
 document.getElementById('btnHelp').onclick = () => openHelp();
 document.getElementById('btnRestart').onclick = () => {
   closeModal();
@@ -101,21 +156,29 @@ if (window.matchMedia && window.matchMedia('(hover:hover) and (pointer:fine)').m
   dom.cv.addEventListener('mousemove', (ev) => {
     const { x, y } = cellFromEvent(ev);
     const e = inB(x, y) ? enemyAt(x, y) : null;
+    let changed = false;
     if (e !== S.hoverEnemy) {
       S.hoverEnemy = e;
-      render();
+      changed = true;
     }
+    const cell = inB(x, y) ? { x, y } : null;
+    if (
+      (cell && !S.hoveredCell) ||
+      (!cell && S.hoveredCell) ||
+      (cell && S.hoveredCell && (cell.x !== S.hoveredCell.x || cell.y !== S.hoveredCell.y))
+    ) {
+      S.hoveredCell = cell;
+      changed = true;
+    }
+    if (changed) render();
   });
   dom.cv.addEventListener('mouseleave', () => {
-    if (S.hoverEnemy) {
+    if (S.hoverEnemy || S.hoveredCell) {
       S.hoverEnemy = null;
+      S.hoveredCell = null;
       render();
     }
   });
 }
 
-metaLoad();
-reset(); // готовим забег под текущими апгрейдами (рендерит доску под титулом)
-resizeBoard(); // подгоняем канвас под фактическую ширину контейнера (моб./десктоп)
-startRenderLoop(); // запускаем rAF-цикл отрисовки
-openTitle(); // стартуем с меню мета-прогрессии
+// перенесено в startGame() — вызывается после загрузочного экрана

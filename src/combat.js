@@ -5,9 +5,10 @@ import { enemiesTurn } from './enemies.js';
 import { offerLoot } from './loot.js';
 import { endRunMeta, recordKill, unlockAch } from './meta.js';
 import { activeForm, allThreats, playerOptions } from './moves.js';
-import { render, startMoveAnim } from './render.js';
+import { render, startMoveAnim, startCaptureFlash, spawnParticles } from './render.js';
 import { curse, enemyAt, has } from './state.js';
 import { applyStatus, cleanse, statusVal } from './status.js';
+import { playMove, playCapture, playPromotion, playTrap, playPortal, playRune } from './audio.js';
 import { closeModal, log, openModal, openRunSummary, syncUI } from './ui.js';
 import { ORTHO, cheb, inB, key, makeForm, pick, tileColor } from './util.js';
 
@@ -41,6 +42,9 @@ export function tryMoveTo(x, y) {
       return;
     }
     S.enemies = S.enemies.filter((v) => v !== e);
+    spawnParticles(x, y, '#d07a3f', 8);
+    startCaptureFlash(x, y);
+    playCapture();
     S.player.capturedThisFloor++;
     S.player.totalCaptures++;
     recordKill(e.type, false);
@@ -64,6 +68,7 @@ export function tryMoveTo(x, y) {
   S.player.x = x;
   S.player.y = y;
   startMoveAnim(S.player, fx, fy, x, y);
+  playMove();
   triggerSpecialForPlayer();
   if (S.gameOver) {
     render();
@@ -81,9 +86,11 @@ export function triggerSpecialForPlayer() {
   if (s.type === 'trap') {
     S.special.delete(k);
     log('Ты наступаешь на шипы! Форма разрушена.', 'r');
+    playTrap();
     degradePlayer(null);
   } else if (s.type === 'rune') {
     S.special.delete(k);
+    playRune();
     S.player.wheel.forEach((f) => {
       if (f) f.cooldown = 0;
     });
@@ -98,6 +105,7 @@ export function triggerSpecialForPlayer() {
       S.player.x = p.x;
       S.player.y = p.y;
       log('Портал переносит тебя.', 'p');
+      playPortal();
     }
   } else if (s.type === 'conveyor') {
     const [dx, dy] = s.dir,
@@ -136,6 +144,7 @@ export function unlockType(t, colorAt) {
 
 export function switchForm(i) {
   if (S.gameOver || S.modalOpen) return;
+  if (S.challenge === 'lone_figure') return; // челлендж: без смены формы
   const f = S.player.wheel[i];
   if (!f || i === S.player.active) return;
   if (f.cooldown > 0) {
@@ -190,6 +199,17 @@ export function endPlayerTurn() {
   }
   if (!S.promotionUsed && bloodBlocked && activeForm().type === 'pawn' && S.player.y === 0)
     log('Кровавая линия: промоушен закрыт — на этаже уже было взятие.', 'r');
+  // челлендж «Хаотичное колесо»: каждые 3 хода случайная смена
+  if (S.challenge === 'chaos_wheel' && S.turn > 0 && S.turn % 3 === 0) {
+    const alive = S.player.wheel
+      .map((f, idx) => (f ? idx : -1))
+      .filter((idx) => idx >= 0 && idx !== S.player.active);
+    if (alive.length > 0) {
+      const pick = alive[Math.floor(Math.random() * alive.length)];
+      S.player.active = pick;
+      log(`🌀 Хаос: форма сменена на <b>${NAME[activeForm().type]}</b>.`, 'p');
+    }
+  }
   enemiesTurn();
 }
 
@@ -266,6 +286,10 @@ export function spreadLava() {
 
 export function degradePlayer(byEnemy) {
   const f = activeForm();
+  if (S.challenge === 'lone_figure') {
+    death();
+    return;
+  } // челлендж: взятие = конец
   if (byEnemy && has('venom')) applyStatus(byEnemy, 'poison', 2); // «Ядовитый след» — месть атакующему
   if (statusVal(S.player, 'shield') > 0) {
     // щит гасит взятие
@@ -290,10 +314,10 @@ export function degradePlayer(byEnemy) {
     );
   else log(`Форма «${NAME[f.type]}» уничтожена.`, 'r');
   if (byEnemy && curse('hex')) applyStatus(S.player, 'poison', 2); // «Порча» — яд при взятии
-  if (f.type === 'pawn') {
+  if (f.type === 'pawn' && S.challenge !== 'lone_figure') {
     death();
     return;
-  }
+  } // уже проверено выше для челленджа
   S.player.wheel[S.player.active] = null;
   S.player.lostFormThisFloor = true;
   // ступень ниже из имеющихся: сортируем по ценности
@@ -361,6 +385,7 @@ export function openPromotion() {
         S.player.wheel[slot] = f;
         S.player.active = slot; // превращение: становимся выбранной фигурой
         log(`Промоушен: превращаешься в <b>${NAME[t]} ★</b> (слот ${slot}).`, 'g');
+        playPromotion();
         closeModal();
         enemiesTurn();
       },

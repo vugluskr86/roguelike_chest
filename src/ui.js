@@ -2,8 +2,8 @@ import { S } from './state.js';
 import { dom } from './dom.js';
 import { reset } from './board.js';
 import { switchForm } from './combat.js';
-import { GLYPH, NAME, TIER_META, relicTier } from './config.js';
-import { ACHIEVEMENTS, CURSES, META_UPGRADES, RELICS } from './content.js';
+import { CFG, GLYPH, NAME, TIER_META, relicTier, saveSettings } from './config.js';
+import { ACHIEVEMENTS, CHALLENGES, CURSES, META_UPGRADES, RELICS } from './content.js';
 import { maybeEvent } from './events.js';
 import { applyOption } from './loot.js';
 import { META, achProgress, buyUpgrade, codexProgress, upgradeCost } from './meta.js';
@@ -87,6 +87,24 @@ export function openTitle() {
      </div>`;
   dom.mChoices.appendChild(head);
 
+  // табы
+  const tabs = document.createElement('div');
+  tabs.className = 'tab-row';
+  const tabMeta = document.createElement('button');
+  tabMeta.className = 'tab-btn active';
+  tabMeta.textContent = 'Мета-прогресс';
+  const tabChall = document.createElement('button');
+  tabChall.className = 'tab-btn';
+  tabChall.textContent = 'Челленджи';
+  tabs.appendChild(tabMeta);
+  tabs.appendChild(tabChall);
+  dom.mChoices.appendChild(tabs);
+
+  // панель мета-прогресса
+  const metaPanel = document.createElement('div');
+  metaPanel.className = 'tab-panel';
+  const shopScroll = document.createElement('div');
+  shopScroll.className = 'scroll-shop';
   const shop = document.createElement('div');
   shop.className = 'shop';
   Object.keys(META_UPGRADES).forEach((id) => {
@@ -107,12 +125,12 @@ export function openTitle() {
       buy.onclick = () => {
         if (buyUpgrade(id)) openTitle();
       };
-    } // перерисовать меню
+    }
     row.appendChild(buy);
     shop.appendChild(row);
   });
-  dom.mChoices.appendChild(shop);
-
+  shopScroll.appendChild(shop);
+  metaPanel.appendChild(shopScroll);
   const codexN = codexProgress(),
     achN = achProgress();
   const nav = document.createElement('div');
@@ -131,7 +149,51 @@ export function openTitle() {
   };
   nav.appendChild(bc);
   nav.appendChild(ba);
-  dom.mChoices.appendChild(nav);
+  metaPanel.appendChild(nav);
+  dom.mChoices.appendChild(metaPanel);
+
+  // панель челленджей (скрыта по умолчанию)
+  const challPanel = document.createElement('div');
+  challPanel.className = 'tab-panel';
+  challPanel.style.display = 'none';
+  const challScroll = document.createElement('div');
+  challScroll.className = 'scroll-shop';
+  const challSection = document.createElement('div');
+  challSection.className = 'shop';
+  Object.keys(CHALLENGES).forEach((id) => {
+    const c = CHALLENGES[id];
+    const row = document.createElement('div');
+    row.className = 'shoprow';
+    row.innerHTML = `<div class="si"><span class="ln">${c.icon} ${c.name}</span><span class="ld">${c.desc}</span></div>`;
+    const btn = document.createElement('button');
+    btn.className = 'buy';
+    btn.textContent = S.challenge === id ? 'выбран' : 'выбрать';
+    btn.style.borderColor = S.challenge === id ? '#e08a3f' : '';
+    btn.onclick = () => {
+      S.challenge = S.challenge === id ? null : id;
+      closeModal();
+      reset();
+    };
+    row.appendChild(btn);
+    challSection.appendChild(row);
+  });
+  challScroll.appendChild(challSection);
+  challPanel.appendChild(challScroll);
+  dom.mChoices.appendChild(challPanel);
+
+  // переключение табов
+  tabMeta.onclick = () => {
+    tabMeta.classList.add('active');
+    tabChall.classList.remove('active');
+    metaPanel.style.display = '';
+    challPanel.style.display = 'none';
+  };
+  tabChall.onclick = () => {
+    tabChall.classList.add('active');
+    tabMeta.classList.remove('active');
+    challPanel.style.display = '';
+    metaPanel.style.display = 'none';
+  };
 
   const start = document.createElement('button');
   start.className = 'again';
@@ -442,6 +504,44 @@ export function closeModal() {
   S.modalOpen = false;
   dom.overlay.classList.remove('on');
   dom.mChoices.classList.remove('loot-list');
+}
+
+export function openSettings() {
+  S.modalOpen = true;
+  dom.modalBox.classList.remove('death');
+  dom.mTitle.textContent = '⚙ Настройки';
+  dom.mText.textContent = '';
+  dom.mChoices.innerHTML = '';
+  dom.mChoices.classList.add('loot-list');
+
+  const mkToggle = (label, key) => {
+    const row = document.createElement('div');
+    row.className = 'shoprow';
+    const info = document.createElement('div');
+    info.className = 'si';
+    info.innerHTML = `<span class="ln">${label}</span>`;
+    const btn = document.createElement('button');
+    btn.className = 'buy';
+    btn.textContent = CFG[key] ? 'вкл' : 'выкл';
+    btn.onclick = () => {
+      CFG[key] = !CFG[key];
+      saveSettings();
+      btn.textContent = CFG[key] ? 'вкл' : 'выкл';
+    };
+    row.appendChild(info);
+    row.appendChild(btn);
+    return row;
+  };
+
+  dom.mChoices.appendChild(mkToggle('Звук', 'SFX_ENABLED'));
+  dom.mChoices.appendChild(mkToggle('Анимации', 'ANIM_ENABLED'));
+
+  const back = document.createElement('button');
+  back.className = 'again';
+  back.textContent = 'Закрыть';
+  back.onclick = closeModal;
+  dom.mChoices.appendChild(back);
+  dom.overlay.classList.add('on');
 }
 
 export function log(msg, cls) {

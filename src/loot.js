@@ -4,6 +4,7 @@ import { CURSES, RELICS } from './content.js';
 import { maybeEvent } from './events.js';
 import { codexSeeCurse, codexSeeRelic, unlockAch } from './meta.js';
 import { log, openLoot } from './ui.js';
+import { playLoot } from './audio.js';
 import { shuffle } from './util.js';
 
 export const relicPool = () => Object.keys(RELICS).filter((id) => !S.player.relics.has(id));
@@ -97,6 +98,7 @@ export function applyCurse(id) {
   log(`Проклятие: <b>${CURSES[id].name}</b> — ${CURSES[id].desc}`, 'r');
 }
 export function applyOption(opt) {
+  playLoot();
   opt.relics.forEach(applyRelic);
   opt.curses.forEach(applyCurse);
 }

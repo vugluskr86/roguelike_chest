@@ -27,7 +27,7 @@ const animState = {
  * @param {number} ts — текущий timestamp от rAF
  */
 export function startMoveAnim(unit, fx, fy, tx, ty) {
-  if (typeof requestAnimationFrame === 'undefined') return; // тесты — без анимации
+  if (!CFG.ANIM_ENABLED || typeof requestAnimationFrame === 'undefined') return;
   const entry = { fromX: fx, fromY: fy, toX: tx, toY: ty, startTs: null };
   if (unit === S.player) {
     animState.player = entry;
@@ -65,6 +65,52 @@ function getAnimPos(unit, realX, realY, ts) {
   };
 }
 
+// ========== эффекты: fade / частицы / вспышка ==========
+
+let screenOverlay = { alpha: 0, color: '#000' }; // затемнение экрана
+let particles = []; // [{ x, y, vx, vy, life, maxLife, color, size }]
+let captureFlash = null; // { x, y, startTs }
+
+/**
+ * Затемнение экрана (переход между этажами).
+ */
+export function screenFade(color = '#000', durationMs = 400) {
+  if (!CFG.ANIM_ENABLED) return;
+  screenOverlay = { alpha: 1, color, durationMs, startTs: null };
+  requestRender();
+}
+
+/**
+ * Создать частицы смерти/разрушения в точке.
+ */
+export function spawnParticles(x, y, color, count = 8) {
+  if (!CFG.ANIM_ENABLED) return;
+  for (let i = 0; i < count; i++) {
+    const angle = Math.random() * Math.PI * 2;
+    const speed = T * (0.02 + Math.random() * 0.06);
+    particles.push({
+      x: x * T + T / 2,
+      y: y * T + T / 2,
+      vx: Math.cos(angle) * speed,
+      vy: Math.sin(angle) * speed,
+      life: 350 + Math.random() * 250,
+      maxLife: 600,
+      color,
+      size: T * (0.02 + Math.random() * 0.04),
+    });
+  }
+  requestRender();
+}
+
+/**
+ * Вспышка на клетке взятия.
+ */
+export function startCaptureFlash(x, y) {
+  if (!CFG.ANIM_ENABLED) return;
+  captureFlash = { x, y, startTs: null };
+  requestRender();
+}
+
 // ========== rAF-рендер ==========
 
 /**
@@ -76,14 +122,19 @@ export function requestRender() {
 }
 
 /**
- * Проверить, есть ли на доске клетки, требующие анимации (лава).
+ * Проверить, есть ли активные анимации, требующие покадрового рендера.
  */
 function hasActiveAnim() {
   if (animState.player) return true;
-  return animState.enemies.size > 0;
+  if (animState.enemies.size > 0) return true;
+  if (particles.length > 0) return true;
+  if (captureFlash) return true;
+  if (screenOverlay.alpha > 0) return true;
+  return false;
 }
 
 function hasAnimatedSpecials() {
+  if (!CFG.ANIM_ENABLED) return false;
   if (!S.special) return false;
   for (const s of S.special.values()) {
     if (
@@ -163,76 +214,41 @@ export function drawSpecial(x, y, s, ts) {
   const ats = (ts || 0) * CFG.TILE_ANIM_SPEED;
   dom.ctx.save();
   if (s.type === 'trap') {
-    // яма-ловушка с кольями
-    const tp = ats / 550;
-    const holePulse = T * (0.02 + Math.sin(tp * Math.PI * 2) * 0.015);
-    const rx = T * 0.3 + holePulse,
-      ry = T * 0.24 + holePulse * 0.8;
-    // тень под ямой
-    dom.ctx.fillStyle = 'rgba(30,25,20,.55)';
-    dom.ctx.beginPath();
-    dom.ctx.ellipse(cx, cy, rx + 5, ry + 5, 0, 0, Math.PI * 2);
-    dom.ctx.fill();
-    // яма — рваный эллипс
-    dom.ctx.fillStyle = '#0d0b08';
-    dom.ctx.beginPath();
-    const segs = 14;
-    for (let i = 0; i < segs; i++) {
-      const a = (i / segs) * Math.PI * 2;
-      const jx = Math.cos(a) * 1.8,
-        jy = Math.sin(a) * 1.8;
-      const px = cx + Math.cos(a) * rx + jx,
-        py = cy + Math.sin(a) * ry + jy;
-      if (i === 0) dom.ctx.moveTo(px, py);
-      else dom.ctx.lineTo(px, py);
-    }
-    dom.ctx.closePath();
-    dom.ctx.fill();
-    // колья — 4 шт., торчат из центра под углами
-    const sway = Math.sin(tp * Math.PI * 1.3) * 1.2;
-    const stakeAngles = [-0.6, -2.5, 0.7, 2.5]; // влево-вверх, вправо-вверх, влево-вниз, вправо-вниз
-    const stakeLen = T * 0.32,
-      stakeW = T * 0.04;
-    stakeAngles.forEach((a, i) => {
-      const angle = a + sway * (i % 2 === 0 ? 1 : -1) * 0.06;
-      const tipX = cx + Math.cos(angle) * stakeLen;
-      const tipY = cy + Math.sin(angle) * stakeLen;
-      const perpX = Math.cos(angle + Math.PI / 2) * stakeW;
-      const perpY = Math.sin(angle + Math.PI / 2) * stakeW;
-      dom.ctx.beginPath();
-      dom.ctx.moveTo(cx - perpX, cy - perpY);
-      dom.ctx.lineTo(tipX, tipY);
-      dom.ctx.lineTo(cx + perpX, cy + perpY);
-      dom.ctx.closePath();
-      dom.ctx.fillStyle = '#6e6e5e';
-      dom.ctx.fill();
-      // блик по центру кола
-      dom.ctx.strokeStyle = '#b0b0a0';
-      dom.ctx.lineWidth = 0.7;
+    // паутина — 8 радиальных лучей + концентрические кольца
+    const tp = (ts || 0) / 600;
+    const sway = Math.sin(tp * Math.PI * 1.3) * 0.03;
+    const r = T * 0.42;
+    // 8 радиальных спиц
+    dom.ctx.strokeStyle = 'rgba(138,132,104,.7)';
+    dom.ctx.lineWidth = 1.2;
+    for (let i = 0; i < 8; i++) {
+      const angle = (i / 8) * Math.PI * 2 + sway;
       dom.ctx.beginPath();
       dom.ctx.moveTo(cx, cy);
-      dom.ctx.lineTo(tipX, tipY);
+      dom.ctx.lineTo(cx + Math.cos(angle) * r, cy + Math.sin(angle) * r);
       dom.ctx.stroke();
-      // тёмная обводка
-      dom.ctx.strokeStyle = 'rgba(0,0,0,.5)';
-      dom.ctx.lineWidth = 0.6;
+    }
+    // 3 слоя провисающих нитей между спицами
+    dom.ctx.strokeStyle = 'rgba(138,132,104,.5)';
+    dom.ctx.lineWidth = 1;
+    [T * 0.18, T * 0.28, T * 0.36].forEach((rr) => {
+      const sag = rr * 0.22; // глубина провисания к центру
+      dom.ctx.beginPath();
+      for (let i = 0; i < 8; i++) {
+        const a1 = (i / 8) * Math.PI * 2 + sway;
+        const a2 = ((i + 1) / 8) * Math.PI * 2 + sway;
+        const sx = cx + Math.cos(a1) * rr;
+        const sy = cy + Math.sin(a1) * rr;
+        const ex = cx + Math.cos(a2) * rr;
+        const ey = cy + Math.sin(a2) * rr;
+        const midAngle = (a1 + a2) / 2;
+        const cpx = cx + Math.cos(midAngle) * (rr - sag);
+        const cpy = cy + Math.sin(midAngle) * (rr - sag);
+        if (i === 0) dom.ctx.moveTo(sx, sy);
+        dom.ctx.quadraticCurveTo(cpx, cpy, ex, ey);
+      }
       dom.ctx.stroke();
     });
-    // внутренний ободок ямы (кромка)
-    dom.ctx.strokeStyle = 'rgba(50,40,30,.7)';
-    dom.ctx.lineWidth = 1.5;
-    dom.ctx.beginPath();
-    for (let i = 0; i < segs; i++) {
-      const a = (i / segs) * Math.PI * 2;
-      const jx = Math.cos(a) * 1.8,
-        jy = Math.sin(a) * 1.8;
-      const px = cx + Math.cos(a) * rx + jx,
-        py = cy + Math.sin(a) * ry + jy;
-      if (i === 0) dom.ctx.moveTo(px, py);
-      else dom.ctx.lineTo(px, py);
-    }
-    dom.ctx.closePath();
-    dom.ctx.stroke();
   } else if (s.type === 'rune') {
     // руна — светящийся ромб
     dom.ctx.strokeStyle = '#58b3a4';
@@ -531,6 +547,16 @@ export function renderNow(ts) {
         dom.ctx.fillRect(x * T, y * T, T, 3);
       }
     }
+  // челлендж «Слепой спуск»: затемняем всё за пределами радиуса 2 от игрока
+  if (S.challenge === 'blind_descent') {
+    for (let y = 0; y < CFG.H; y++)
+      for (let x = 0; x < CFG.W; x++) {
+        if (Math.max(Math.abs(x - S.player.x), Math.abs(y - S.player.y)) > 2) {
+          dom.ctx.fillStyle = '#0a0c10';
+          dom.ctx.fillRect(x * T, y * T, T, T);
+        }
+      }
+  }
   // угрозы (скрыты под туманом)
   for (const k of threats) {
     if (S.special && S.special.get(k) && S.special.get(k).type === 'fog') continue;
@@ -541,6 +567,11 @@ export function renderNow(ts) {
   if (S.special)
     S.special.forEach((s, k) => {
       const [x, y] = k.split(',').map(Number);
+      if (
+        S.challenge === 'blind_descent' &&
+        Math.max(Math.abs(x - S.player.x), Math.abs(y - S.player.y)) > 2
+      )
+        return;
       drawSpecial(x, y, s, ts);
     });
   if (insp) {
@@ -567,6 +598,11 @@ export function renderNow(ts) {
   }
   // фигуры
   for (const e of S.enemies) {
+    if (
+      S.challenge === 'blind_descent' &&
+      Math.max(Math.abs(e.x - S.player.x), Math.abs(e.y - S.player.y)) > 2
+    )
+      continue;
     const ep = getAnimPos(e, e.x, e.y, ts);
     const ex = ep.x,
       ey = ep.y;
@@ -593,6 +629,87 @@ export function renderNow(ts) {
   const pp = getAnimPos(S.player, S.player.x, S.player.y, ts);
   drawPiece(pp.x, pp.y, f.type, true, f.type === 'pawn' ? S.player.facing : null, f.improved);
   drawStatuses(pp.x, pp.y, S.player);
+  // --- эффекты ---
+  // вспышка взятия
+  if (captureFlash) {
+    if (captureFlash.startTs === null) captureFlash.startTs = ts;
+    const fe = (ts || 0) - captureFlash.startTs;
+    if (fe >= 280) {
+      captureFlash = null;
+    } else {
+      const fa = 1 - fe / 280;
+      const fr = 10 + fe * 0.5;
+      dom.ctx.strokeStyle = `rgba(255,245,157,${fa})`;
+      dom.ctx.lineWidth = 3;
+      dom.ctx.beginPath();
+      dom.ctx.arc(captureFlash.x * T + T / 2, captureFlash.y * T + T / 2, fr, 0, 7);
+      dom.ctx.stroke();
+    }
+  }
+  // частицы
+  if (particles.length > 0) {
+    const dt = 16.67; // примерно 60fps шаг
+    particles = particles.filter((p) => {
+      p.x += p.vx;
+      p.y += p.vy;
+      p.life -= dt;
+      if (p.life <= 0) return false;
+      const alpha = Math.min(p.life / p.maxLife, 1);
+      dom.ctx.fillStyle = p.color;
+      dom.ctx.globalAlpha = alpha;
+      dom.ctx.beginPath();
+      dom.ctx.arc(p.x, p.y, p.size, 0, 7);
+      dom.ctx.fill();
+      dom.ctx.globalAlpha = 1;
+      return true;
+    });
+  }
+  // затемнение экрана
+  if (screenOverlay.alpha > 0 && ts) {
+    if (screenOverlay.startTs === null) screenOverlay.startTs = ts;
+    const fe = ts - screenOverlay.startTs;
+    if (fe >= screenOverlay.durationMs) {
+      screenOverlay.alpha = 0;
+    } else {
+      screenOverlay.alpha = 1 - fe / screenOverlay.durationMs;
+    }
+    if (screenOverlay.alpha > 0) {
+      dom.ctx.fillStyle = screenOverlay.color;
+      dom.ctx.globalAlpha = screenOverlay.alpha;
+      dom.ctx.fillRect(0, 0, CFG.W * T, CFG.H * T);
+      dom.ctx.globalAlpha = 1;
+    }
+  }
+  // тултип спец-клетки
+  if (S.challenge !== 'blind_descent' && S.hoveredCell && S.special) {
+    const sp = S.special.get(key(S.hoveredCell.x, S.hoveredCell.y));
+    if (sp) {
+      const TOOLTIPS = {
+        trap: 'Паутина',
+        portal: 'Портал',
+        rune: 'Руна перезарядки',
+        ice: 'Лёд',
+        lava: 'Лава',
+        fog: 'Туман',
+        conveyor: 'Конвейер',
+        gate: 'Ворота',
+        plate: 'Плита',
+        colorzone: 'Цветовая зона',
+      };
+      const label = TOOLTIPS[sp.type] || sp.type;
+      const tx = S.hoveredCell.x * T + T / 2;
+      const ty = S.hoveredCell.y * T - 4;
+      dom.ctx.font = '11px Georgia, serif';
+      dom.ctx.textAlign = 'center';
+      const w = dom.ctx.measureText(label).width + 10;
+      dom.ctx.fillStyle = 'rgba(0,0,0,.8)';
+      dom.ctx.beginPath();
+      dom.ctx.roundRect(tx - w / 2, ty - 16, w, 15, 4);
+      dom.ctx.fill();
+      dom.ctx.fillStyle = '#f2e9d8';
+      dom.ctx.fillText(label, tx, ty - 5);
+    }
+  }
   // сетка
   dom.ctx.strokeStyle = 'rgba(20,22,28,.35)';
   dom.ctx.lineWidth = 1;
