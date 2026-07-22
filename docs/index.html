@@ -4,8 +4,8 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1" />
     <title>Chess Roguelike</title>
-    <script type="module" crossorigin src="./assets/index-CHxexnYf.js"></script>
-    <link rel="stylesheet" crossorigin href="./assets/index-C9BYt7XT.css">
+    <script type="module" crossorigin src="./assets/index-09H33x9w.js"></script>
+    <link rel="stylesheet" crossorigin href="./assets/index-B53yC0rW.css">
   </head>
   <body>
     <div id="loadingScreen">
@@ -23,6 +23,13 @@
     <div class="layout">
       <div class="board-wrap">
         <canvas id="board" width="616" height="504" aria-label="Игровое поле"></canvas>
+        <div id="editorBar" style="display: none">
+          <div id="editorObjects" class="editor-tools"></div>
+          <div id="editorActions" class="editor-tools"></div>
+          <div id="editorStatus" class="editor-status">
+            🖌 Редактор · Выбери элемент и кликай по полю
+          </div>
+        </div>
       </div>
 
       <div class="side">
