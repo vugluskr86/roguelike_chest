@@ -10,6 +10,7 @@ import { camera, render, resizeBoard, startRenderLoop } from './render.js';
 import { enemyAt } from './state.js';
 import { closeModal, openHelp, openSettings, openTitle } from './ui.js';
 import { inB, seedRNG } from './util.js';
+import { editorActive, handleEditorClick } from './editor.js';
 import { feedDebugChar } from './debug.js';
 import { initAudio } from './audio.js';
 
@@ -110,6 +111,11 @@ function cellFromEvent(ev) {
 // Основной ввод — click: надёжно срабатывает и на тач, и на ПК (touch-action:manipulation убирает задержку)
 function handleTap(ev) {
   initAudio();
+  if (editorActive) {
+    const { x, y } = cellFromEvent(ev);
+    handleEditorClick(x, y);
+    return;
+  }
   const { x, y } = cellFromEvent(ev);
   if (!inB(x, y) || S.gameOver || S.modalOpen) return;
   const { moves, captures } = playerOptions();

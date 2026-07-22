@@ -1,0 +1,28 @@
+{
+  "W": 11,
+  "H": 9,
+  "walls": [],
+  "playerStart": {
+    "x": 5,
+    "y": 8
+  },
+  "enemies": [
+    {
+      "type": "bishop",
+      "x": 3,
+      "y": 7
+    }
+  ],
+  "special": {
+    "5,6": {
+      "type": "key",
+      "color": "gold"
+    },
+    "6,6": {
+      "type": "key",
+      "color": "gold"
+    }
+  },
+  "biome": "halls",
+  "floor": 1
+}

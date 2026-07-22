@@ -44,8 +44,14 @@ function openDebugMenu() {
     { label: '🛡 Неуязвимость: ' + (S.godMode ? 'ВЫКЛ' : 'ВКЛ'), fn: toggleGodMode },
     { label: '💊 Исцелиться (снять кулдауны и статусы)', fn: healAll },
     { label: '🔑 Все ключи', fn: addAllKeys },
+    {
+      label: '🗺 Редактор уровней',
+      fn: () => {
+        closeMenu();
+        import('./editor.js').then((m) => m.openEditor());
+      },
+    },
     { label: '♟ Добавить случайную форму', fn: addRandomForm },
-    { label: 'Закрыть', fn: closeMenu },
   ].forEach((b) => {
     const btn = document.createElement('button');
     btn.textContent = b.label;

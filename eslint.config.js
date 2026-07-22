@@ -54,6 +54,7 @@ export default [
         FileReader: 'readonly',
         FormData: 'readonly',
         fetch: 'readonly',
+        prompt: 'readonly',
         AudioContext: 'readonly',
         localStorage: 'readonly',
         sessionStorage: 'readonly',

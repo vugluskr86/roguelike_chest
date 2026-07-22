@@ -140,6 +140,15 @@ export function triggerSpecialForPlayer() {
     if (s.color && S.keys.has(s.color)) {
       S.keys.delete(s.color);
       s.color = null;
+      // также открыть парную дверь в целевой комнате
+      const targetRoom = S.rooms[s.targetRoom];
+      if (targetRoom) {
+        targetRoom.special.forEach((ds) => {
+          if (ds.type === 'door' && ds.targetRoom === S.currentRoom) {
+            ds.color = null;
+          }
+        });
+      }
     }
     if (s.color && !S.keys.has(s.color)) {
       log(`Дверь заперта — нужен ${KEY_GLYPH[s.color]} ключ.`, 'r');

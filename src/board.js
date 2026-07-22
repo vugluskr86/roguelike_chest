@@ -1,6 +1,6 @@
 import { S } from './state.js';
 import { dom } from './dom.js';
-import { CFG, GLYPH, BIOMES, biomeFor, KEY_COLORS } from './config.js';
+import { CFG, BIOMES, biomeFor, KEY_COLORS } from './config.js';
 import { RELICS } from './content.js';
 import { applyRelic } from './loot.js';
 import { META, codexSeeEnemy, unlockAch } from './meta.js';
@@ -9,18 +9,7 @@ import { render, screenFade } from './render.js';
 import { curse, enemyAt, has } from './state.js';
 import { applyStatus, cleanse } from './status.js';
 import { log, syncUI } from './ui.js';
-import {
-  ORTHO,
-  inB,
-  key,
-  makeForm,
-  pick,
-  randInt,
-  random,
-  seedRNG,
-  shuffle,
-  tileColor,
-} from './util.js';
+import { ORTHO, inB, key, makeForm, pick, randInt, random, shuffle, tileColor } from './util.js';
 
 export function floodReach(wset, start) {
   const seen = new Set([key(start.x, start.y)]),
@@ -460,7 +449,6 @@ export function newFloor() {
   }
 
   loadRoom(0);
-  const startRoom = S.rooms[0];
   S.player.x = Math.floor(CFG.W / 2);
   S.player.y = CFG.H - 1;
   S.player.facing = [0, -1];
@@ -521,35 +509,98 @@ export function loadRoom(id) {
  * @param {object} data — распарсенный JSON
  */
 export function loadLevel(data) {
-  CFG.W = data.W || 11;
-  CFG.H = data.H || 9;
   S.floor = data.floor || 1;
   S.biome = BIOMES.find((b) => b.id === data.biome) || BIOMES[0];
-  S.walls = new Set(data.walls || []);
-  S.special = new Map(Object.entries(data.special || {}));
-  S.player.x = (data.playerStart && data.playerStart.x) || Math.floor(CFG.W / 2);
-  S.player.y = (data.playerStart && data.playerStart.y) || CFG.H - 1;
+  S.rooms = [];
+  S.currentRoom = 0;
+
+  // мульти-комнатный формат
+  if (data.rooms && Array.isArray(data.rooms)) {
+    data.rooms.forEach((r, idx) => {
+      const roomData = {
+        walls: new Set(r.walls || []),
+        special: new Map(Object.entries(r.special || {})),
+        enemies: (r.enemies || []).map((e) => ({
+          type: e.type,
+          x: e.x,
+          y: e.y,
+          facing: e.facing || [0, 1],
+          cd: 0,
+          status: {},
+          homeColor: tileColor(e.x, e.y),
+          r: CFG.BASE_R[e.type] || 1,
+          rb: enemyRangeBonus(S.floor),
+        })),
+        cleared: false,
+      };
+      S.rooms.push(roomData);
+      // применить размер из первой комнаты для CFG.W/H
+      if (idx === 0) {
+        CFG.W = r.W || 11;
+        CFG.H = r.H || 9;
+        S.player.x = (r.playerStart && r.playerStart.x) || Math.floor(CFG.W / 2);
+        S.player.y = (r.playerStart && r.playerStart.y) || CFG.H - 1;
+      }
+    });
+    // установить двери из секции doors
+    if (data.doors && Array.isArray(data.doors)) {
+      data.doors.forEach((d) => {
+        const doorFrom = {
+          type: 'door',
+          color: d.color || null,
+          targetRoom: d.toRoom,
+          targetPos: { x: d.toX, y: d.toY },
+        };
+        const doorTo = {
+          type: 'door',
+          color: d.color || null,
+          targetRoom: d.fromRoom,
+          targetPos: { x: d.fromX, y: d.fromY },
+        };
+        S.rooms[d.fromRoom].special.set(key(d.fromX, d.fromY), doorFrom);
+        S.rooms[d.toRoom].special.set(key(d.toX, d.toY), doorTo);
+        // убрать стены в клетках дверей
+        S.rooms[d.fromRoom].walls.delete(key(d.fromX, d.fromY));
+        S.rooms[d.toRoom].walls.delete(key(d.toX, d.toY));
+      });
+    }
+  } else {
+    // старый формат — одна комната
+    CFG.W = data.W || 11;
+    CFG.H = data.H || 9;
+    const roomData = {
+      walls: new Set(data.walls || []),
+      special: new Map(Object.entries(data.special || {})),
+      enemies: (data.enemies || []).map((e) => ({
+        type: e.type,
+        x: e.x,
+        y: e.y,
+        facing: e.facing || [0, 1],
+        cd: 0,
+        status: {},
+        homeColor: tileColor(e.x, e.y),
+        r: CFG.BASE_R[e.type] || 1,
+        rb: enemyRangeBonus(S.floor),
+      })),
+      cleared: false,
+    };
+    S.rooms.push(roomData);
+    S.player.x = (data.playerStart && data.playerStart.x) || Math.floor(CFG.W / 2);
+    S.player.y = (data.playerStart && data.playerStart.y) || CFG.H - 1;
+  }
+
+  loadRoom(0);
   S.player.facing = [0, -1];
   S.player.active = 0;
-  S.enemies = (data.enemies || []).map((e) => ({
-    type: e.type,
-    x: e.x,
-    y: e.y,
-    facing: e.facing || [0, 1],
-    cd: 0,
-    status: {},
-    homeColor: tileColor(e.x, e.y),
-    r: CFG.BASE_R[e.type] || 1,
-    rb: enemyRangeBonus(S.floor),
-  }));
-  S.turn = 1;
   S.promotionUsed = false;
   S.hoverEnemy = null;
   S.selectedEnemy = null;
+  S.turn = 1;
   S.player.freeSwapUsed = false;
   S.player.capturedThisFloor = 0;
+  const totalEnemies = S.rooms.reduce((sum, r) => sum + r.enemies.length, 0);
   log(
-    `── Загружен уровень · ${S.biome.name} ── врагов: ${S.enemies.map((e) => GLYPH[e.type]).join(' ') || '—'}`,
+    `── Загружен уровень · ${S.biome.name} · ${S.rooms.length} комн. ── врагов: ${totalEnemies}`,
     'e',
   );
   render();
