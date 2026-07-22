@@ -22,7 +22,7 @@
   position: fixed;
   inset: 0;
   z-index: 100;
-  background: var(--ink);
+  background: #1d1e3a;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -37,6 +37,12 @@
   text-align: center;
   max-width: 420px;
   padding: 24px;
+}
+.loading-logo {
+  width: 140px;
+  height: auto;
+  margin-bottom: 20px;
+  image-rendering: auto;
 }
 .loading-title {
   font-size: 28px;

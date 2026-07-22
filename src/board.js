@@ -255,7 +255,7 @@ export function placeSpecials(wset, reach, start) {
 
 export function buildFloorEnemies(flr) {
   const D = CFG.DIFF;
-  let budget = D.budgetBase + D.budgetGrow * (flr - 1);
+  let budget = ((D.budgetBase + D.budgetGrow * (flr - 1)) * (CFG.W * CFG.H)) / (11 * 9);
   if (flr === 1 && META.upgrades.headstart) budget -= 2; // мета-апгрейд «Разведка»
   const qcap = flr >= D.queenCapDeepFloor ? D.queenCapDeep : D.queenCap;
   const avail = Object.keys(D.cost).filter((t) => flr >= D.unlockFloor[t]);
@@ -334,9 +334,23 @@ export function spawnEnemiesForFloor(f, reach) {
 }
 
 export function newFloor() {
-  // seedRNG(S.floor * 1000000 + S.turn + 1); // детерминированная генерация этажа
+  seedRNG(S.floor * 1000000 + S.turn + 1); // детерминированная генерация этажа
   screenFade('#000', 350);
   S.floor++;
+  // прогрессия размера карты с этажом
+  if (S.floor <= 2) {
+    CFG.W = 11;
+    CFG.H = 9;
+  } else if (S.floor <= 4) {
+    CFG.W = 13;
+    CFG.H = 11;
+  } else if (S.floor <= 6) {
+    CFG.W = 15;
+    CFG.H = 13;
+  } else {
+    CFG.W = 17;
+    CFG.H = 15;
+  }
   S.biome = biomeFor(S.floor);
   const room = generateRoom();
   S.walls = room.walls;

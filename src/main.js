@@ -41,12 +41,14 @@ function showLoadingScreen() {
   } // тесты — без экрана загрузки
   const loreEl = el.querySelector('.loading-lore');
   const tipEl = el.querySelector('.loading-tip');
+  document.body.style.overflow = 'hidden';
   loreEl.textContent = LORE[Math.floor(Math.random() * LORE.length)];
   tipEl.textContent = '💡 ' + TIPS[Math.floor(Math.random() * TIPS.length)];
   setTimeout(() => {
     el.classList.add('hidden');
     setTimeout(() => {
       el.style.display = 'none';
+      document.body.style.overflow = '';
       startGame();
     }, 600); // ждём завершения fade-out
   }, 2500);

@@ -47,7 +47,16 @@ function makeEl() {
   };
   return o;
 }
-const ctxProxy = new Proxy({}, { get: () => noop });
+const ctxProxy = new Proxy(
+  {},
+  {
+    get(t, k) {
+      if (k === 'createRadialGradient' || k === 'createLinearGradient')
+        return () => ({ addColorStop: noop });
+      return noop;
+    },
+  },
+);
 const cache = {};
 const board = makeEl();
 board.getContext = () => ctxProxy;
