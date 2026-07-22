@@ -9,8 +9,11 @@ describe('biomes', () => {
   it('cycles every 2 floors', () => {
     expect(biomeFor(1).id).toBe('halls');
     expect(biomeFor(3).id).toBe('corridors');
-    expect(biomeFor(5).id).toBe('pylons');
-    expect(biomeFor(7).id).toBe('halls');
+    expect(biomeFor(5).id).toBe('maze');
+    expect(biomeFor(7).id).toBe('grid');
+    expect(biomeFor(9).id).toBe('arena');
+    expect(biomeFor(11).id).toBe('pylons');
+    expect(biomeFor(13).id).toBe('halls');
   });
   it('all biomes have palette + style + pools', () => {
     expect(
@@ -20,7 +23,7 @@ describe('biomes', () => {
 });
 
 describe('generation connectivity (all wall styles)', () => {
-  for (const id of ['halls', 'corridors', 'pylons']) {
+  for (const id of ['halls', 'corridors', 'maze', 'grid', 'arena', 'pylons']) {
     it(`${id}: promotion line reachable, border clear`, () => {
       S.biome = BIOMES.find((b) => b.id === id);
       let promoUnreach = 0,

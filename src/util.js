@@ -39,8 +39,63 @@ export function makeForm(type, homeColor = 0, improved = false) {
   };
 }
 
-export const randInt = (n) => Math.floor(Math.random() * n);
+// ========== Mersenne Twister (32-bit) ==========
+
+function MersenneTwister(seed) {
+  const N = 624,
+    M = 397,
+    MATRIX_A = 0x9908b0df,
+    UPPER_MASK = 0x80000000,
+    LOWER_MASK = 0x7fffffff;
+  const mt = new Uint32Array(N);
+  let mti = N + 1;
+  mt[0] = seed >>> 0;
+  for (mti = 1; mti < N; mti++) {
+    mt[mti] = (1812433253 * (mt[mti - 1] ^ (mt[mti - 1] >>> 30)) + mti) >>> 0;
+  }
+  function twist() {
+    for (let i = 0; i < N; i++) {
+      const y = (mt[i] & UPPER_MASK) + (mt[(i + 1) % N] & LOWER_MASK);
+      mt[i] = mt[(i + M) % N] ^ (y >>> 1);
+      if (y % 2 !== 0) mt[i] ^= MATRIX_A;
+    }
+    mti = 0;
+  }
+  return {
+    /** Возвращает случайное целое [0, 2^32). */
+    int32() {
+      if (mti >= N) twist();
+      let y = mt[mti++];
+      y ^= y >>> 11;
+      y ^= (y << 7) & 0x9d2c5680;
+      y ^= (y << 15) & 0xefc60000;
+      y ^= y >>> 18;
+      return y >>> 0;
+    },
+    /** Возвращает случайное число в [0, 1). */
+    random() {
+      return this.int32() * (1.0 / 4294967296.0);
+    },
+  };
+}
+
+/** Глобальный RNG, переустанавливается через seedRNG(). */
+let rng = MersenneTwister(Date.now());
+
+/** Установить seed и пересоздать RNG. */
+export function seedRNG(seed) {
+  rng = MersenneTwister(seed);
+}
+
+/** Возвращает случайное число [0, 1). */
+export const random = () => rng.random();
+
+export function randInt(n) {
+  return Math.floor(rng.random() * n);
+}
+
 export const pick = (a) => a[randInt(a.length)];
+
 export function shuffle(a) {
   for (let i = a.length - 1; i > 0; i--) {
     const j = randInt(i + 1);
@@ -48,5 +103,3 @@ export function shuffle(a) {
   }
   return a;
 }
-
-// Ортогональный флуд от старта — множество достижимых свободных клеток

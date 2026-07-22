@@ -9,7 +9,7 @@ import { playerOptions } from './moves.js';
 import { render, resizeBoard, startRenderLoop } from './render.js';
 import { enemyAt } from './state.js';
 import { closeModal, openHelp, openSettings, openTitle } from './ui.js';
-import { inB } from './util.js';
+import { inB, seedRNG } from './util.js';
 import { initAudio } from './audio.js';
 
 // ===== экран загрузки =====
@@ -53,6 +53,7 @@ function showLoadingScreen() {
 }
 
 function startGame() {
+  seedRNG(Math.floor(Date.now()));
   loadSettings();
   metaLoad();
   reset();
@@ -132,6 +133,7 @@ document.addEventListener('keydown', (ev) => {
       break;
     case 'r':
     case 'к':
+      seedRNG(Math.floor(Date.now()));
       closeModal();
       reset();
       break;
@@ -144,6 +146,7 @@ document.getElementById('btnPass').onclick = pass;
 document.getElementById('btnSettings').onclick = () => openSettings();
 document.getElementById('btnHelp').onclick = () => openHelp();
 document.getElementById('btnRestart').onclick = () => {
+  seedRNG(Math.floor(Date.now()));
   closeModal();
   reset();
 };
