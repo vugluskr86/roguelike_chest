@@ -1420,6 +1420,33 @@ export function drawSpecial(x, y, s, ts) {
     c.textAlign = 'center';
     c.textBaseline = 'middle';
     c.fillText('♝', cx, cy + 1);
+  } else if (s.type === 'pillar') {
+    // ── ПИЛОН: массивный блок с обводкой ──
+    c.fillStyle = '#5a5348';
+    c.fillRect(x0 + 8, y0 + 8, T - 16, T - 16);
+    c.strokeStyle = '#8a8070';
+    c.lineWidth = 1;
+    c.strokeRect(x0 + 8, y0 + 8, T - 16, T - 16);
+  } else if (s.type === 'millstone') {
+    // ── ЖЕРНОВ: вращающийся круг со стрелкой направления ──
+    const jammed = s.jammed;
+    c.fillStyle = jammed ? 'rgba(90,80,70,.85)' : 'rgba(190,90,50,.85)';
+    c.beginPath();
+    c.arc(cx, cy, T * 0.4, 0, 7);
+    c.fill();
+    c.strokeStyle = '#000';
+    c.lineWidth = 1;
+    c.stroke();
+    if (!jammed) {
+      const [dx, dy] = s.dir;
+      c.fillStyle = '#ffd9a0';
+      c.beginPath();
+      c.moveTo(cx + dx * T * 0.3, cy + dy * T * 0.3);
+      c.lineTo(cx - dy * 7, cy + dx * 7);
+      c.lineTo(cx + dy * 7, cy - dx * 7);
+      c.closePath();
+      c.fill();
+    }
   }
 
   c.restore();

@@ -48,7 +48,8 @@ export function openRunSummary(title, subtitle, earned) {
              )
              .join('')}</div></div>`
          : ''
-     }`;
+     }
+     <div class="ssec"><div class="sh">Журнал</div><div class="run-log">${dom.logEl ? dom.logEl.innerHTML : ''}</div></div>`;
   dom.mChoices.appendChild(wrap);
 
   const row = document.createElement('div');
@@ -56,12 +57,14 @@ export function openRunSummary(title, subtitle, earned) {
   const again = document.createElement('button');
   again.className = 'again';
   again.textContent = 'Ещё забег (R)';
+  again.style.cssText = 'font-size:13px;padding:6px 12px;min-height:unset;';
   again.onclick = () => {
     closeModal();
     reset();
   };
   const menu = document.createElement('button');
   menu.textContent = 'В меню';
+  menu.style.cssText = 'font-size:13px;padding:6px 12px;min-height:unset;';
   menu.onclick = () => {
     closeModal();
     openTitle();
@@ -656,9 +659,13 @@ export function syncUI() {
     dom.hungerRibs.innerHTML = ribs;
   }
 
+  const clearedRooms = S.rooms.filter((r) => r.cleared).length;
   document.getElementById('turnNo').innerHTML =
     `<span class="hb">ярус ${S.floor}</span>` +
     (S.biome ? `<span class="hb">${S.biome.name}</span>` : '') +
+    (S.rooms.length > 1
+      ? `<span class="hb">комнаты ${clearedRooms}/${S.rooms.length}</span>`
+      : '') +
     `<span class="hb">ход ${S.turn}</span>` +
     `<span class="hb gold">${S.player.gold || 0}🪙</span>` +
     `<span class="hb shards">${META.shards || 0}✦</span>` +

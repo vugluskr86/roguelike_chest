@@ -583,6 +583,29 @@ button.again {
   color: var(--muted);
   font-size: 12px;
 }
+.run-log {
+  max-height: 140px;
+  overflow-y: auto;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--muted);
+  padding: 4px 0;
+  border-top: 1px solid #2a2f3a;
+  margin-top: 2px;
+  font-family: ui-monospace, Consolas, monospace;
+}
+.run-log .p {
+  color: var(--teal);
+}
+.run-log .e {
+  color: var(--ember);
+}
+.run-log .g {
+  color: var(--promo);
+}
+.run-log .r {
+  color: #d66a62;
+}
 .btnrow2 {
   display: flex;
   gap: 8px;

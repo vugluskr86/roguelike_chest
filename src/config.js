@@ -139,6 +139,12 @@ export const CFG = {
     frostEvery: 2,
     frostRange: 3, // жрец щитует, морозный маг оглушает
   },
+  ROOMS: {
+    startMin: 1,
+    startMax: 1,
+    growEvery: 3,
+    cap: 5,
+  },
 };
 export const KEY_COLORS = ['red', 'blue', 'green', 'gold', 'purple'];
 export const KEY_GLYPH = { red: '🔴', blue: '🔵', green: '🟢', gold: '🟡', purple: '🟣' };

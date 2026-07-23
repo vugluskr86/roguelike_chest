@@ -4,6 +4,7 @@ import { CFG, GLYPH, KEY_GLYPH, NAME, STD_TYPES } from './config.js';
 import { RELICS, CURSES } from './content.js';
 import { SCRIPT } from './content/script.js';
 import { enemiesTurn } from './enemies.js';
+import { tormentorHit, dispatchBossEvents, BOSS_CFG } from './bosses.js';
 import { snapshotRoom, loadRoom } from './board.js';
 import { offerLoot } from './loot.js';
 import { endRunMeta, recordKill, unlockAch } from './meta.js';
@@ -63,18 +64,22 @@ export function tryMoveTo(x, y) {
       endPlayerTurn();
       return;
     }
-    // Страж с бронёй: первый удар — бамп (щит спадает, ты остаёшься на месте). «Бронебой» пробивает сразу.
+    // Мучитель: своя механика фаз (теряет диагональ, на нуле — распад на бегущих)
+    if (e.bossId === 'tormentor' && !has('guard_pierce')) {
+      activeForm().cooldown = fatigue;
+      dispatchBossEvents(tormentorHit(e), {
+        log: (t) => log(t),
+        addSpeech: (x, y, t, kind) => addSpeech(x, y, t, kind),
+      });
+      if (e.armor > 0) triggerBossPhase('tormentor', e.phase); // текст из content/script.js
+      endPlayerTurn();
+      return;
+    }
+    // Страж с бронёй: первый удар — бамп. «Бронебой» пробивает сразу.
     if (e.armor > 1 && !has('guard_pierce')) {
       e.armor--;
       activeForm().cooldown = fatigue;
       log(`Ты пробиваешь щит ${GLYPH[e.type]} ${NAME[e.type]} (осталось брони: ${e.armor}).`, 'p');
-      // босс: смена фазы при потере брони
-      if (e.bossId === 'tormentor' && S.bossPhase > 0) {
-        S.bossPhase++;
-        e.r = Math.max(1, e.r - 1); // теряет одну диагональ
-        if (S.bossPhase === 2) triggerBossPhase('tormentor', 2);
-        if (S.bossPhase === 3) triggerBossPhase('tormentor', 3);
-      }
       endPlayerTurn();
       return;
     }
@@ -180,11 +185,11 @@ export function triggerSpecialForPlayer() {
     if (s.opens && S.walls.has(key(s.opens.x, s.opens.y))) {
       S.walls.delete(key(s.opens.x, s.opens.y));
       if (s.chain) {
-        S.bossPhase++;
-        log(`Цепь разорвана (${S.bossPhase}/4).`, 'g');
+        S.chainsBroken = (S.chainsBroken || 0) + 1;
+        log(`Цепь разорвана (${S.chainsBroken}/${BOSS_CFG.redKing.chains}).`, 'g');
         const king = S.enemies.find((e) => e.king);
         if (king && SCRIPT.bosses.redKing) {
-          const line = SCRIPT.bosses.redKing.chainBreak[S.bossPhase];
+          const line = SCRIPT.bosses.redKing.chainBreak[S.chainsBroken];
           if (line) {
             addSpeech(king.x, king.y, line.text, 'boss');
             log(line.text);
@@ -427,6 +432,20 @@ export function afterEnemies() {
       closeModal();
       log('Все враги уничтожены — симуляция завершена.', 'g');
       stopEditorRun();
+      return;
+    }
+    // пометить комнату зачищенной
+    const room = S.rooms[S.currentRoom];
+    if (room && !room.cleared) {
+      room.cleared = true;
+      room.enemies = [];
+    }
+    // проверить все комнаты
+    const allCleared = S.rooms.every((r) => r.cleared);
+    if (!allCleared) {
+      log('Комната зачищена — пройди через дверь к оставшимся врагам.', 'g');
+      render();
+      syncUI();
       return;
     }
     if (S.runMode === 'campaign' && isFinalFloor(S.floor)) {

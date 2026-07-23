@@ -4,11 +4,11 @@
  */
 import { S } from './state.js';
 import { dom } from './dom.js';
-import { KEY_COLORS, KEY_GLYPH } from './config.js';
-import { loadLevel } from './board.js';
-import { afterEnemies } from './combat.js';
+import { CFG, KEY_COLORS, KEY_GLYPH } from './config.js';
+import { loadLevel, newFloor, generateBossRoom, loadRoom } from './board.js';
 import { META, metaSave } from './meta.js';
-import { render } from './render.js';
+import { render, clearSpeech } from './render.js';
+import { BOSS_CFG } from './bosses.js';
 import { cleanse } from './status.js';
 import { log, closeModal, syncUI } from './ui.js';
 import { makeForm, pick, tileColor } from './util.js';
@@ -38,7 +38,7 @@ function openDebugMenu() {
 
   [
     { label: '☠ Убить всех врагов', fn: killAllEnemies },
-    { label: '⬇ Пропустить этаж', fn: skipFloor },
+    { label: '⬇ Пропустить этаж', fn: skipFloor, keepOpen: true },
     { label: '🪙 +20 золота', fn: () => addGold(20) },
     { label: '✦ +50 осколков', fn: () => addShards(50) },
     { label: '🛡 Неуязвимость: ' + (S.godMode ? 'ВЫКЛ' : 'ВКЛ'), fn: toggleGodMode },
@@ -52,12 +52,16 @@ function openDebugMenu() {
       },
     },
     { label: '♟ Добавить случайную форму', fn: addRandomForm },
+    { label: '🧪 Босс: Мучитель', fn: startTormentor },
+    { label: '🧪 Босс: Ладьи', fn: startRooks },
+    { label: '🧪 Босс: Жернов', fn: startMillstone },
+    { label: '🧪 Босс: Король', fn: startRedKing },
   ].forEach((b) => {
     const btn = document.createElement('button');
     btn.textContent = b.label;
     btn.onclick = () => {
       b.fn();
-      if (b.label !== 'Закрыть') closeMenu();
+      if (b.label !== 'Закрыть' && !b.keepOpen) closeMenu();
     };
     dom.mChoices.appendChild(btn);
   });
@@ -126,7 +130,9 @@ function killAllEnemies() {
 function skipFloor() {
   S.enemies = [];
   log('⬇ Этаж пропущен.', 'g');
-  afterEnemies();
+  newFloor();
+  render();
+  syncUI();
 }
 
 function addGold(n) {
@@ -182,4 +188,84 @@ function addRandomForm() {
   const t = pick(pool);
   S.player.wheel[slot] = makeForm(t, tileColor(S.player.x, S.player.y));
   log(`♟ Форма «${t}» добавлена в слот ${slot}.`, 'g');
+}
+
+// ===== тестирование боссов =====
+
+function initBossArena(bossId) {
+  closeMenu();
+  const room = generateBossRoom(bossId);
+  S.walls = room.walls;
+  S.special = room.specials;
+  S.enemies = room.enemies;
+  S.rooms = [{ walls: room.walls, enemies: S.enemies, special: room.specials, cleared: false }];
+  S.currentRoom = 0;
+  loadRoom(0);
+  S.player.x = Math.floor(CFG.W / 2);
+  S.player.y = CFG.H - 1;
+  S.player.facing = [0, -1];
+  S.player.active = 0;
+  S.promotionUsed = false;
+  S.hoverEnemy = null;
+  S.selectedEnemy = null;
+  S.turn = 1;
+  S.player.freeSwapUsed = false;
+  S.player.capturedThisFloor = 0;
+  S.player.hunger = CFG.HUNGER.start;
+  S.bossPhase = 0;
+  S.chainsBroken = 0;
+  S.millTick = 0;
+  S.millFed = 0;
+  S.millsJammed = 0;
+  S.party = null;
+  S.keys = new Set();
+  S.player.lostFormThisFloor = false;
+  clearSpeech();
+  cleanse(S.player);
+}
+
+function startTormentor() {
+  initBossArena('tormentor');
+  const e = S.enemies[0];
+  if (e) {
+    e.phase = 1;
+    e.armor = BOSS_CFG.tormentor.armor;
+    e.stunCd = BOSS_CFG.tormentor.stunEvery;
+  }
+  S.bossPhase = 1;
+  log('🧪 Босс: Слон-Мучитель (ярус 6).', 'e');
+  render();
+  syncUI();
+}
+
+function startRooks() {
+  initBossArena('spawnedRooks');
+  log('🧪 Босс: Спаянные Ладьи (ярус 8).', 'e');
+  render();
+  syncUI();
+}
+
+function startMillstone() {
+  initBossArena('millstone');
+  S.party = {
+    dropCd: 0,
+    pullCd: BOSS_CFG.puppeteer.pullEvery,
+    reserve: BOSS_CFG.puppeteer.reserve,
+  };
+  log('🧪 Босс: Жернов (ярус 11).', 'e');
+  render();
+  syncUI();
+}
+
+function startRedKing() {
+  initBossArena('redKing');
+  S.chainsBroken = 0;
+  const king = S.enemies.find((e) => e.king);
+  if (king) {
+    king.armor = 99;
+    king.exposed = false;
+  }
+  log('🧪 Босс: Красный Король (ярус 18).', 'e');
+  render();
+  syncUI();
 }

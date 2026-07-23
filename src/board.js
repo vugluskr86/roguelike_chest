@@ -2,6 +2,7 @@ import { S } from './state.js';
 import { dom } from './dom.js';
 import { CFG, BIOMES, biomeFor, KEY_COLORS } from './config.js';
 import { RELICS } from './content.js';
+import { BOSS_CFG } from './bosses.js';
 import { applyRelic } from './loot.js';
 import { META, codexSeeEnemy, unlockAch } from './meta.js';
 import { necroInterval, threatCellsFrom } from './moves.js';
@@ -359,13 +360,11 @@ export function generateBossRoom(bossId) {
       type: 'bishop',
       x: Math.floor(CFG.W / 2),
       y: 3,
-      facing: [0, 1],
-      cd: 0,
       status: {},
-      homeColor: 1,
-      r: 4,
-      rb: 0,
-      armor: 3,
+      armor: BOSS_CFG.tormentor.armor,
+      r: BOSS_CFG.tormentor.range,
+      phase: 1,
+      stunCd: BOSS_CFG.tormentor.stunEvery,
       bossId: 'tormentor',
     };
     return { walls: w, enemies: [boss], specials: sp };
@@ -374,37 +373,31 @@ export function generateBossRoom(bossId) {
     CFG.W = 13;
     CFG.H = 11;
     const w = new Set();
-    // узкий проход — две стены по бокам
-    for (let y = 2; y < CFG.H - 2; y++) {
-      w.add(key(3, y));
-      w.add(key(CFG.W - 4, y));
-    }
     const sp = new Map();
+    // пилоны-«зубья»: об них упирается спина Ладей
+    [
+      [4, 5],
+      [5, 5],
+      [8, 5],
+      [9, 5],
+      [3, 7],
+      [10, 7],
+    ].forEach(([x, y]) => sp.set(key(x, y), { type: 'pillar' }));
     const rook1 = {
       type: 'rook',
       x: 5,
-      y: Math.floor(CFG.H / 2) - 1,
-      facing: [0, 1],
-      cd: 0,
-      status: {},
-      homeColor: 0,
-      r: 3,
-      rb: 0,
+      y: 2,
+      r: BOSS_CFG.linkedRooks.range,
       linkedTo: 'rookPair',
-      bossId: 'spawnedRooks',
+      status: {},
     };
     const rook2 = {
       type: 'rook',
-      x: CFG.W - 6,
-      y: Math.floor(CFG.H / 2) - 1,
-      facing: [0, 1],
-      cd: 0,
-      status: {},
-      homeColor: 1,
-      r: 3,
-      rb: 0,
+      x: 6,
+      y: 2,
+      r: BOSS_CFG.linkedRooks.range,
       linkedTo: 'rookPair',
-      bossId: 'spawnedRooks',
+      status: {},
     };
     return { walls: w, enemies: [rook1, rook2], specials: sp };
   }
@@ -427,13 +420,9 @@ export function generateBossRoom(bossId) {
       type: 'king',
       x: Math.floor(CFG.W / 2),
       y: Math.floor(CFG.H / 2),
-      facing: [0, -1],
-      cd: 0,
       status: {},
-      homeColor: 1,
       r: 1,
-      rb: 0,
-      armor: 99, // неуязвим пока цепи целы
+      armor: 99,
       bossId: 'redKing',
       king: true,
     };
@@ -442,12 +431,8 @@ export function generateBossRoom(bossId) {
       type: 'queen',
       x: Math.floor(CFG.W / 2) - 4,
       y: Math.floor(CFG.H / 2) - 2,
-      facing: [0, 1],
-      cd: 0,
       status: { shield: 1 },
-      homeColor: 0,
-      r: 3,
-      rb: 0,
+      r: 8,
       bossId: 'redKing',
       retinue: 'queen',
     };
@@ -455,12 +440,8 @@ export function generateBossRoom(bossId) {
       type: 'rook',
       x: 3,
       y: Math.floor(CFG.H / 2),
-      facing: [0, 1],
-      cd: 0,
       status: {},
-      homeColor: 0,
-      r: 3,
-      rb: 0,
+      r: 8,
       bossId: 'redKing',
       retinue: 'rook',
       passive: true, // простреливает линии, не преследует
@@ -469,12 +450,8 @@ export function generateBossRoom(bossId) {
       type: 'rook',
       x: CFG.W - 4,
       y: Math.floor(CFG.H / 2),
-      facing: [0, 1],
-      cd: 0,
       status: {},
-      homeColor: 1,
-      r: 3,
-      rb: 0,
+      r: 8,
       bossId: 'redKing',
       retinue: 'rook',
       passive: true,
@@ -483,27 +460,19 @@ export function generateBossRoom(bossId) {
       type: 'knight',
       x: Math.floor(CFG.W / 2) + 3,
       y: Math.floor(CFG.H / 2) - 4,
-      facing: [0, 1],
-      cd: 0,
       status: {},
-      homeColor: 0,
       r: 1,
-      rb: 0,
       bossId: 'redKing',
       retinue: 'knight',
-      noAttackCd: true, // не может бить два хода подряд
+      noAttackCd: true,
       attackReady: true,
     };
     const knight2 = {
       type: 'knight',
       x: Math.floor(CFG.W / 2) - 3,
       y: Math.floor(CFG.H / 2) - 4,
-      facing: [0, 1],
-      cd: 0,
       status: {},
-      homeColor: 1,
       r: 1,
-      rb: 0,
       bossId: 'redKing',
       retinue: 'knight',
       noAttackCd: true,
@@ -534,6 +503,38 @@ export function generateBossRoom(bossId) {
   }
   // fallback
   return generateRoom();
+}
+
+/** Построить граф смежности комнат по дверям. */
+function buildRoomGraph(rooms, n) {
+  const adj = Array.from({ length: n }, () => []);
+  for (let r = 0; r < n; r++) {
+    const room = rooms[r];
+    if (!room) continue;
+    for (const [, s] of room.special) {
+      if (s.type === 'door' && s.targetRoom != null && s.targetRoom >= 0 && s.targetRoom < n) {
+        if (!adj[r].includes(s.targetRoom)) adj[r].push(s.targetRoom);
+      }
+    }
+  }
+  return adj;
+}
+
+/** Проверить, что все комнаты достижимы из комнаты 0 через двери. */
+function checkRoomConnectivity(rooms, n) {
+  const adj = buildRoomGraph(rooms, n);
+  const visited = new Set([0]);
+  const q = [0];
+  while (q.length) {
+    const cur = q.pop();
+    for (const nxt of adj[cur]) {
+      if (!visited.has(nxt)) {
+        visited.add(nxt);
+        q.push(nxt);
+      }
+    }
+  }
+  return visited.size >= n;
 }
 
 export function newFloor() {
@@ -589,6 +590,9 @@ export function newFloor() {
       S.player.capturedThisFloor = 0;
       S.player.hunger = CFG.HUNGER.start;
       S.bossPhase = 1;
+      S.chainsBroken = 0;
+      S.millTick = 0;
+      S.millsJammed = 0;
       clearSpeech();
       cleanse(S.player);
       S.player.lostFormThisFloor = false;
@@ -607,7 +611,13 @@ export function newFloor() {
   }
 
   S.bossPhase = 0;
-  const nRooms = 2 + randInt(3); // 2–4 комнаты
+  S.chainsBroken = 0;
+  S.millTick = 0;
+  S.millsJammed = 0;
+  const C = CFG.ROOMS;
+  const maxRooms = Math.min(C.startMax + Math.floor(S.floor / C.growEvery), C.cap);
+  const minRooms = Math.min(C.startMin + Math.floor(S.floor / C.growEvery), maxRooms);
+  const nRooms = minRooms + randInt(Math.max(1, maxRooms - minRooms + 1));
   for (let r = 0; r < nRooms; r++) {
     const room = generateRoom();
     S.walls = room.walls;
@@ -615,94 +625,135 @@ export function newFloor() {
     spawnEnemiesForFloor(S.floor, room.reach);
     S.rooms.push({ walls: room.walls, enemies: S.enemies, special: room.specials, cleared: false });
   }
-  // соединяем соседние комнаты дверями
-  for (let r = 0; r < nRooms; r++) {
-    const next = (r + 1) % nRooms;
-    // дверь A→B на правой стене комнаты A
-    const doorX = CFG.W - 1;
-    const doorY = Math.floor(CFG.H / 2);
-    const locked = random() < 0.6 ? pick(KEY_COLORS) : null;
-    // безопасная клетка выхода в комнате B (ищем ближайшую без стен/ловушек)
-    let safeB = { x: 2, y: doorY };
-    for (let sx = 2; sx <= 4; sx++) {
-      if (
-        !S.rooms[next].walls.has(key(sx, Math.floor(CFG.H / 2))) &&
-        S.rooms[next].special.get(key(sx, Math.floor(CFG.H / 2)))?.type !== 'trap'
-      ) {
-        safeB = { x: sx, y: Math.floor(CFG.H / 2) };
-        break;
-      }
-      for (let sy = doorY - 2; sy <= doorY + 2; sy++) {
+  // соединяем соседние комнаты дверями (только если комнат > 1)
+  if (nRooms > 1) {
+    for (let r = 0; r < nRooms; r++) {
+      const next = (r + 1) % nRooms;
+      // дверь A→B на правой стене комнаты A
+      const doorX = CFG.W - 1;
+      const doorY = Math.floor(CFG.H / 2);
+      const locked = random() < 0.6 ? pick(KEY_COLORS) : null;
+      // безопасная клетка выхода в комнате B (ищем ближайшую без стен/ловушек)
+      let safeB = { x: 2, y: doorY };
+      for (let sx = 2; sx <= 4; sx++) {
         if (
-          sy > 0 &&
-          sy < CFG.H - 1 &&
-          !S.rooms[next].walls.has(key(sx, sy)) &&
-          S.rooms[next].special.get(key(sx, sy))?.type !== 'trap'
+          !S.rooms[next].walls.has(key(sx, Math.floor(CFG.H / 2))) &&
+          S.rooms[next].special.get(key(sx, Math.floor(CFG.H / 2)))?.type !== 'trap'
         ) {
-          safeB = { x: sx, y: sy };
+          safeB = { x: sx, y: Math.floor(CFG.H / 2) };
           break;
         }
+        for (let sy = doorY - 2; sy <= doorY + 2; sy++) {
+          if (
+            sy > 0 &&
+            sy < CFG.H - 1 &&
+            !S.rooms[next].walls.has(key(sx, sy)) &&
+            S.rooms[next].special.get(key(sx, sy))?.type !== 'trap'
+          ) {
+            safeB = { x: sx, y: sy };
+            break;
+          }
+        }
+        if (safeB.x !== 2) break;
       }
-      if (safeB.x !== 2) break;
-    }
-    S.rooms[r].special.set(key(doorX, doorY), {
-      type: 'door',
-      color: locked,
-      targetRoom: next,
-      targetPos: safeB,
-    });
-    // дверь B→A на левой стене комнаты B
-    safeB = { x: CFG.W - 2, y: doorY };
-    for (let sx = CFG.W - 2; sx >= CFG.W - 4; sx--) {
-      if (
-        !S.rooms[r].walls.has(key(sx, Math.floor(CFG.H / 2))) &&
-        S.rooms[r].special.get(key(sx, Math.floor(CFG.H / 2)))?.type !== 'trap'
-      ) {
-        safeB = { x: sx, y: Math.floor(CFG.H / 2) };
-        break;
-      }
-      for (let sy = doorY - 2; sy <= doorY + 2; sy++) {
+      S.rooms[r].special.set(key(doorX, doorY), {
+        type: 'door',
+        color: locked,
+        targetRoom: next,
+        targetPos: safeB,
+      });
+      // дверь B→A на левой стене комнаты B
+      safeB = { x: CFG.W - 2, y: doorY };
+      for (let sx = CFG.W - 2; sx >= CFG.W - 4; sx--) {
         if (
-          sy > 0 &&
-          sy < CFG.H - 1 &&
-          !S.rooms[r].walls.has(key(sx, sy)) &&
-          S.rooms[r].special.get(key(sx, sy))?.type !== 'trap'
+          !S.rooms[r].walls.has(key(sx, Math.floor(CFG.H / 2))) &&
+          S.rooms[r].special.get(key(sx, Math.floor(CFG.H / 2)))?.type !== 'trap'
         ) {
-          safeB = { x: sx, y: sy };
+          safeB = { x: sx, y: Math.floor(CFG.H / 2) };
           break;
         }
+        for (let sy = doorY - 2; sy <= doorY + 2; sy++) {
+          if (
+            sy > 0 &&
+            sy < CFG.H - 1 &&
+            !S.rooms[r].walls.has(key(sx, sy)) &&
+            S.rooms[r].special.get(key(sx, sy))?.type !== 'trap'
+          ) {
+            safeB = { x: sx, y: sy };
+            break;
+          }
+        }
+        if (safeB.x !== CFG.W - 2) break;
       }
-      if (safeB.x !== CFG.W - 2) break;
+      S.rooms[next].special.set(key(2, doorY), {
+        type: 'door',
+        color: locked,
+        targetRoom: r,
+        targetPos: safeB,
+      });
+      // если дверь заперта — кладём ключ в комнату r
+      if (locked) {
+        let kx,
+          ky,
+          tries = 0;
+        do {
+          kx = 1 + randInt(CFG.W - 2);
+          ky = 1 + randInt(CFG.H - 2);
+          tries++;
+        } while (
+          tries < 50 &&
+          (S.rooms[r].walls.has(key(kx, ky)) ||
+            S.rooms[r].special.get(key(kx, ky)) ||
+            (kx === doorX && ky === doorY))
+        );
+        if (tries < 50) S.rooms[r].special.set(key(kx, ky), { type: 'key', color: locked });
+      }
     }
-    S.rooms[next].special.set(key(2, doorY), {
-      type: 'door',
-      color: locked,
-      targetRoom: r,
-      targetPos: safeB,
-    });
-    // если дверь заперта — кладём ключ в комнату r
-    if (locked) {
-      let kx,
-        ky,
-        tries = 0;
-      do {
-        kx = 1 + randInt(CFG.W - 2);
-        ky = 1 + randInt(CFG.H - 2);
-        tries++;
-      } while (
-        tries < 50 &&
-        (S.rooms[r].walls.has(key(kx, ky)) ||
-          S.rooms[r].special.get(key(kx, ky)) ||
-          (kx === doorX && ky === doorY))
-      );
-      if (tries < 50) S.rooms[r].special.set(key(kx, ky), { type: 'key', color: locked });
+    // удаляем стены в клетках дверей
+    for (const room of S.rooms) {
+      room.special.forEach((s, k) => {
+        if (s.type === 'door') room.walls.delete(k);
+      });
     }
-  }
-  // удаляем стены в клетках дверей
-  for (const room of S.rooms) {
-    room.special.forEach((s, k) => {
-      if (s.type === 'door') room.walls.delete(k);
-    });
+    // BFS-проверка связности всех комнат через двери
+    let attempts = 0;
+    while (attempts < 10 && !checkRoomConnectivity(S.rooms, nRooms)) {
+      attempts++;
+      // перегенерим одну случайную дверь (добавим мост к несвязанной)
+      const adj = buildRoomGraph(S.rooms, nRooms);
+      const unreachable = [];
+      const visited = new Set([0]);
+      const q = [0];
+      while (q.length) {
+        const cur = q.pop();
+        for (const nxt of adj[cur]) {
+          if (!visited.has(nxt)) {
+            visited.add(nxt);
+            q.push(nxt);
+          }
+        }
+      }
+      for (let i = 1; i < nRooms; i++) if (!visited.has(i)) unreachable.push(i);
+      if (!unreachable.length) break;
+      const target = pick(unreachable);
+      // добавим дверь из комнаты 0 в целевую (односторонний мост)
+      const doorX2 = CFG.W - 1;
+      const doorY2 = Math.floor(CFG.H / 2);
+      S.rooms[0].special.set(key(doorX2, doorY2), {
+        type: 'door',
+        color: null,
+        targetRoom: target,
+        targetPos: { x: 2, y: doorY2 },
+      });
+      S.rooms[target].special.set(key(2, doorY2), {
+        type: 'door',
+        color: null,
+        targetRoom: 0,
+        targetPos: { x: CFG.W - 2, y: doorY2 },
+      });
+      S.rooms[0].walls.delete(key(doorX2, doorY2));
+      S.rooms[target].walls.delete(key(2, doorY2));
+    }
   }
 
   loadRoom(0);

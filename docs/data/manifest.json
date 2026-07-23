@@ -1,0 +1,6 @@
+{
+  "levels": [
+    { "id": "level1", "name": "Слон-Мучитель (босс)", "file": "level1.json" },
+    { "id": "level2", "name": "Спаянные Ладьи (босс)", "file": "level2.json" }
+  ]
+}

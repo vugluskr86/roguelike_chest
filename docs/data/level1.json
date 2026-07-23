@@ -1,20 +1,28 @@
 {
-  "W": 11,
-  "H": 9,
-  "walls": ["5,3", "5,4", "5,5", "6,3", "6,5", "3,3", "3,4", "3,5"],
-  "playerStart": { "x": 5, "y": 8 },
-  "enemies": [
-    { "type": "pawn", "x": 2, "y": 2, "facing": [0, 1] },
-    { "type": "knight", "x": 8, "y": 2 },
-    { "type": "bishop", "x": 9, "y": 4 }
-  ],
-  "special": {
-    "4,6": { "type": "trap" },
-    "7,4": { "type": "rune" },
-    "2,6": { "type": "scroll" },
-    "9,7": { "type": "portal", "pair": { "x": 1, "y": 3 } },
-    "1,3": { "type": "portal", "pair": { "x": 9, "y": 7 } }
-  },
+  "floor": 5,
   "biome": "halls",
-  "floor": 1
+  "rooms": [
+    {
+      "W": 15,
+      "H": 13,
+      "playerStart": { "x": 7, "y": 12 },
+      "walls": [
+        "4,4",
+        "5,4",
+        "4,5",
+        "5,5",
+        "7,6",
+        "8,6",
+        "7,7",
+        "8,7",
+        "10,8",
+        "11,8",
+        "10,9",
+        "11,9"
+      ],
+      "enemies": [{ "type": "bishop", "x": 7, "y": 3, "bossId": "tormentor", "armor": 3, "r": 4 }],
+      "special": {}
+    }
+  ],
+  "doors": []
 }
