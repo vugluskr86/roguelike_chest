@@ -49,6 +49,15 @@ export function tryMoveTo(x, y) {
   const isCap = captures.some((c) => c.x === x && c.y === y);
   const isMove = moves.some((c) => c.x === x && c.y === y);
   if (!isCap && !isMove) return;
+  // если ход (не взятие) — клетка должна быть свободна от врагов
+  if (isMove && enemyAt(x, y)) {
+    console.warn('tryMoveTo BLOCKED: enemy occupies target cell', {
+      x,
+      y,
+      enemyType: enemyAt(x, y).type,
+    });
+    return;
+  }
   // фасинг обновляется по направлению шага (для любой формы — пригодится пешке)
   const dx = Math.sign(x - S.player.x),
     dy = Math.sign(y - S.player.y);

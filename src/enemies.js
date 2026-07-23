@@ -122,12 +122,12 @@ export function enemiesTurn() {
     const opts = genMoves(
       e,
       ef,
-      ({ x, y }) => S.player.x === x && S.player.y === y,
+      (x, y) => S.player.x === x && S.player.y === y,
       ({ x, y }) => {
+        if (S.player.x === x && S.player.y === y) return true;
         if (S.walls.has(key(x, y))) return true;
         const oe = enemyAt(x, y);
         if (oe && oe !== e) return true;
-        // цветовая зона блокирует не-слонов
         const sp = S.special.get(key(x, y));
         if (sp && sp.type === 'colorzone' && ef.type !== 'bishop') return true;
         if (sp && sp.type === 'gate') {
@@ -138,12 +138,10 @@ export function enemiesTurn() {
         return false;
       },
     );
-    // взятие игрока
     if (opts.captures.length) {
       const cap = opts.captures[0];
+      console.log(`enemy ${e.type} at (${e.x},${e.y}) CAPTURES player -> (${cap.x},${cap.y})`);
       e.cd = CFG.ENEMY_CAPTURE_CD;
-      e.x = cap.x;
-      e.y = cap.y;
       if (e.noAttackCd) e.attackReady = false;
       // ассасин отравляет при взятии
       if (e.type === 'assassin') applyStatus(S.player, 'poison', 2);
@@ -163,6 +161,14 @@ export function enemiesTurn() {
       opts.moves[0],
     );
     if (bestMove) {
+      // не вставать на занятую другим врагом клетку
+      if (enemyAt(bestMove.x, bestMove.y)) {
+        console.warn(`enemy ${e.type} BLOCKED: target (${bestMove.x},${bestMove.y}) occupied`);
+        continue;
+      }
+      console.log(
+        `enemy ${e.type} at (${e.x},${e.y}) MOVES -> (${bestMove.x},${bestMove.y}), player at (${S.player.x},${S.player.y})`,
+      );
       e.x = bestMove.x;
       e.y = bestMove.y;
       // проверка спец-клетки под врагом
@@ -183,8 +189,9 @@ export function enemiesTurn() {
       const opts2 = genMoves(
         e,
         ef2,
-        ({ x, y }) => S.player.x === x && S.player.y === y,
+        (x, y) => S.player.x === x && S.player.y === y,
         ({ x, y }) => {
+          if (S.player.x === x && S.player.y === y) return true;
           if (S.walls.has(key(x, y))) return true;
           const oe = enemyAt(x, y);
           if (oe && oe !== e) return true;
@@ -200,8 +207,7 @@ export function enemiesTurn() {
       );
       if (opts2.captures.length) {
         const cap2 = opts2.captures[0];
-        e.x = cap2.x;
-        e.y = cap2.y;
+        // враг не двигается при capture — остаётся на месте, игрок деградирует
         if (e.noAttackCd) e.attackReady = false;
         degradePlayer(e);
         if (S.gameOver) {

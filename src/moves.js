@@ -83,7 +83,7 @@ export function genMoves(piece, form, isEnemyCell, isBlocked) {
       for (const [dx, dy] of KNIGHT_J) {
         const x = piece.x + dx,
           y = piece.y + dy;
-        if (!inB(x, y) || S.walls.has(key(x, y)) || blk(x, y, null)) continue; // прыгает НАД, но не в стену/ворота/зону
+        if (!inB(x, y) || S.walls.has(key(x, y)) || blk(x, y, null)) continue;
         if (isEnemyCell(x, y)) captures.push({ x, y });
         else if (!isBlocked(x, y)) moves.push({ x, y });
       }
