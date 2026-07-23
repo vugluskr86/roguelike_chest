@@ -23,28 +23,42 @@ Web Audio API для звуков, Mersenne Twister для RNG с seed.
 - **Comments, log messages, UI strings**: Russian
 - **Module files**: single-word kebab-concept (`board.js`, `combat.js`, `loot.js`)
 
+## Terminology (Нарратив)
+
+- **Кость** (Bone) — реликвия (бывш. «реликвия»)
+- **Шов** (Seam) — проклятие (бывш. «проклятие»)
+- **Пепел** (Ash) — осколки, мета-валюта (бывш. «осколки»)
+- **Жила** (Vein) — руна перезарядки, насыщает голод (бывш. «руна»)
+- **Восхождение** (Ascension) — промоушен пешки (бывш. «промоушен»)
+- **Костоправ** (Bonesetter) — лавка между этажами (бывш. «лавка»)
+- **Распайка** — алтарь очищения (бывш. «алтарь очищения»)
+- **Жертвенник** — святилище (бывш. «святилище»)
+- **Кости судьбы** — азартный алтарь (бывш. «азартный алтарь»)
+- **Голод** (Hunger) — Цугцванг: шкала сытости, тает каждый ход
+
 ## Module Architecture (src/)
 
-| File         | Responsibility                                     | Key Exports                                                                                                                                        |
-| ------------ | -------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `config.js`  | Константы, typedefs, биомы (6), статусы, настройки | `CFG`, `GLYPH`, `NAME`, `BIOMES`, `STATUS_META`, `loadSettings()`, `saveSettings()`                                                                |
-| `state.js`   | Глобальное мутабельное состояние `S`               | `S` (object), `has()`, `curse()`, `enemyAt()`                                                                                                      |
-| `dom.js`     | Кеширование DOM-элементов                          | `dom` (object), `initDom()`                                                                                                                        |
-| `util.js`    | Хелперы, направления, Mersenne Twister             | `ORTHO`, `DIAG`, `KNIGHT_J`, `key()`, `inB()`, `tileColor()`, `cheb()`, `makeForm()`, `randInt()`, `pick()`, `shuffle()`, `seedRNG()`, `random()`  |
-| `moves.js`   | Генерация ходов, угрозы, pathfinding               | `genMoves()`, `enemyThreat()`, `allThreats()`, `playerOptions()`, `activeForm()`, `effectiveForm()`, `attackSquaresFor()`, `movesToThreaten()`     |
-| `board.js`   | Генерация этажа (6 стилей), спавн врагов           | `generateRoom()`, `spawnEnemiesForFloor()`, `newFloor()`, `reset()`                                                                                |
-| `combat.js`  | Действия игрока, поток хода, челленджи             | `tryMoveTo()`, `rotate()`, `switchForm()`, `pass()`, `endPlayerTurn()`, `degradePlayer()`                                                          |
-| `enemies.js` | AI врагов, челлендж «Шторм»                        | `enemiesTurn()`                                                                                                                                    |
-| `status.js`  | Статусы: яд/оглушение/щит/ускорение                | `applyStatus()`, `cleanse()`, `statusVal()`                                                                                                        |
-| `render.js`  | Canvas-рендер, камера, анимации, эффекты           | `render()`, `resizeBoard()`, `drawPiece()`, `drawSpecial()`, `camera`, `spawnParticles()`, `startCaptureFlash()`, `screenFade()`, `centerCamera()` |
-| `ui.js`      | DOM-UI, модалки, настройки, челленджи              | `log()`, `syncUI()`, `openModal()`, `openSettings()`, `openTitle()`, `openRunSummary()`                                                            |
-| `loot.js`    | Реликвии, проклятия, награды                       | `offerLoot()`, `applyRelic()`, `applyCurse()`                                                                                                      |
-| `events.js`  | Комнаты-события между этажами                      | `triggerEvent()`                                                                                                                                   |
-| `meta.js`    | Мета-прогрессия, достижения, бестиарий             | `META`, `metaLoad()`, `unlockAch()`, `codexSeeEnemy()`                                                                                             |
-| `content.js` | Реликвии, проклятия, апгрейды, челленджи           | `RELICS`, `CURSES`, `META_UPGRADES`, `CHALLENGES`                                                                                                  |
-| `audio.js`   | Звуки через Web Audio API (синтез)                 | `playMove()`, `playCapture()`, `playDeath()`, `playTrap()`, `playPortal()`, `playRune()`, `playPromotion()`, `playLoot()`, `initAudio()`           |
-| `main.js`    | Точка входа, загрузка, настройки, ввод             | (no exports)                                                                                                                                       |
-| `styles.css` | Стили, мобильная адаптация, скроллбары             | (CSS)                                                                                                                                              |
+| File                | Responsibility                                            | Key Exports                                                                                                                                                        |
+| ------------------- | --------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `config.js`         | Константы, typedefs, биомы (6), статусы, настройки        | `CFG`, `CFG.HUNGER`, `GLYPH`, `NAME`, `BIOMES`, `STATUS_META`, `loadSettings()`, `saveSettings()`                                                                  |
+| `state.js`          | Глобальное мутабельное состояние `S`                      | `S` (object), `has()`, `curse()`, `enemyAt()`                                                                                                                      |
+| `dom.js`            | Кеширование DOM-элементов                                 | `dom` (object), `initDom()`                                                                                                                                        |
+| `util.js`           | Хелперы, направления, Mersenne Twister                    | `ORTHO`, `DIAG`, `KNIGHT_J`, `key()`, `inB()`, `tileColor()`, `cheb()`, `makeForm()`, `randInt()`, `pick()`, `shuffle()`, `seedRNG()`, `random()`, `isBossFloor()` |
+| `moves.js`          | Генерация ходов, угрозы, pathfinding                      | `genMoves()`, `enemyThreat()`, `allThreats()`, `playerOptions()`, `activeForm()`, `effectiveForm()`, `attackSquaresFor()`, `movesToThreaten()`                     |
+| `board.js`          | Генерация этажа (6 стилей), спавн врагов, босс-комнаты    | `generateRoom()`, `generateBossRoom()`, `spawnEnemiesForFloor()`, `newFloor()`, `reset()`                                                                          |
+| `combat.js`         | Действия игрока, поток хода, голод, боссы, голоса костей  | `tryMoveTo()`, `rotate()`, `switchForm()`, `pass()`, `endPlayerTurn()`, `degradePlayer()`, `triggerSpecialForPlayer()`, `triggerBossPhase()`, `openVictory()`      |
+| `enemies.js`        | AI врагов, боссы (Ладьи, Жернов, Король+свита), kingOrder | `enemiesTurn()`                                                                                                                                                    |
+| `status.js`         | Статусы: яд/оглушение/щит/ускорение                       | `applyStatus()`, `cleanse()`, `statusVal()`                                                                                                                        |
+| `render.js`         | Canvas-рендер, камера, анимации, виньетка, speech         | `render()`, `resizeBoard()`, `drawPiece()`, `drawSpecial()`, `camera`, `addSpeech()`, `clearSpeech()`, `spawnParticles()`, `startCaptureFlash()`, `screenFade()`   |
+| `ui.js`             | DOM-UI, модалки, настройки, шкала голода, интерлюдии      | `log()`, `syncUI()`, `openModal()`, `openInterlude()`, `openSettings()`, `openTitle()`, `openRunSummary()`                                                         |
+| `loot.js`           | Кости, швы, награды                                       | `offerLoot()`, `applyRelic()`, `applyCurse()`                                                                                                                      |
+| `events.js`         | Комнаты-события: Костоправ, Распайка, Жертвенник          | `triggerEvent()`, `openShop()`, `openPurify()`, `openSanctuary()`, `openGamble()`, `openBlessing()`                                                                |
+| `meta.js`           | Мета-прогрессия, достижения, бестиарий                    | `META`, `metaLoad()`, `unlockAch()`, `codexSeeEnemy()`                                                                                                             |
+| `content.js`        | Кости, швы, апгрейды, челленджи                           | `RELICS`, `CURSES`, `META_UPGRADES`, `CHALLENGES`                                                                                                                  |
+| `content/script.js` | Сценарий забега: реплики, боссы, интерлюдии, эпилоги      | `SCRIPT`, `pickLine()`, `actForFloor()`                                                                                                                            |
+| `audio.js`          | Звуки через Web Audio API (синтез)                        | `playMove()`, `playCapture()`, `playDeath()`, `playTrap()`, `playPortal()`, `playRune()`, `playPromotion()`, `playLoot()`, `initAudio()`                           |
+| `main.js`           | Точка входа, загрузка, настройки, ввод                    | (no exports)                                                                                                                                                       |
+| `styles.css`        | Стили, мобильная адаптация, шкала голода                  | (CSS)                                                                                                                                                              |
 
 ## State Management Rules
 
@@ -53,7 +67,7 @@ Web Audio API для звуков, Mersenne Twister для RNG с seed.
 ```js
 export const S = {
   walls: Set, // Set<string> — ключи "x,y" клеток-стен
-  player: Object, // { x, y, facing, wheel[], active, relics, curses, status, gold, ... }
+  player: Object, // { x, y, facing, wheel[], active, relics, curses, status, gold, hunger, ... }
   enemies: Array, // [{ type, x, y, facing, cd, status, armor?, ... }]
   turn: number,
   promotionUsed: boolean,
@@ -76,11 +90,12 @@ export const S = {
 - Player position is at `S.player.x`, `S.player.y`
 - Board uses `x` (column, 0..W-1) and `y` (row, 0=top, H-1=bottom)
 - `facing` is `[dx, dy]`, default `[0, -1]` (up toward promotion line y=0)
+- `S.player.hunger` — текущая сытость (0..CFG.HUNGER.start), тает каждый ход
 
 ### Key Helpers (state.js)
 
-- `has(id)` — check if player has relic `id`
-- `curse(id)` — check if player has curse `id`
+- `has(id)` — check if player has relic (кость) `id`
+- `curse(id)` — check if player has curse (шов) `id`
 - `enemyAt(x, y)` — find enemy at cell
 
 ## Code Patterns
@@ -93,19 +108,31 @@ export const S = {
 
 ### Config Access
 
-- All tuning in `CFG` (config.js): `CFG.W`, `CFG.H`, `CFG.VIEW_W`, `CFG.VIEW_H`, `CFG.TILE`, `CFG.BASE_R`, `CFG.DIFF`
+- All tuning in `CFG` (config.js): `CFG.W`, `CFG.H`, `CFG.VIEW_W`, `CFG.VIEW_H`, `CFG.TILE`, `CFG.BASE_R`, `CFG.DIFF`, `CFG.HUNGER`
 - `CFG.MOVE_ANIM_MS: 300` — длительность анимации перемещения
 - `CFG.TILE_ANIM_SPEED: 1.0` — множитель скорости анимаций тайлов
 - `CFG.SFX_ENABLED`, `CFG.ANIM_ENABLED` — настройки (сохраняются в localStorage)
+- `CFG.HUNGER` — параметры голода: `start: 24`, `perTurn: 1`, `passExtra: 2`, `capture: 6`, `vein: 8`
 - Glyphs: `GLYPH[type]` for display characters
 - Names: `NAME[type]` for Russian names
 
 ### Turn Flow
 
 1. Player acts → `tryMoveTo()`, `rotate()`, `switchForm()`, or `pass()`
-2. → `endPlayerTurn()` (reduce cooldowns, chaos_wheel check, promotion check)
-3. → `enemiesTurn()` (each enemy acts — double in storm challenge)
+2. → `endPlayerTurn()` (reduce cooldowns, hunger drain, chaos_wheel check, promotion check)
+3. → `enemiesTurn()` (each enemy acts; linked rooks move together; millstone moves; king orders retinue; passive rooks shoot lines; knights alternate attacks)
 4. → `render()` + `syncUI()`
+
+### Hunger System (Голод)
+
+- `CFG.HUNGER.start` = 24 сытости на этаж
+- `CFG.HUNGER.perTurn` = 1 тратится каждый ход (не тратится на босс-этажах 5, 11, 18)
+- `CFG.HUNGER.passExtra` = 2 дополнительно за пас (итого −3 за пас)
+- `CFG.HUNGER.capture` = 6 даётся за взятие врага
+- `CFG.HUNGER.vein` = 8 даёт Жила (полное насыщение)
+- При 0 сытости — деградация каждый ход
+- `isBossFloor(f)` — утилита в `util.js`: `[5, 11, 18].includes(f)`
+- Визуал: шкала из 24 рёбер в UI, виньетка тьмы на canvas при сытости < 40%
 
 ### RNG
 
@@ -130,9 +157,11 @@ export const S = {
 - `render()` = `requestRender()` — deferred to rAF
 - `renderNow(ts)` — full repaint with `ctx.translate(-camera.x*T, -camera.y*T)`
 - Promotion border drawn after `ctx.restore()` — always at viewport top
+- Hunger vignette drawn after `ctx.restore()` — radial gradient from transparent center to black edges at hunger < 40%
 - Special cells: animated lava (bubbles), fog (drifting clouds), conveyor/gate (setLineDash), ice (cracks), portal (pulsing glow), trap (web)
 - Effects: particles (death), capture flash (ring), screen fade (floor transition)
 - Tooltips on special cells via `S.hoveredCell`
+- DOM UI: hunger bar (24 ribs) updated in `syncUI()`, green → red with pulse at ≤6
 
 ### Enemy Defs
 
@@ -149,6 +178,47 @@ export const S = {
 - Each biome has: wallStyle, light/dark colors, accent, favored enemies, favored tiles
 - `biomeFor(floor)` picks biome — always call after `S.floor` changes
 - Guaranteed: border and promotion row always clear, BFS reachability checked
+
+### Boss System
+
+- 4 bosses on floors 5, 8, 11, 18 in campaign mode (`isBossFloor`)
+- `S.bossPhase` tracks boss state (armor layers for Tormentor, chain count for Red King)
+- `generateBossRoom(bossId)` — authored rooms instead of procedural generation
+- Boss-specific AI: linked rooks (sync movement), millstone (moving special cell), Red King (invulnerable until 4 chains broken, orders retinue)
+- Retinue flags: `passive` (rooks shoot lines), `noAttackCd` + `attackReady` (knights can't attack two turns in a row), `kingOrder` (enemy acts twice)
+- `triggerBossPhase()` — scripted speech and log messages on phase changes
+
+### Speech System
+
+- `addSpeech(x, y, text, kind)` — floating text bubble over tile with fade-in/out
+- `SPEECH` config: ttl, rise, font, maxLines; `SPEECH_COLOR`: enemy/bone/boss/neutral
+- `drawSpeech(ts)` called in `renderNow()` after figures; `clearSpeech()` on floor change
+- Calls `requestRender()` for rAF animation; queue-limited to `maxVisible` with stagger
+
+### Script System (`content/script.js`)
+
+- `SCRIPT.floorIntro[floor]` — atmospheric one-liners on floor entry
+- `SCRIPT.enemyLines[type].act1/2` — contextual enemy speech per act
+- `SCRIPT.boneVoices[type]` — bone voice lines (3 turns after form switch)
+- `SCRIPT.bosses` — structured phase/dialog data for all 4 bosses
+- `SCRIPT.interludes` — prologue, act transitions with choices
+- `SCRIPT.endings` — three epilogues (kill, throne, breakBoard)
+- `pickLine(pool, lastKey)` — non-repeating random line picker
+- `actForFloor(f)` — returns 'act1' (1-5), 'act2' (6-11), 'act3' (12+)
+
+### Bone Voices (Голоса костей)
+
+- `S.player.boneVoiceTimer = 3` set on first switch to a new form type
+- Decremented in `afterEnemies()`; random speech lines at 40% chance while active
+- Suppressed by relic `silence`
+- `_seenBefore` flag on form slot prevents re-triggering
+
+### Campaign & Run Mode
+
+- `S.runMode` — `'campaign'` (18 floors, bosses, victory) or `'infinite'` (endless)
+- `isFinalFloor(f)` → `f >= 18`; triggers `openVictory()` instead of loot
+- Mode selector in title screen (⚔ Кампания / ∞ Бесконечная)
+- `openInterlude(data, onClose)` — modal for act transitions with choices affecting `S.mercy`
 
 ### Challenge Modes
 
@@ -167,7 +237,7 @@ export const S = {
 
 ### Test Setup
 
-- `test/setup.js` stubs DOM, Canvas, `getElementById`, `createElement`, `localStorage`
+- `test/setup.js` stubs DOM, Canvas, `getElementById`, `querySelector`, `createElement`, `localStorage`
 - Access test helpers: `elChildren(id)`, `clickWhere(id, pred)`, `store` (localStorage Map)
 - `import { S } from '../src/state.js'` — mutate S to set up test state
 - Tests run in Node via jsdom; no browser needed
@@ -235,14 +305,15 @@ npm run test:watch # Watch mode
 ### Common Pitfalls
 
 - **Forgetting `render()` after state change** — UI won't update
-- **Not calling `syncUI()`** after wheel/status changes — DOM elements stale
+- **Not calling `syncUI()`** after wheel/status/hunger changes — DOM elements stale
 - **Using object keys instead of `key()`** for Sets/Maps with coordinates
 - **Mutating `S.enemies` while iterating** — use spread `[...S.enemies]` or filter
 - **Assuming `S.special` is non-null** — check with `&&` or `?.`
 - **Resetting `S` instead of mutating** — `reset()` handles clean slate
 - **Adding new enemy types without updating `CFG.DIFF.cost` and `CFG.DIFF.unlockFloor`**
-- **Camera clipping** — promotion border must be drawn after `ctx.restore()`, not during translate
+- **Camera clipping** — promotion border and hunger vignette must be drawn after `ctx.restore()`, not during translate
 - **RNG seed** — must be set at `startGame()` and each `newFloor()`
+- **Hunger not initialized** — `S.player.hunger` must be set in `reset()` and `newFloor()`
 
 ## Adding New Features Checklist
 

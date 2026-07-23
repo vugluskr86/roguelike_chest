@@ -85,7 +85,7 @@ export function openBlessing() {
   dom.overlay.classList.add('on');
 }
 
-// Лавка
+// Костоправ
 export let shopStock = null;
 export function openShop() {
   S.modalOpen = true;
@@ -104,7 +104,7 @@ export function openShop() {
   dom.overlay.classList.add('on');
 }
 export function renderShop() {
-  dom.mTitle.textContent = 'Лавка';
+  dom.mTitle.textContent = 'Костоправ';
   dom.mText.textContent = `Золото: ${S.player.gold || 0}🪙. Покупки применяются сразу.`;
   dom.mChoices.innerHTML = '';
   dom.mChoices.classList.add('loot-list');
@@ -134,7 +134,7 @@ export function renderShop() {
           const c = [...S.player.curses];
           const rm = c[randInt(c.length)];
           S.player.curses.delete(rm);
-          log(`Лавка сняла проклятие: ${CURSES[rm].name}.`, 'g');
+          log(`Костоправ снял шов: ${CURSES[rm].name}.`, 'g');
         }
         renderShop();
       };
@@ -147,11 +147,11 @@ export function renderShop() {
   dom.mChoices.appendChild(leave);
 }
 
-// Алтарь очищения
+// Распайка
 export function openPurify() {
   S.modalOpen = true;
   dom.modalBox.classList.remove('death');
-  dom.mTitle.textContent = 'Алтарь очищения';
+  dom.mTitle.textContent = 'Распайка';
   dom.mChoices.innerHTML = '';
   dom.mChoices.classList.add('loot-list');
   const curses = [...S.player.curses];
@@ -185,11 +185,11 @@ export function openPurify() {
   dom.overlay.classList.add('on');
 }
 
-// Святилище: форма ↔ редкая реликвия
+// Жертвенник: форма ↔ редкая кость
 export function openSanctuary() {
   S.modalOpen = true;
   dom.modalBox.classList.remove('death');
-  dom.mTitle.textContent = 'Святилище';
+  dom.mTitle.textContent = 'Жертвенник';
   dom.mText.textContent = 'Пожертвуй форму — взамен получишь редкую реликвию.';
   dom.mChoices.innerHTML = '';
   dom.mChoices.classList.add('loot-list');
@@ -202,7 +202,7 @@ export function openSanctuary() {
       el.onclick = () => {
         S.player.wheel[i] = null;
         if (S.player.active === i) S.player.active = 0;
-        log(`Святилище приняло ${NAME[f.type]}.`, 'r');
+        log(`Жертвенник принял ${NAME[f.type]}.`, 'r');
         if (reward) applyRelic(reward);
         proceed();
       };
@@ -220,11 +220,11 @@ export function openSanctuary() {
   dom.overlay.classList.add('on');
 }
 
-// Азартный алтарь
+// Кости судьбы
 export function openGamble() {
   S.modalOpen = true;
   dom.modalBox.classList.remove('death');
-  dom.mTitle.textContent = 'Азартный алтарь';
+  dom.mTitle.textContent = 'Кости судьбы';
   dom.mText.textContent = `Ставка ${GAMBLE_COST}🪙: удача — реликвия, провал — проклятие.`;
   dom.mChoices.innerHTML = '';
   dom.mChoices.classList.add('loot-list');

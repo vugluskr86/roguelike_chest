@@ -11,4 +11,6 @@ export function initDom() {
   dom.mTitle = document.getElementById('mTitle');
   dom.mText = document.getElementById('mText');
   dom.mChoices = document.getElementById('mChoices');
+  dom.hungerBar = document.getElementById('hungerBar');
+  dom.hungerRibs = document.querySelector('.hunger-ribs');
 }

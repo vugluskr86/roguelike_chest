@@ -22,8 +22,9 @@
       <div class="board-wrap">
         <canvas id="board" width="616" height="504" aria-label="Игровое поле"></canvas>
         <div id="editorBar" style="display: none">
-          <div id="editorObjects" class="editor-tools"></div>
           <div id="editorActions" class="editor-tools"></div>
+          <div class="editor-sep"></div>
+          <div id="editorObjects" class="editor-tools"></div>
           <div id="editorStatus" class="editor-status">
             🖌 Редактор · Выбери элемент и кликай по полю
           </div>
@@ -34,6 +35,10 @@
         <div class="card">
           <h2>Колесо форм</h2>
           <div id="turnNo" class="hudbar"></div>
+          <div id="hungerBar" class="hudbar hunger-bar">
+            <span class="hunger-label">Голод</span>
+            <span class="hunger-ribs"></span>
+          </div>
           <div class="wheel" id="wheel"></div>
           <div class="status" style="margin-top: 8px">
             <span class="badge shah" id="shah">Шах</span>
@@ -47,6 +52,7 @@
             <button id="btnCCW" title="Бесплатно">⟲ поворот (Q)</button>
             <button id="btnCW" title="Бесплатно">⟳ поворот (E)</button>
             <button id="btnPass">Пас (Space)</button>
+            <button id="btnEditor">🗺 Редактор</button>
             <button id="btnSettings">⚙ Настройки</button>
             <button id="btnHelp">Как играть (?)</button>
             <button id="btnRestart">Заново (R)</button>
@@ -73,7 +79,7 @@
             <span style="color: #c23b30">▲</span> <b>шипы</b>: наступишь — теряешь форму; враг —
             гибнет (одноразово)<br />
             <span style="color: #9b6dd0">◎</span> <b>портал</b> ·
-            <span style="color: #58b3a4">◈</span> <b>руна</b> (снимает усталость) ·
+            <span style="color: #58b3a4">◈</span> <b>жила</b> (насыщает и снимает усталость) ·
             <span style="color: #8fd0e6">❄</span> <b>лёд</b> (оглушает)<br />
             <span style="color: #96a0b0">☁</span> <b>туман</b> скрывает угрозу ·
             <span style="color: #7aa0c0">→</span> <b>конвейер</b> сдвигает ·
@@ -84,6 +90,7 @@
             <span class="sw" style="background: var(--teal)"></span>твои ходы ·
             <span style="color: var(--ember)">◎</span> взятия<br />
             Тап по клетке = ход/взятие; тап по слоту = смена формы (тратит ход).<br />
+            Голод — шкала рёбер под колесом форм. Тает каждый ход. Взятия и жилы насыщают.<br />
             Клавиши (на ПК): <kbd>1</kbd>–<kbd>3</kbd> формы, <kbd>Q</kbd>/<kbd>E</kbd> поворот,
             <kbd>Space</kbd> пас.
           </div>

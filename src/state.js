@@ -15,6 +15,9 @@ export const S = {
   hoveredCell: null,
   godMode: false, // чит-режим неуязвимости
   challenge: null, // id активного челленджа
+  bossPhase: 0, // фаза текущего босса (0 = нет босса)
+  mercy: 0, // счётчик милосердия
+  runMode: 'campaign', // 'campaign' | 'infinite'
   currentRoom: 0, // id активной комнаты на этаже
   rooms: [], // массив комнат [{ walls, enemies, special, cleared }]
   keys: new Set(), // Set<'red'|'blue'|'green'|'gold'|'purple'> — собранные ключи

@@ -1,7 +1,15 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { S } from '../src/state.js';
 import { reset } from '../src/board.js';
-import { degradePlayer, tryMoveTo, triggerSpecialForPlayer, spreadLava } from '../src/combat.js';
+import { CFG } from '../src/config.js';
+import {
+  degradePlayer,
+  endPlayerTurn,
+  pass,
+  tryMoveTo,
+  triggerSpecialForPlayer,
+  spreadLava,
+} from '../src/combat.js';
 import { enemiesTurn } from '../src/enemies.js';
 import { makeForm } from '../src/util.js';
 
@@ -84,6 +92,44 @@ describe('special tile triggers', () => {
     triggerSpecialForPlayer();
     expect(S.player.status.stun).toBe(1);
     expect(sp.has(K(4, 4))).toBe(true);
+  });
+  it('hunger drains every turn; at zero degrades player', () => {
+    S.player.hunger = 1;
+    S.player.wheel = [makeForm('pawn'), makeForm('knight'), null];
+    S.player.active = 1;
+    S.player.status = {};
+    S.floor = 1; // not a boss floor
+    endPlayerTurn();
+    expect(S.player.hunger).toBe(0);
+    // hunger already triggered degrade, player dropped to pawn
+    expect(S.player.wheel[1]).toBeNull();
+    expect(S.player.active).toBe(0);
+  });
+  it('pass costs extra hunger', () => {
+    S.player.hunger = CFG.HUNGER.start;
+    S.floor = 2;
+    pass();
+    // passExtra (2) + perTurn (1) = -3 total
+    expect(S.player.hunger).toBe(CFG.HUNGER.start - 1 - CFG.HUNGER.passExtra);
+  });
+  it('capture satiates hunger', () => {
+    S.player.wheel = [makeForm('pawn'), makeForm('knight'), null];
+    S.player.active = 1;
+    S.player.x = 5;
+    S.player.y = 6;
+    S.player.hunger = 5;
+    S.player.status = {};
+    S.enemies = [mkE({ type: 'pawn', x: 6, y: 4, cd: 99 })];
+    tryMoveTo(6, 4);
+    expect(S.player.hunger).toBeLessThanOrEqual(CFG.HUNGER.start);
+    // capture +6, then endPlayerTurn drains -1 → net +5
+    expect(S.player.hunger).toBe(5 + CFG.HUNGER.capture - CFG.HUNGER.perTurn);
+  });
+  it('boss floor does not drain hunger', () => {
+    S.player.hunger = 10;
+    S.floor = 5; // boss floor
+    endPlayerTurn();
+    expect(S.player.hunger).toBe(10);
   });
   it('lava spreads (capped) and kills enemy on landing', () => {
     S.player.x = 5;

@@ -125,6 +125,183 @@ export function startCaptureFlash(x, y) {
   requestRender();
 }
 
+// ============================================================================
+//  Всплывающие реплики над фигурами.
+//  Drop-in для src/render.js. Зависимости: T, camera, dom.ctx, CFG, smoothstep.
+//  Философия: короткая строка, поднимается и тает. Не пузырь с хвостиком —
+//  тот перекрывает 2-3 клетки, а это битые поля и позиции врагов.
+//  Длинные фразы переносятся по словам (до maxLines), остаток — в лог.
+// ============================================================================
+
+/** Настройки — вынесены, чтобы подбирать на глаз в sandbox. */
+export const SPEECH = {
+  ttl: 2000, // базовое время жизни, мс
+  ttlPerLine: 550, // + за каждую строку сверх первой (успеть прочитать)
+  stagger: 180, // задержка между репликами в очереди, мс
+  maxVisible: 2, // сколько показываем одновременно (остальные ждут)
+  rise: 0.35, // на сколько тайлов поднимается за жизнь
+  font: 0.24, // кегль в долях тайла
+  lineH: 1.25, // межстрочный интервал в долях кегля
+  maxWidth: 3.2, // максимальная ширина реплики в тайлах
+  maxLines: 3, // больше — обрезаем с «…»; такому место в логе
+  fadeIn: 0.08, // доля жизни на появление
+  fadeOut: 0.25, // доля жизни на угасание
+};
+
+/** Цвет = кто говорит. Читается без чтения. */
+export const SPEECH_COLOR = {
+  enemy: '#c8a878', // враг — тусклая охра
+  bone: '#7ec8b8', // голос твоей кости — холодная бирюза (это «свой»)
+  boss: '#d06a5a', // босс, Король — багровый
+  neutral: '#b8b4ac',
+};
+
+let speech = [];
+
+/**
+ * Разбить текст на строки по словам, не шире maxW пикселей.
+ * Слово длиннее строки рвётся посимвольно.
+ */
+function wrapSpeechText(c, text, maxW, maxLines) {
+  const words = String(text).split(/\s+/).filter(Boolean);
+  const lines = [];
+  let cur = '';
+  const pushCur = () => {
+    if (cur) lines.push(cur);
+    cur = '';
+  };
+  for (const w of words) {
+    const probe = cur ? cur + ' ' + w : w;
+    if (c.measureText(probe).width <= maxW) {
+      cur = probe;
+      continue;
+    }
+    pushCur();
+    if (c.measureText(w).width <= maxW) {
+      cur = w;
+    } else {
+      let chunk = '';
+      for (const ch of w) {
+        if (c.measureText(chunk + ch).width > maxW) {
+          lines.push(chunk);
+          chunk = ch;
+          if (lines.length >= maxLines) break;
+        } else chunk += ch;
+      }
+      cur = chunk;
+    }
+    if (lines.length >= maxLines) break;
+  }
+  pushCur();
+  if (lines.length > maxLines) {
+    lines.length = maxLines;
+    let last = lines[maxLines - 1];
+    while (last.length > 1 && c.measureText(last + '…').width > maxW) last = last.slice(0, -1);
+    lines[maxLines - 1] = last + '…';
+  }
+  return lines.length ? lines : [''];
+}
+
+/**
+ * Реплика над клеткой. Дублируй вызовом log() — всплывашка гаснет, лог остаётся.
+ * @param {number} x,y — координаты клетки
+ * @param {string} text — фраза; длинная переносится по словам
+ * @param {string} kind — ключ SPEECH_COLOR или готовый цвет
+ */
+export function addSpeech(x, y, text, kind = 'enemy') {
+  if (!CFG.ANIM_ENABLED) return;
+  const color = SPEECH_COLOR[kind] || kind;
+  const queuePos = Math.max(0, speech.length - SPEECH.maxVisible + 1);
+  speech.push({
+    x,
+    y,
+    text: String(text),
+    color,
+    startTs: null,
+    delay: queuePos * SPEECH.stagger,
+    lines: null,
+    wrapT: 0,
+    ttl: SPEECH.ttl,
+  });
+  requestRender();
+}
+
+/** Сбросить все реплики (смена яруса, конец забега). */
+export function clearSpeech() {
+  speech = [];
+}
+
+function hexToRgb(h) {
+  let v = String(h).replace('#', '');
+  if (v.length === 3) v = v[0] + v[0] + v[1] + v[1] + v[2] + v[2];
+  const n = parseInt(v, 16) || 0;
+  return `${(n >> 16) & 255},${(n >> 8) & 255},${n & 255}`;
+}
+
+/** Вызывать после отрисовки фигур, внутри трансформации камеры. */
+function drawSpeech(ts) {
+  if (!speech.length) return;
+  const c = dom.ctx;
+  const fontPx = Math.max(10, T * SPEECH.font);
+  const lineH = fontPx * SPEECH.lineH;
+  speech = speech.filter((sp) => {
+    c.save();
+    c.font = `${fontPx.toFixed(0)}px Georgia, serif`;
+    c.textAlign = 'center';
+    c.textBaseline = 'middle';
+
+    if (!sp.lines || sp.wrapT !== T) {
+      sp.lines = wrapSpeechText(c, sp.text, T * SPEECH.maxWidth, SPEECH.maxLines);
+      sp.wrapT = T;
+      sp.ttl = SPEECH.ttl + (sp.lines.length - 1) * SPEECH.ttlPerLine;
+    }
+
+    if (sp.startTs === null) sp.startTs = (ts || 0) + sp.delay;
+    const e = (ts || 0) - sp.startTs;
+    if (e < 0) {
+      c.restore();
+      return true;
+    }
+    if (e >= sp.ttl) {
+      c.restore();
+      return false;
+    }
+    const k = e / sp.ttl;
+    const a = smoothstep(0, SPEECH.fadeIn, k) * (1 - smoothstep(1 - SPEECH.fadeOut, 1, k));
+    const up = k * T * SPEECH.rise;
+
+    let w = 0;
+    sp.lines.forEach((ln) => {
+      w = Math.max(w, c.measureText(ln).width);
+    });
+    w += 12;
+    const h = sp.lines.length * lineH + fontPx * 0.4;
+
+    const topIfAbove = sp.y * T - h - T * 0.12 - up;
+    const roomAbove = topIfAbove >= camera.y * T + 2;
+    const boxY = roomAbove ? topIfAbove : sp.y * T + T * 1.06 + up;
+
+    const minX = camera.x * T + w / 2 + 4;
+    const maxX = camera.x * T + CFG.VIEW_W * T - w / 2 - 4;
+    const cxr = Math.max(minX, Math.min(sp.x * T + T / 2, maxX));
+
+    c.globalAlpha = a;
+    c.fillStyle = 'rgba(8,8,10,.74)';
+    c.beginPath();
+    c.roundRect(cxr - w / 2, boxY, w, h, 4);
+    c.fill();
+    c.strokeStyle = `rgba(${hexToRgb(sp.color)},.35)`;
+    c.lineWidth = 1;
+    c.stroke();
+    c.fillStyle = sp.color;
+    sp.lines.forEach((ln, i) => {
+      c.fillText(ln, cxr, boxY + fontPx * 0.2 + lineH * (i + 0.5));
+    });
+    c.restore();
+    return true;
+  });
+}
+
 // ========== rAF-рендер ==========
 
 /**
@@ -147,6 +324,7 @@ function hasActiveAnim() {
   if (modPulses.size > 0) return true;
   // аура модификаторов дышит и вращается — нужен покадровый рендер
   if (CFG.ANIM_ENABLED && S.player && modCount() > 0) return true;
+  if (speech.length > 0) return true;
   return false;
 }
 
@@ -160,7 +338,8 @@ function hasAnimatedSpecials() {
       s.type === 'conveyor' ||
       s.type === 'gate' ||
       s.type === 'ice' ||
-      s.type === 'portal'
+      s.type === 'portal' ||
+      s.type === 'millstone'
     )
       return true;
   }
@@ -1452,6 +1631,8 @@ export function renderNow(ts) {
   drawPiece(pp.x, pp.y, f.type, true, f.type === 'pawn' ? S.player.facing : null, f.improved);
   drawStatuses(pp.x, pp.y, S.player);
   drawModifierCounters(pp.x, pp.y, ts); // счётчики ✦/☠ у нижнего края клетки
+  // реплики над фигурами
+  drawSpeech(ts);
   // --- эффекты ---
   // вспышка взятия
   if (captureFlash) {
@@ -1507,17 +1688,24 @@ export function renderNow(ts) {
   const TOOLTIPS = {
     trap: 'Паутина',
     portal: 'Портал',
-    rune: 'Руна перезарядки',
+    rune: 'Жила',
     ice: 'Лёд',
     lava: 'Лава',
     fog: 'Туман',
     conveyor: 'Конвейер',
     gate: 'Ворота',
+    millstone: 'Жернов',
     plate: 'Плита',
     colorzone: 'Цветовая зона',
     door: 'Дверь',
     key: 'Ключ',
     scroll: 'Свиток',
+  };
+  const cellTooltipLabel = (sp) => {
+    const base = TOOLTIPS[sp.type] || sp.type;
+    if (sp.type === 'door' && sp.doorId != null) return `Дверь #${sp.doorId}`;
+    if (sp.type === 'key' && sp.color) return `Ключ ${sp.color}`;
+    return base;
   };
   const drawTooltip = (label, tx, ty, color) => {
     dom.ctx.font = '11px Georgia, serif';
@@ -1550,7 +1738,7 @@ export function renderNow(ts) {
     // если враг стоит на спец-клетке — тултип клетки под ним
     const sp = S.special && S.special.get(key(insp.x, insp.y));
     if (sp) {
-      const cellLabel = TOOLTIPS[sp.type] || sp.type;
+      const cellLabel = cellTooltipLabel(sp);
       drawTooltip(cellLabel, tx, tipY, '#f2e9d8');
     }
   } else if (S.challenge !== 'blind_descent' && S.hoveredCell && S.special) {
@@ -1559,7 +1747,7 @@ export function renderNow(ts) {
     if (sp) {
       const tx = S.hoveredCell.x * T + T / 2;
       const ty = S.hoveredCell.y * T + tipY;
-      const cellLabel = TOOLTIPS[sp.type] || sp.type;
+      const cellLabel = cellTooltipLabel(sp);
       drawTooltip(cellLabel, tx, ty, '#f2e9d8');
     }
   }
@@ -1579,6 +1767,25 @@ export function renderNow(ts) {
     dom.ctx.stroke();
   }
   dom.ctx.restore();
+  // виньетка голода — в координатах вьюпорта (после restore!)
+  if (S.player && S.player.hunger !== undefined) {
+    const hr = S.player.hunger / CFG.HUNGER.start;
+    if (hr < 0.4) {
+      const alpha = 1 - hr; // 0 при 40%, 1 при 0%
+      const c = dom.ctx;
+      const vw = CFG.VIEW_W * T,
+        vh = CFG.VIEW_H * T;
+      const cx = vw / 2,
+        cy = vh / 2;
+      const r = Math.max(vw, vh) * 0.72;
+      const g = c.createRadialGradient(cx, cy, r * 0.35, cx, cy, r);
+      g.addColorStop(0, 'rgba(0,0,0,0)');
+      g.addColorStop(0.55, `rgba(0,0,0,${alpha * 0.35})`);
+      g.addColorStop(1, `rgba(0,0,0,${alpha * 0.85})`);
+      c.fillStyle = g;
+      c.fillRect(0, 0, vw, vh);
+    }
+  }
   // бордюр промоушена — в координатах вьюпорта, всегда сверху (после restore!)
   const promoPhase = (ts || 0) / 900;
   const promoAlpha = S.promotionUsed ? 0.05 : 0.18 + Math.sin(promoPhase * Math.PI * 2) * 0.1;

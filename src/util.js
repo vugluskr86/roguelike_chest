@@ -96,6 +96,12 @@ export function randInt(n) {
 
 export const pick = (a) => a[randInt(a.length)];
 
+/** Этажи с боссами — голод не тратится. */
+export const isBossFloor = (f) => [5, 11, 18].includes(f);
+
+/** Финальный ярус кампании. */
+export const isFinalFloor = (f) => f >= 18;
+
 export function shuffle(a) {
   for (let i = a.length - 1; i > 0; i--) {
     const j = randInt(i + 1);

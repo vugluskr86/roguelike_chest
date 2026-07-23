@@ -5,11 +5,23 @@ import { RELICS } from './content.js';
 import { applyRelic } from './loot.js';
 import { META, codexSeeEnemy, unlockAch } from './meta.js';
 import { necroInterval, threatCellsFrom } from './moves.js';
-import { render, screenFade } from './render.js';
+import { clearSpeech, render, screenFade } from './render.js';
+import { SCRIPT } from './content/script.js';
 import { curse, enemyAt, has } from './state.js';
 import { applyStatus, cleanse } from './status.js';
 import { log, syncUI } from './ui.js';
-import { ORTHO, inB, key, makeForm, pick, randInt, random, shuffle, tileColor } from './util.js';
+import {
+  ORTHO,
+  inB,
+  isBossFloor,
+  key,
+  makeForm,
+  pick,
+  randInt,
+  random,
+  shuffle,
+  tileColor,
+} from './util.js';
 
 export function floodReach(wset, start) {
   const seen = new Set([key(start.x, start.y)]),
@@ -328,6 +340,202 @@ export function spawnEnemiesForFloor(f, reach) {
   }
 }
 
+/** Авторская комната босса. */
+export function generateBossRoom(bossId) {
+  if (bossId === 'tormentor') {
+    CFG.W = 15;
+    CFG.H = 13;
+    const w = new Set();
+    // три колонны 2×2 по диагонали
+    [
+      [4, 4],
+      [7, 6],
+      [10, 8],
+    ].forEach(([cx, cy]) => {
+      for (let dx = 0; dx < 2; dx++) for (let dy = 0; dy < 2; dy++) w.add(key(cx + dx, cy + dy));
+    });
+    const sp = new Map();
+    const boss = {
+      type: 'bishop',
+      x: Math.floor(CFG.W / 2),
+      y: 3,
+      facing: [0, 1],
+      cd: 0,
+      status: {},
+      homeColor: 1,
+      r: 4,
+      rb: 0,
+      armor: 3,
+      bossId: 'tormentor',
+    };
+    return { walls: w, enemies: [boss], specials: sp };
+  }
+  if (bossId === 'spawnedRooks') {
+    CFG.W = 13;
+    CFG.H = 11;
+    const w = new Set();
+    // узкий проход — две стены по бокам
+    for (let y = 2; y < CFG.H - 2; y++) {
+      w.add(key(3, y));
+      w.add(key(CFG.W - 4, y));
+    }
+    const sp = new Map();
+    const rook1 = {
+      type: 'rook',
+      x: 5,
+      y: Math.floor(CFG.H / 2) - 1,
+      facing: [0, 1],
+      cd: 0,
+      status: {},
+      homeColor: 0,
+      r: 3,
+      rb: 0,
+      linkedTo: 'rookPair',
+      bossId: 'spawnedRooks',
+    };
+    const rook2 = {
+      type: 'rook',
+      x: CFG.W - 6,
+      y: Math.floor(CFG.H / 2) - 1,
+      facing: [0, 1],
+      cd: 0,
+      status: {},
+      homeColor: 1,
+      r: 3,
+      rb: 0,
+      linkedTo: 'rookPair',
+      bossId: 'spawnedRooks',
+    };
+    return { walls: w, enemies: [rook1, rook2], specials: sp };
+  }
+  if (bossId === 'redKing') {
+    CFG.W = 17;
+    CFG.H = 15;
+    const w = new Set();
+    // 4 цепи-плиты по углам, открывающие стены вокруг трона
+    const sp = new Map();
+    [
+      [2, 2],
+      [CFG.W - 3, 2],
+      [2, CFG.H - 3],
+      [CFG.W - 3, CFG.H - 3],
+    ].forEach(([cx, cy]) => {
+      sp.set(key(cx, cy), { type: 'plate', chain: true, opens: { x: cx, y: cy } });
+    });
+    // король в центре (неуязвим)
+    const king = {
+      type: 'king',
+      x: Math.floor(CFG.W / 2),
+      y: Math.floor(CFG.H / 2),
+      facing: [0, -1],
+      cd: 0,
+      status: {},
+      homeColor: 1,
+      r: 1,
+      rb: 0,
+      armor: 99, // неуязвим пока цепи целы
+      bossId: 'redKing',
+      king: true,
+    };
+    // свита
+    const queen = {
+      type: 'queen',
+      x: Math.floor(CFG.W / 2) - 4,
+      y: Math.floor(CFG.H / 2) - 2,
+      facing: [0, 1],
+      cd: 0,
+      status: { shield: 1 },
+      homeColor: 0,
+      r: 3,
+      rb: 0,
+      bossId: 'redKing',
+      retinue: 'queen',
+    };
+    const rook1 = {
+      type: 'rook',
+      x: 3,
+      y: Math.floor(CFG.H / 2),
+      facing: [0, 1],
+      cd: 0,
+      status: {},
+      homeColor: 0,
+      r: 3,
+      rb: 0,
+      bossId: 'redKing',
+      retinue: 'rook',
+      passive: true, // простреливает линии, не преследует
+    };
+    const rook2 = {
+      type: 'rook',
+      x: CFG.W - 4,
+      y: Math.floor(CFG.H / 2),
+      facing: [0, 1],
+      cd: 0,
+      status: {},
+      homeColor: 1,
+      r: 3,
+      rb: 0,
+      bossId: 'redKing',
+      retinue: 'rook',
+      passive: true,
+    };
+    const knight1 = {
+      type: 'knight',
+      x: Math.floor(CFG.W / 2) + 3,
+      y: Math.floor(CFG.H / 2) - 4,
+      facing: [0, 1],
+      cd: 0,
+      status: {},
+      homeColor: 0,
+      r: 1,
+      rb: 0,
+      bossId: 'redKing',
+      retinue: 'knight',
+      noAttackCd: true, // не может бить два хода подряд
+      attackReady: true,
+    };
+    const knight2 = {
+      type: 'knight',
+      x: Math.floor(CFG.W / 2) - 3,
+      y: Math.floor(CFG.H / 2) - 4,
+      facing: [0, 1],
+      cd: 0,
+      status: {},
+      homeColor: 1,
+      r: 1,
+      rb: 0,
+      bossId: 'redKing',
+      retinue: 'knight',
+      noAttackCd: true,
+      attackReady: true,
+    };
+    return { walls: w, enemies: [king, queen, rook1, rook2, knight1, knight2], specials: sp };
+  }
+  if (bossId === 'millstone') {
+    CFG.W = 15;
+    CFG.H = 13;
+    const w = new Set();
+    // коридор снизу вверх
+    for (let x = 0; x < CFG.W; x++)
+      for (let y = 0; y < CFG.H; y++) {
+        if (x < 3 || x > 5) w.add(key(x, y));
+        if (y === 0 || y === CFG.H - 1) w.delete(key(x, y));
+      }
+    // проход по центру
+    for (let y = 0; y < CFG.H; y++) {
+      w.delete(key(3, y));
+      w.delete(key(4, y));
+      w.delete(key(5, y));
+    }
+    // Жернов как special cell
+    const sp = new Map();
+    sp.set(key(4, CFG.H - 3), { type: 'millstone', dir: [0, -1] });
+    return { walls: w, enemies: [], specials: sp };
+  }
+  // fallback
+  return generateRoom();
+}
+
 export function newFloor() {
   // seedRNG(S.floor * 1000000 + S.turn + 1);
   screenFade('#000', 350);
@@ -350,6 +558,55 @@ export function newFloor() {
   S.currentRoom = 0;
   S.rooms = [];
 
+  // босс-ярус: авторская комната вместо процедурной
+  if (S.runMode === 'campaign' && isBossFloor(S.floor)) {
+    const bossId =
+      S.floor === 5
+        ? 'tormentor'
+        : S.floor === 8
+          ? 'spawnedRooks'
+          : S.floor === 11
+            ? 'millstone'
+            : S.floor === 18
+              ? 'redKing'
+              : null;
+    if (bossId) {
+      const room = generateBossRoom(bossId);
+      S.walls = room.walls;
+      S.special = room.specials;
+      S.enemies = room.enemies;
+      S.rooms = [{ walls: room.walls, enemies: S.enemies, special: room.specials, cleared: false }];
+      loadRoom(0);
+      S.player.x = Math.floor(CFG.W / 2);
+      S.player.y = CFG.H - 1;
+      S.player.facing = [0, -1];
+      S.player.active = 0;
+      S.promotionUsed = false;
+      S.hoverEnemy = null;
+      S.selectedEnemy = null;
+      S.turn = 1;
+      S.player.freeSwapUsed = false;
+      S.player.capturedThisFloor = 0;
+      S.player.hunger = CFG.HUNGER.start;
+      S.bossPhase = 1;
+      clearSpeech();
+      cleanse(S.player);
+      S.player.lostFormThisFloor = false;
+      const bossNames = {
+        tormentor: 'Слон-Мучитель',
+        spawnedRooks: 'Спаянные Ладьи',
+        millstone: 'Жернов',
+        redKing: 'Красный Король',
+      };
+      log(`── Ярус ${S.floor} · Босс: ${bossNames[bossId] || bossId} ──`, 'e');
+      if (SCRIPT.floorIntro[S.floor]) log(SCRIPT.floorIntro[S.floor], '');
+      render();
+      syncUI();
+      return;
+    }
+  }
+
+  S.bossPhase = 0;
   const nRooms = 2 + randInt(3); // 2–4 комнаты
   for (let r = 0; r < nRooms; r++) {
     const room = generateRoom();
@@ -459,6 +716,8 @@ export function newFloor() {
   S.turn = 1;
   S.player.freeSwapUsed = false;
   S.player.capturedThisFloor = 0;
+  S.player.hunger = CFG.HUNGER.start;
+  clearSpeech();
   cleanse(S.player);
   S.player.lostFormThisFloor = false;
   if (S.floor >= 5) unlockAch('deep');
@@ -479,7 +738,9 @@ export function newFloor() {
       });
   }
   const totalEnemies = S.rooms.reduce((sum, r) => sum + r.enemies.length, 0);
-  log(`── Этаж ${S.floor} · ${S.biome.name} · ${nRooms} комн. ── врагов: ${totalEnemies}`, 'e');
+  log(`── Ярус ${S.floor} · ${S.biome.name} · ${nRooms} комн. ── врагов: ${totalEnemies}`, 'e');
+  // нарративный вход на ярус
+  if (SCRIPT.floorIntro[S.floor]) log(SCRIPT.floorIntro[S.floor], '');
   render();
   syncUI();
 }
@@ -623,6 +884,8 @@ export function reset() {
     status: {},
     gold: 0,
     nextFloorStatus: [],
+    hunger: CFG.HUNGER.start,
+    boneVoiceTimer: 0,
   };
   S.unlocked = new Set(['pawn', 'knight']);
   // мета-апгрейды: экзотические формы, купленные в магазине
@@ -641,7 +904,7 @@ export function reset() {
   S.floor = 0;
   if (dom.logEl) dom.logEl.innerHTML = '';
   log(
-    'Новый забег. Зачисти этаж — выбираешь награду и спускаешься глубже, сохраняя формы и модификаторы.',
+    'Новый забег. Зачисти ярус — выбираешь награду и спускаешься глубже, сохраняя формы и модификаторы.',
     '',
   );
   // мета-апгрейды: стартовые слоты и реликвии

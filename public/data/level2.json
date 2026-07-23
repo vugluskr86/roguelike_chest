@@ -1,28 +1,33 @@
 {
-  "W": 11,
-  "H": 9,
-  "walls": [],
-  "playerStart": {
-    "x": 5,
-    "y": 8
-  },
-  "enemies": [
+  "floor": 11,
+  "biome": "corridors",
+  "rooms": [
     {
-      "type": "bishop",
-      "x": 3,
-      "y": 7
+      "W": 13,
+      "H": 11,
+      "playerStart": { "x": 6, "y": 10 },
+      "walls": [
+        "3,2",
+        "3,3",
+        "3,4",
+        "3,5",
+        "3,6",
+        "3,7",
+        "3,8",
+        "9,2",
+        "9,3",
+        "9,4",
+        "9,5",
+        "9,6",
+        "9,7",
+        "9,8"
+      ],
+      "enemies": [
+        { "type": "rook", "x": 5, "y": 5, "bossId": "spawnedRooks", "linkedTo": "rookPair" },
+        { "type": "rook", "x": 7, "y": 5, "bossId": "spawnedRooks", "linkedTo": "rookPair" }
+      ],
+      "special": {}
     }
   ],
-  "special": {
-    "5,6": {
-      "type": "key",
-      "color": "gold"
-    },
-    "6,6": {
-      "type": "key",
-      "color": "gold"
-    }
-  },
-  "biome": "halls",
-  "floor": 1
+  "doors": []
 }

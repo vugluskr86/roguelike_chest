@@ -9,8 +9,8 @@ import { playerOptions } from './moves.js';
 import { camera, render, resizeBoard, startRenderLoop } from './render.js';
 import { enemyAt } from './state.js';
 import { closeModal, openHelp, openSettings, openTitle } from './ui.js';
-import { inB, seedRNG } from './util.js';
-import { editorActive, handleEditorClick } from './editor.js';
+import { inB, key, seedRNG } from './util.js';
+import { editorActive, handleEditorClick, isBrushActive, openEditor } from './editor.js';
 import { feedDebugChar } from './debug.js';
 import { initAudio } from './audio.js';
 
@@ -31,7 +31,7 @@ const TIPS = [
   'Меняй форму только когда нужно: каждая смена тратит ход.',
   'Некромант призывает пешек — убей его первым.',
   'Страж носит броню: первый удар только снимает щит.',
-  'Золото тратится только в лавке между этажами — копи на редкие реликвии.',
+  'Золото тратится у Костоправа между этажами — копи на редкие кости.',
   'Деградация спасает от смерти: теряешь форму, но продолжаешь забег.',
 ];
 
@@ -175,6 +175,9 @@ document.getElementById('btnCW').onclick = () => rotate(1);
 document.getElementById('btnPass').onclick = pass;
 document.getElementById('btnSettings').onclick = () => openSettings();
 document.getElementById('btnHelp').onclick = () => openHelp();
+document.getElementById('btnEditor').onclick = () => {
+  openEditor();
+};
 document.getElementById('btnRestart').onclick = () => {
   seedRNG(Math.floor(Date.now()));
   closeModal();
@@ -189,6 +192,38 @@ document.body.addEventListener('keydown', (ev) => {
 });
 
 dom.cv.addEventListener('click', handleTap);
+
+// Кисть редактора: рисование при зажатой кнопке мыши
+let brushPointerDown = false;
+let brushLastCell = null;
+dom.cv.addEventListener('pointerdown', (ev) => {
+  if (!editorActive || !isBrushActive()) return;
+  brushPointerDown = true;
+  brushLastCell = null;
+  const { x, y } = cellFromEvent(ev);
+  handleEditorClick(x, y);
+  brushLastCell = key(x, y);
+  render();
+  ev.preventDefault();
+});
+dom.cv.addEventListener('pointermove', (ev) => {
+  if (!editorActive || !isBrushActive() || !brushPointerDown) return;
+  const { x, y } = cellFromEvent(ev);
+  const k = key(x, y);
+  if (k !== brushLastCell && inB(x, y)) {
+    brushLastCell = k;
+    handleEditorClick(x, y);
+    render();
+  }
+});
+dom.cv.addEventListener('pointerup', () => {
+  brushPointerDown = false;
+  brushLastCell = null;
+});
+dom.cv.addEventListener('pointerleave', () => {
+  brushPointerDown = false;
+  brushLastCell = null;
+});
 // Наведение мышью — только на устройствах с настоящим курсором, чтобы не конфликтовать с тачем
 if (window.matchMedia && window.matchMedia('(hover:hover) and (pointer:fine)').matches) {
   dom.cv.addEventListener('mousemove', (ev) => {

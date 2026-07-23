@@ -2,12 +2,20 @@ import { S } from './state.js';
 import { dom } from './dom.js';
 import { CFG, GLYPH, KEY_GLYPH, NAME, STD_TYPES } from './config.js';
 import { RELICS, CURSES } from './content.js';
+import { SCRIPT } from './content/script.js';
 import { enemiesTurn } from './enemies.js';
 import { snapshotRoom, loadRoom } from './board.js';
 import { offerLoot } from './loot.js';
 import { endRunMeta, recordKill, unlockAch } from './meta.js';
 import { activeForm, allThreats, playerOptions } from './moves.js';
-import { render, screenFade, startMoveAnim, startCaptureFlash, spawnParticles } from './render.js';
+import {
+  addSpeech,
+  render,
+  screenFade,
+  startMoveAnim,
+  startCaptureFlash,
+  spawnParticles,
+} from './render.js';
 import { curse, enemyAt, has } from './state.js';
 import { applyStatus, cleanse, statusVal } from './status.js';
 import { applyCurse as applyCurseLoot, applyRelic as applyRelicLoot } from './loot.js';
@@ -20,8 +28,19 @@ import {
   playRune,
   playLoot,
 } from './audio.js';
-import { closeModal, log, openModal, openRunSummary, syncUI } from './ui.js';
-import { ORTHO, cheb, inB, key, makeForm, pick, tileColor } from './util.js';
+import { closeModal, log, openInterlude, openModal, openRunSummary, syncUI } from './ui.js';
+import { isEditorRunning, stopEditorRun } from './editor.js';
+import {
+  ORTHO,
+  cheb,
+  inB,
+  isBossFloor,
+  isFinalFloor,
+  key,
+  makeForm,
+  pick,
+  tileColor,
+} from './util.js';
 
 export function tryMoveTo(x, y) {
   if (S.gameOver || S.modalOpen) return;
@@ -49,6 +68,13 @@ export function tryMoveTo(x, y) {
       e.armor--;
       activeForm().cooldown = fatigue;
       log(`Ты пробиваешь щит ${GLYPH[e.type]} ${NAME[e.type]} (осталось брони: ${e.armor}).`, 'p');
+      // босс: смена фазы при потере брони
+      if (e.bossId === 'tormentor' && S.bossPhase > 0) {
+        S.bossPhase++;
+        e.r = Math.max(1, e.r - 1); // теряет одну диагональ
+        if (S.bossPhase === 2) triggerBossPhase('tormentor', 2);
+        if (S.bossPhase === 3) triggerBossPhase('tormentor', 3);
+      }
       endPlayerTurn();
       return;
     }
@@ -71,6 +97,7 @@ export function tryMoveTo(x, y) {
         if (Math.max(Math.abs(o.x - x), Math.abs(o.y - y)) === 1) applyStatus(o, 'stun', 1);
     }
     log(`Ты берёшь ${GLYPH[e.type]} ${NAME[e.type]} формой ${NAME[activeForm().type]}.`, 'p');
+    S.player.hunger = Math.min(CFG.HUNGER.start, S.player.hunger + CFG.HUNGER.capture);
     unlockType(e.type, tileColor(x, y));
   }
   // запоминаем старую позицию для анимации
@@ -106,7 +133,8 @@ export function triggerSpecialForPlayer() {
       if (f) f.cooldown = 0;
     });
     cleanse(S.player);
-    log('Руна перезарядки — усталость форм и статусы сняты.', 'g');
+    S.player.hunger = CFG.HUNGER.start;
+    log('Жила насыщает — усталость форм и статусы сняты.', 'g');
   } else if (s.type === 'ice') {
     applyStatus(S.player, 'stun', 1);
     log('Ты поскользнулся на льду — оглушение.', 'r'); // клетка остаётся
@@ -151,7 +179,20 @@ export function triggerSpecialForPlayer() {
   } else if (s.type === 'plate') {
     if (s.opens && S.walls.has(key(s.opens.x, s.opens.y))) {
       S.walls.delete(key(s.opens.x, s.opens.y));
-      log('Плита открывает проход.', 'g');
+      if (s.chain) {
+        S.bossPhase++;
+        log(`Цепь разорвана (${S.bossPhase}/4).`, 'g');
+        const king = S.enemies.find((e) => e.king);
+        if (king && SCRIPT.bosses.redKing) {
+          const line = SCRIPT.bosses.redKing.chainBreak[S.bossPhase];
+          if (line) {
+            addSpeech(king.x, king.y, line.text, 'boss');
+            log(line.text);
+          }
+        }
+      } else {
+        log('Плита открывает проход.', 'g');
+      }
     }
   } else if (s.type === 'lava') {
     log('Ты в лаве! Форма разрушена.', 'r');
@@ -210,6 +251,22 @@ export function triggerSpecialForPlayer() {
   }
 }
 
+/** Срабатывание фазы босса — лог и speech. */
+export function triggerBossPhase(bossId, phase) {
+  const boss = SCRIPT.bosses[bossId];
+  if (!boss) return;
+  const key = phase === 2 ? 'phase2' : phase === 3 ? 'phase3' : null;
+  if (!key || !boss[key]) return;
+  for (const line of boss[key]) {
+    if (line.ch === 'log') log(line.text);
+    else if (line.ch === 'speech') {
+      const e = S.enemies.find((en) => en.bossId === bossId) || S.enemies[0];
+      if (e) addSpeech(e.x, e.y, line.text, line.kind || 'boss');
+      log(line.text);
+    }
+  }
+}
+
 export function unlockType(t, colorAt) {
   if (!STD_TYPES.has(t)) return; // спец-враги (страж/некромант/двойник) не дают форму
   if (S.unlocked.has(t)) {
@@ -235,6 +292,18 @@ export function switchForm(i) {
     return;
   }
   S.player.active = i;
+  // голоса костей: 3 хода своенравия при смене на новую форму
+  const formType = S.player.wheel[i].type;
+  if (!has('silence') && !S.player.wheel[i]._seenBefore) {
+    S.player.wheel[i]._seenBefore = true;
+    S.player.boneVoiceTimer = 3;
+    const lines = SCRIPT.boneVoices[formType];
+    if (lines && lines.length) {
+      const line = lines[Math.floor(Math.random() * lines.length)];
+      addSpeech(S.player.x, S.player.y, line, 'bone');
+      log(line);
+    }
+  }
   if (has('free_swap') && !S.player.freeSwapUsed) {
     // Быстрые руки: первая смена за этаж бесплатна
     S.player.freeSwapUsed = true;
@@ -266,12 +335,27 @@ export function pass() {
       return;
     }
   }
-  log('Пас.');
+  S.player.hunger -= CFG.HUNGER.passExtra;
+  log(`Пас. Голод крепчает (−${CFG.HUNGER.passExtra}).`);
   endPlayerTurn();
 }
 
 export function endPlayerTurn() {
   if (S.player.status && S.player.status.haste > 0) S.player.status.haste--; // тик ускорения игрока
+  // Голод: на босс-этажах не тратится
+  if (!isBossFloor(S.floor)) {
+    S.player.hunger -= CFG.HUNGER.perTurn;
+    if (S.player.hunger <= 0) {
+      S.player.hunger = 0;
+      log('Голод пожирает тебя. Форма разрушена.', 'r');
+      degradePlayer(null);
+      if (S.gameOver) {
+        render();
+        syncUI();
+        return;
+      }
+    }
+  }
   // промоушен §5: конец хода пешкой на линии y=0 (проклятие «Кровавая линия» закрывает его после взятия)
   const bloodBlocked = curse('bloodline') && S.player.capturedThisFloor > 0;
   if (!S.promotionUsed && activeForm().type === 'pawn' && S.player.y === 0 && !bloodBlocked) {
@@ -320,15 +404,51 @@ export function startPlayerTurn() {
 
 export function afterEnemies() {
   S.turn++;
+  // голоса костей: декремент и случайные реплики
+  if (S.player.boneVoiceTimer > 0) {
+    S.player.boneVoiceTimer--;
+    if (S.player.boneVoiceTimer > 0 && Math.random() < 0.4) {
+      const ft = activeForm().type;
+      const lines = SCRIPT.boneVoices[ft];
+      if (lines && lines.length) {
+        const line = lines[Math.floor(Math.random() * lines.length)];
+        addSpeech(S.player.x, S.player.y, line, 'bone');
+        log(line);
+      }
+    }
+  }
   S.player.wheel.forEach((f) => {
     if (f && f.cooldown > 0) f.cooldown--;
   });
   spreadLava();
   if (S.enemies.length === 0 && !S.gameOver) {
-    log('Этаж зачищен!', 'g');
+    // в редакторе — победа при зачистке всех врагов
+    if (isEditorRunning()) {
+      closeModal();
+      log('Все враги уничтожены — симуляция завершена.', 'g');
+      stopEditorRun();
+      return;
+    }
+    if (S.runMode === 'campaign' && isFinalFloor(S.floor)) {
+      log('Король пал. Подземелье затихло.', 'g');
+      openVictory();
+      return;
+    }
+    log('Ярус зачищен!', 'g');
     if (!S.player.lostFormThisFloor) unlockAch('flawless');
     render();
     syncUI();
+    // интерлюдии после босс-ярусов
+    if (S.runMode === 'campaign') {
+      if (S.floor === 5 && SCRIPT.interludes.act1to2) {
+        openInterlude(SCRIPT.interludes.act1to2, () => offerLoot());
+        return;
+      }
+      if (S.floor === 11 && SCRIPT.interludes.act2to3) {
+        openInterlude(SCRIPT.interludes.act2to3, () => offerLoot());
+        return;
+      }
+    }
     offerLoot();
     return;
   }
@@ -417,6 +537,12 @@ export function degradePlayer(byEnemy) {
 }
 
 export function death() {
+  if (isEditorRunning()) {
+    closeModal();
+    log('Смерть в тестовой симуляции.', 'r');
+    stopEditorRun();
+    return;
+  }
   S.gameOver = true;
   const earned = endRunMeta();
   openRunSummary('Пешка пала', 'Взятие в форме пешки — конец забега (§2.2).', earned);
@@ -447,6 +573,46 @@ export function checkMate() {
   }
 }
 
+export function openVictory() {
+  if (isEditorRunning()) {
+    closeModal();
+    log('Победа в тестовой симуляции.', 'g');
+    stopEditorRun();
+    return;
+  }
+  S.gameOver = true;
+  S.modalOpen = true;
+  const earned = endRunMeta();
+  openModal(
+    'Король пал',
+    `Ты прошёл Подземелье до конца.\nЯрусов: ${S.floor} · Взятий: ${S.player.totalCaptures} · Пепел: +${earned}`,
+    [
+      {
+        label: '⚔ Убить',
+        fn: () => {
+          closeModal();
+          openRunSummary('Победа', 'Король мёртв. Подземелье затихло. Ты свободен.', earned);
+        },
+      },
+      {
+        label: '♚ Занять место',
+        fn: () => {
+          closeModal();
+          openRunSummary('Новый Король', 'Ты сел на трон. Партия продолжается.', earned);
+        },
+      },
+      {
+        label: '💥 Сломать доску',
+        fn: () => {
+          closeModal();
+          openRunSummary('Доска сломана', 'Череп мёртвого бога расколот. Просыпайся.', earned);
+        },
+      },
+    ],
+    false,
+  );
+}
+
 export function openPromotion() {
   S.promotionUsed = true;
   const choices = [...S.unlocked].filter((t) => t !== 'pawn');
@@ -455,7 +621,7 @@ export function openPromotion() {
     return;
   } // нет открытых форм — промоушен пропускается
   openModal(
-    'Линия промоушена',
+    'Линия восхождения',
     'Пешка дошла до края и превращается. Выбери форму — она войдёт в колесо улучшенной (★): слайдеры +1 R, конь +шаг. Ты сразу станешь ею.',
     choices.map((t) => ({
       label: GLYPH[t] + ' ' + NAME[t],
@@ -468,7 +634,7 @@ export function openPromotion() {
         if (slot === -1) slot = S.player.wheel.length - 1; // замещаем последний
         S.player.wheel[slot] = f;
         S.player.active = slot; // превращение: становимся выбранной фигурой
-        log(`Промоушен: превращаешься в <b>${NAME[t]} ★</b> (слот ${slot}).`, 'g');
+        log(`Восхождение: превращаешься в <b>${NAME[t]} ★</b> (слот ${slot}).`, 'g');
         playPromotion();
         closeModal();
         enemiesTurn();

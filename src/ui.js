@@ -22,24 +22,26 @@ export function openRunSummary(title, subtitle, earned) {
   const formsUnlocked = [...S.unlocked].filter((t) => t !== 'pawn').map((t) => NAME[t]);
   const wrap = document.createElement('div');
   wrap.className = 'summary';
-  wrap.innerHTML = `<div class="sfloor"><span class="snum">${S.floor}</span><span class="slbl">этаж</span></div>
-     <div class="sstats">
-       <div><b>${S.player.totalCaptures}</b> взятий за забег</div>
-       <div><b>${rids.length}</b> реликвий · <b>${cids.length}</b> проклятий</div>
-       <div>формы: ${formsUnlocked.length ? formsUnlocked.join(', ') : 'только пешка и конь'}</div>
-       <div class="searn">+${earned} осколков · всего ${META.shards}</div>
-       <div class="srec">рекорд: этаж ${META.bestFloor} · забегов ${META.runs}</div>
-     </div>
-     ${
-       rids.length
-         ? `<div class="ssec"><div class="sh">Реликвии</div><div class="relics">${rids
-             .map((id) => `<span class="chip" title="${RELICS[id].desc}">${RELICS[id].name}</span>`)
-             .join('')}</div></div>`
-         : ''
-     }
+  wrap.innerHTML = `<div class="sfloor"><span class="snum">${S.floor}</span><span class="slbl">ярус</span></div>
+       <div class="sstats">
+         <div><b>${S.player.totalCaptures}</b> взятий за забег</div>
+         <div><b>${rids.length}</b> костей · <b>${cids.length}</b> швов</div>
+         <div>формы: ${formsUnlocked.length ? formsUnlocked.join(', ') : 'только пешка и конь'}</div>
+         <div class="searn">+${earned} пепла · всего ${META.shards}</div>
+         <div class="srec">рекорд: ярус ${META.bestFloor} · забегов ${META.runs}</div>
+       </div>
+       ${
+         rids.length
+           ? `<div class="ssec"><div class="sh">Кости</div><div class="relics">${rids
+               .map(
+                 (id) => `<span class="chip" title="${RELICS[id].desc}">${RELICS[id].name}</span>`,
+               )
+               .join('')}</div></div>`
+           : ''
+       }
      ${
        cids.length
-         ? `<div class="ssec"><div class="sh">Проклятия</div><div class="relics">${cids
+         ? `<div class="ssec"><div class="sh">Швы</div><div class="relics">${cids
              .map(
                (id) =>
                  `<span class="chip curse" title="${CURSES[id].desc}">☠ ${CURSES[id].name}</span>`,
@@ -75,15 +77,15 @@ export function openTitle() {
   dom.modalBox.classList.remove('death');
   dom.mTitle.textContent = '♟ Chess Roguelike';
   dom.mText.textContent =
-    'Мета-прогресс сохраняется между забегами. Трать осколки на перманентные апгрейды.';
+    'Мета-прогресс сохраняется между забегами. Трать пепел на перманентные апгрейды.';
   dom.mChoices.innerHTML = '';
   dom.mChoices.classList.add('loot-list');
 
   const head = document.createElement('div');
   head.className = 'summary';
   head.innerHTML = `<div class="sstats">
-       <div class="searn">Осколки: <b>${META.shards}</b></div>
-       <div class="srec">рекорд: этаж ${META.bestFloor} · забегов ${META.runs} · всего взятий ${META.totalCaptures}</div>
+       <div class="searn">Пепел: <b>${META.shards}</b></div>
+       <div class="srec">рекорд: ярус ${META.bestFloor} · забегов ${META.runs} · всего взятий ${META.totalCaptures}</div>
      </div>`;
   dom.mChoices.appendChild(head);
 
@@ -194,6 +196,29 @@ export function openTitle() {
     challPanel.style.display = '';
     metaPanel.style.display = 'none';
   };
+
+  // переключатель режима
+  const modeRow = document.createElement('div');
+  modeRow.className = 'btnrow2';
+  const btnCampaign = document.createElement('button');
+  btnCampaign.textContent = '⚔ Кампания';
+  btnCampaign.style.borderColor = S.runMode === 'campaign' ? '#c9a227' : '';
+  btnCampaign.onclick = () => {
+    S.runMode = 'campaign';
+    btnCampaign.style.borderColor = '#c9a227';
+    btnInfinite.style.borderColor = '';
+  };
+  const btnInfinite = document.createElement('button');
+  btnInfinite.textContent = '∞ Бесконечная';
+  btnInfinite.style.borderColor = S.runMode === 'infinite' ? '#c9a227' : '';
+  btnInfinite.onclick = () => {
+    S.runMode = 'infinite';
+    btnInfinite.style.borderColor = '#c9a227';
+    btnCampaign.style.borderColor = '';
+  };
+  modeRow.appendChild(btnCampaign);
+  modeRow.appendChild(btnInfinite);
+  dom.mChoices.appendChild(modeRow);
 
   const start = document.createElement('button');
   start.className = 'again';
@@ -347,7 +372,7 @@ export function openHelp(from) {
   H.innerHTML = `
     <div class="hsec"><div class="hh">Цель</div>
       Спускайся по этажам, зачищая всех врагов. Каждый следующий этаж — новая случайная доска и более
-      опасные враги. Смерть завершает забег, но осколки и рекорды сохраняются.</div>
+      опасные враги. Смерть завершает забег, но пепел и рекорды сохраняются.</div>
 
     <div class="hsec"><div class="hh">Ход и управление</div>
       Игра пошаговая: сначала твой ход, затем ходят все враги. За ход — одно действие:
@@ -377,7 +402,7 @@ export function openHelp(from) {
       на ступень ниже по ценности (ферзь → ладья → слон/конь → пешка), теряя текущую форму.
       Взятие <b>в форме пешки — конец забега</b>. Пешка — твоя последняя жизнь.</div>
 
-    <div class="hsec"><div class="hh">Промоушен</div>
+    <div class="hsec"><div class="hh">Восхождение</div>
       Верхний ряд — <span style="color:var(--promo)">золотая линия</span>. Закончи ход на ней
       <b>в форме пешки</b> — превратишься в выбранную форму, улучшенную (★).</div>
 
@@ -418,10 +443,10 @@ export function openHelp(from) {
 
     <div class="hsec"><div class="hh">Золото и комнаты-события</div>
       Враги роняют золото (🪙, копится в рамках забега, отдельно от осколков). Между этажами иногда возникает комната-событие:<br>
-      • <b>Лавка</b> — купить реликвию или снять проклятие за золото.<br>
-      • <b>Алтарь очищения</b> — снять одно проклятие бесплатно (или золото, если проклятий нет).<br>
-      • <b>Святилище</b> — пожертвовать форму ради редкой реликвии.<br>
-      • <b>Азартный алтарь</b> — ставка золотом: реликвия или проклятие.<br>
+      • <b>Костоправ</b> — купить кость или снять шов за золото.<br>
+      • <b>Распайка</b> — снять один шов бесплатно (или золото, если швов нет).<br>
+      • <b>Жертвенник</b> — пожертвовать форму ради редкой кости.<br>
+      • <b>Кости судьбы</b> — ставка золотом: кость или шов.<br>
       • <b>Алтарь благословения</b> — дар на следующий этаж: щит, ускорение или золото.</div>
 
     <div class="hsec"><div class="hh">Статусы</div>
@@ -432,10 +457,10 @@ export function openHelp(from) {
       • <span style="color:#e08a3f">Ускорение</span> — +1 дальность слайдерам, доп. шаг коню, двойной шаг пешке.<br>
       Руна снимает с тебя все статусы.</div>
 
-    <div class="hsec"><div class="hh">Добыча: реликвии и проклятия</div>
-      После зачистки этажа выбираешь награду. Есть безопасные <b>реликвии</b> (перманентные плюсы)
-      и проклятые сделки: <b>⚠ фаустова</b> (2 реликвии + проклятие) и <b>☠ алтарь</b>
-      (3 реликвии + 2 проклятия). <b>Проклятия</b> — перманентные дебаффы. Реликвии копятся
+    <div class="hsec"><div class="hh">Добыча: кости и швы</div>
+      После зачистки этажа выбираешь награду. Есть безопасные <b>кости</b> (перманентные плюсы)
+      и проклятые сделки: <b>⚠ фаустова</b> (2 кости + шов) и <b>☠ алтарь</b>
+      (3 кости + 2 шва). <b>Швы</b> — перманентные дебаффы. Кости копятся
       в синергии; всё видно в панели «Модификаторы».</div>
 
      <div class="hsec"><div class="hh">Челленджи</div>
@@ -447,14 +472,14 @@ export function openHelp(from) {
        • <b>💀 Эскалация</b> — враги усиливаются с каждым этажом, ×2 осколков с этажа 5.</div>
 
      <div class="hsec"><div class="hh">Экзотические формы</div>
-       Открываются в мета-магазине за осколки:<br>
+       Открываются в мета-магазине за пепел:<br>
        • <b>♝ Архиепископ</b> — слон + конь: диагонали и прыжки буквой «Г».<br>
        • <b>♜ Канцлер</b> — ладья + конь: ортогонали и прыжки буквой «Г».<br>
        • <b>☣ Изверг</b> — прыжки ровно на 2 клетки в любую сторону (12 ходов).</div>
 
      <div class="hsec"><div class="hh">Прокрутка карты</div>
        Карта может быть больше экрана. Камера плавно следует за игроком.
-       Золотая линия промоушена всегда видна как бордюр вверху экрана.
+       Золотая линия восхождения всегда видна как бордюр вверху экрана.
        При наведении на особую клетку всплывает подсказка с её названием.</div>
 
      <div class="hsec"><div class="hh">Настройки и звук</div>
@@ -462,8 +487,8 @@ export function openHelp(from) {
        Все звуки синтезируются через Web Audio (без загрузки файлов).</div>
 
      <div class="hsec"><div class="hh">Мета-прогрессия</div>
-      За каждый забег начисляются <b>осколки</b> (этаж×3 + взятия). Трать их в меню на перманентные
-      апгрейды: стартовые слоты, стартовые реликвии, облегчённый первый этаж. Прогресс и рекорд
+      За каждый забег начисляется <b>пепел</b> (этаж×3 + взятия). Трать его в меню на перманентные
+      апгрейды: стартовые слоты, стартовые кости, облегчённый первый этаж. Прогресс и рекорд
       сохраняются между забегами.</div>
   `;
   dom.mChoices.appendChild(H);
@@ -497,7 +522,7 @@ export function openModal(title, text, btns, isDeath) {
 export function openLoot(options) {
   S.modalOpen = true;
   dom.modalBox.classList.remove('death');
-  dom.mTitle.textContent = 'Добыча этажа';
+  dom.mTitle.textContent = 'Добыча яруса';
   dom.mText.textContent =
     'Выбери одно. Проклятые сделки дают больше силы, но вешают перманентный дебафф.';
   dom.mChoices.innerHTML = '';
@@ -526,6 +551,44 @@ export function openLoot(options) {
   });
   dom.overlay.classList.add('on');
 }
+/** Интерлюдия/эпилог из SCRIPT. */
+export function openInterlude(data, onClose) {
+  S.modalOpen = true;
+  dom.modalBox.classList.remove('death');
+  dom.mTitle.textContent = data.title || '';
+  if (data.lines && data.lines.length) {
+    dom.mText.innerHTML = data.lines.map((l) => (l ? `<p>${l}</p>` : '<br>')).join('');
+  } else {
+    dom.mText.textContent = '';
+  }
+  dom.mChoices.innerHTML = '';
+  dom.mChoices.classList.add('loot-list');
+
+  if (data.choices) {
+    data.choices.forEach((ch) => {
+      const el = document.createElement('button');
+      el.className = 'loot';
+      el.innerHTML = `<span class="ln">${ch.label}</span><span class="ld">${ch.desc || ''}</span>`;
+      el.onclick = () => {
+        closeModal();
+        if (ch.mercy !== undefined) S.mercy = (S.mercy || 0) + ch.mercy;
+        if (onClose) onClose(ch);
+      };
+      dom.mChoices.appendChild(el);
+    });
+  } else if (data.button) {
+    const el = document.createElement('button');
+    el.className = 'again';
+    el.textContent = data.button;
+    el.onclick = () => {
+      closeModal();
+      if (onClose) onClose();
+    };
+    dom.mChoices.appendChild(el);
+  }
+  dom.overlay.classList.add('on');
+}
+
 export function closeModal() {
   S.modalOpen = false;
   dom.overlay.classList.remove('on');
@@ -579,8 +642,22 @@ export function log(msg, cls) {
 }
 
 export function syncUI() {
+  // шкала голода
+  if (dom.hungerRibs && S.player && S.player.hunger !== undefined) {
+    const max = CFG.HUNGER.start;
+    const val = Math.max(0, S.player.hunger);
+    const ratio = val / max;
+    const filled = Math.ceil(ratio * max);
+    let ribs = '';
+    for (let i = 0; i < max; i++) {
+      const cls = i < filled ? (val <= 6 ? 'rib rib-starve' : 'rib rib-on') : 'rib';
+      ribs += `<span class="${cls}"></span>`;
+    }
+    dom.hungerRibs.innerHTML = ribs;
+  }
+
   document.getElementById('turnNo').innerHTML =
-    `<span class="hb">этаж ${S.floor}</span>` +
+    `<span class="hb">ярус ${S.floor}</span>` +
     (S.biome ? `<span class="hb">${S.biome.name}</span>` : '') +
     `<span class="hb">ход ${S.turn}</span>` +
     `<span class="hb gold">${S.player.gold || 0}🪙</span>` +

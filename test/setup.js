@@ -66,6 +66,7 @@ board.height = 504;
 
 globalThis.document = {
   getElementById: (id) => (id === 'board' ? board : cache[id] || (cache[id] = makeEl())),
+  querySelector: () => null,
   createElement: () => makeEl(),
   addEventListener: noop,
   body: makeEl(),
