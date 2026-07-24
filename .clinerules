@@ -279,6 +279,44 @@ Boss configuration is in `BOSS_CFG` (exported from `bosses.js`):
 - Boss placement auto-creates all related entities (retinue for King, pair for Rooks, floor chains, etc.)
 - Flag modal allows editing `bossId`, `linkedTo`, `king`, `retinue`, `passive`, `noAttackCd`, `r`
 - Supports multi-room levels with door linking
+- **Tabs** for object palette (Противники / Объекты / Лут-Двери) — only one tab visible at a time
+- **Hotkeys**: `W` = Wall, `D` = Delete, `B` = Brush toggle, `Esc` = Reset tool / Close editor, `1-9` = Select nth object from active tab, `Ctrl+Z` = Undo
+- **Undo** stack — last 50 cell operations (walls, special, enemies snapshot)
+- Actions (file ops) and Tools separated into distinct rows in the toolbar
+- `data-tool` attribute on buttons replaces `state.activeBtn` DOM reference (eliminates stale pointer bug)
+- Throws `invalidateThreats()` on editor open to clear leftover threat-hatching from gameplay
+
+### Render Optimization (D)
+
+- **Threats/playerOptions cached per turn** in `moves.js`; `invalidateThreats()` called after each player/enemy turn.
+- **Tile drawing culled to viewport** ±1 cell margin (instead of iterating the entire board).
+- **blind_descent** darkness merged into the main tile loop (no separate full-board pass).
+- Threat cache key: `'e' + enemyIndex` for hover/selection, `'all'` for global red hatching.
+- Player options cache key: `x,y,fx,fy,active,turn`.
+
+### Balance (C) — `buildFloorEnemies`
+
+- **Dynamic maxEnemies**: `5 + floor(flr / 4)`, capped at 10 (was fixed 7).
+- **Area multiplier**: `sqrt((W*H)/99)` instead of linear `(W*H)/(11*9)`.
+- **Elite cap**: `CFG.DIFF.maxElite: 3` — no more than 3 enemies with cost ≥5.
+- **Removed `reduce(max cost)` priority** — always `pick(aff)` randomly.
+- `CFG.DIFF.maxEnemies` removed, replaced by dynamic formula.
+
+### Boss Fixes (B2–B4)
+
+- **B2**: `newFloor()` resets `S.millFed = 0` and `S.party = null` on non-boss floors.
+- **B3**: `guard_pierce` bumps Tormentor to `armor = 1` (last phase) instead of skipping `tormentorHit`.
+- **B4**: `linkedRookRevenge` removed from `handleBossCapture` (was causing double-capture when rook attacks player). Revenge now lives **only** in `tryMoveTo()` — triggers when player kills a linked rook.
+
+### Misc
+
+- `archbishop`, `chancellor`, `beast` move cases restored in `genMoves` (was lost during moves.js refactor).
+- `necroTurn` spawn logic restored (was gutted during B4 cleanup of `enemies.js`).
+- `generateBossRoom('millstone')` now initializes `S.party` and adds pillar rows at top/bottom for millstone bounce.
+- `afterEnemies()` checks millstone quota (`S.millFed >= jamQuota`) before `S.enemies.length === 0` check.
+- `handleEditorClick` calls `pushUndo(x, y)` before every edit; `Ctrl+Z` pops & restores cell state.
+- `#editorTools` HTML element added in `index.html` between Actions and Objects rows.
+- CSS: `.editor-tab-row`, `.editor-tab-btn`, `.editor-group-body` styles for tabbed palette.
 
 ### Loading Screen
 

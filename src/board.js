@@ -273,24 +273,27 @@ export function placeSpecials(wset, reach, start) {
 
 export function buildFloorEnemies(flr) {
   const D = CFG.DIFF;
-  let budget = ((D.budgetBase + D.budgetGrow * (flr - 1)) * (CFG.W * CFG.H)) / (11 * 9);
+  const maxEnemies = Math.min(5 + Math.floor(flr / 4), 10);
+  let budget = (D.budgetBase + D.budgetGrow * (flr - 1)) * Math.sqrt((CFG.W * CFG.H) / 99);
   if (flr === 1 && META.upgrades.headstart) budget -= 2; // мета-апгрейд «Разведка»
   const qcap = flr >= D.queenCapDeepFloor ? D.queenCapDeep : D.queenCap;
   const avail = Object.keys(D.cost).filter((t) => flr >= D.unlockFloor[t]);
   const bag = [];
+  let eliteCount = 0;
   let guard = 0;
-  while (budget >= 1 && bag.length < D.maxEnemies && guard++ < 100) {
+  while (budget >= 1 && bag.length < maxEnemies && guard++ < 100) {
     const qc = bag.filter((t) => t === 'queen').length;
-    const aff = avail.filter((t) => D.cost[t] <= budget && !(t === 'queen' && qc >= qcap));
+    let aff = avail.filter((t) => D.cost[t] <= budget && !(t === 'queen' && qc >= qcap));
+    // лимит элитных врачей (цена ≥5): не больше CFG.DIFF.maxElite
+    if (eliteCount >= D.maxElite) {
+      aff = aff.filter((t) => (D.cost[t] || 1) < 5);
+    }
     if (!aff.length) break;
     // уклон биома: с шансом отдаём предпочтение «любимым» типам этого биома
     const fav = ((S.biome && S.biome.favorEnemies) || []).filter((t) => aff.includes(t));
-    let t;
-    if (fav.length && random() < 0.5) t = pick(fav);
-    else
-      t =
-        random() < 0.5 ? pick(aff) : aff.reduce((a, b) => (D.cost[b] > D.cost[a] ? b : a), aff[0]);
+    const t = fav.length && random() < 0.5 ? pick(fav) : pick(aff);
     bag.push(t);
+    if ((D.cost[t] || 1) >= 5) eliteCount++;
     budget -= D.cost[t];
   }
   while (bag.length < D.minEnemies) bag.push('pawn');
@@ -509,6 +512,18 @@ export function generateBossRoom(bossId) {
     // Жернов как special cell
     const sp = new Map();
     sp.set(key(4, CFG.H - 3), { type: 'millstone', dir: [0, -1] });
+    // пилоны сверху и снизу коридора — жернов разворачивается о них
+    for (let x = 3; x <= 5; x++) {
+      sp.set(key(x, 0), { type: 'pillar' });
+      sp.set(key(x, CFG.H - 1), { type: 'pillar' });
+    }
+    // инициализировать состояние Кукловода — куклы падают бесконечно
+    S.party = {
+      dropCd: 0,
+      pullCd: BOSS_CFG.puppeteer.pullEvery,
+      reserve: BOSS_CFG.puppeteer.reserve,
+    };
+    S.millFed = 0;
     return { walls: w, enemies: [], specials: sp };
   }
   // fallback
@@ -603,6 +618,16 @@ export function newFloor() {
       S.chainsBroken = 0;
       S.millTick = 0;
       S.millsJammed = 0;
+      // Кукловод: состояние для millstone уже задано в generateBossRoom,
+      // но на всякий случай убедимся, что оно не потерялось
+      if (bossId === 'millstone') {
+        S.party = S.party || {
+          dropCd: 0,
+          pullCd: BOSS_CFG.puppeteer.pullEvery,
+          reserve: BOSS_CFG.puppeteer.reserve,
+        };
+        S.millFed = S.millFed ?? 0;
+      }
       clearSpeech();
       cleanse(S.player);
       S.player.lostFormThisFloor = false;
@@ -624,6 +649,8 @@ export function newFloor() {
   S.chainsBroken = 0;
   S.millTick = 0;
   S.millsJammed = 0;
+  S.millFed = 0;
+  S.party = null;
   const C = CFG.ROOMS;
   const maxRooms = Math.min(C.startMax + Math.floor(S.floor / C.growEvery), C.cap);
   const minRooms = Math.min(C.startMin + Math.floor(S.floor / C.growEvery), maxRooms);

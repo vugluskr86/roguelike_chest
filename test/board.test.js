@@ -52,7 +52,7 @@ describe('floor balance invariants', () => {
     for (let f = 1; f <= 12; f++) {
       const bag = buildFloorEnemies(f);
       expect(bag.length).toBeGreaterThanOrEqual(3);
-      expect(bag.length).toBeLessThanOrEqual(7);
+      expect(bag.length).toBeLessThanOrEqual(10);
     }
   });
   it('spawn never starts player in check', () => {

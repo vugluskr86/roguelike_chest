@@ -20,21 +20,6 @@ function handleBossCapture(by) {
     }
     return;
   }
-  if (by.linkedTo) {
-    const revengeEvents = linkedRookRevenge(by);
-    if (revengeEvents.some((e) => e && e.ch === 'capture')) {
-      degradePlayer(by);
-      if (S.gameOver) {
-        render();
-        syncUI();
-      }
-      return;
-    }
-    revengeEvents.forEach((ev) => {
-      if (ev && ev.ch === 'speech') addSpeech(ev.x, ev.y, ev.text, ev.kind || 'boss');
-      if (ev && ev.ch === 'log') log(ev.text);
-    });
-  }
   degradePlayer(by);
   if (S.gameOver) {
     render();
@@ -172,7 +157,40 @@ export function necroTurn(e) {
     e.spawnCd--;
     return;
   }
-  e.spawnCd = necroInterval();
+  const spawnCount = S.enemies.filter((o) => o.fromNecro).length;
+  if (spawnCount >= 2 || S.enemies.length >= CFG.DIFF.enemyCap) {
+    e.spawnCd = necroInterval();
+    return;
+  }
+  const spots = [];
+  for (const [dx, dy] of [...ORTHO, ...DIAG]) {
+    const x = e.x + dx,
+      y = e.y + dy;
+    if (
+      inB(x, y) &&
+      !S.walls.has(key(x, y)) &&
+      !enemyAt(x, y) &&
+      !(S.player.x === x && S.player.y === y)
+    ) {
+      spots.push({ x, y });
+    }
+  }
+  if (spots.length) {
+    const c = spots[Math.floor(Math.random() * spots.length)];
+    S.enemies.push({
+      type: 'pawn',
+      x: c.x,
+      y: c.y,
+      facing: [Math.sign(S.player.x - c.x) || 0, Math.sign(S.player.y - c.y) || 1],
+      cd: 0,
+      status: {},
+      homeColor: tileColor(c.x, c.y),
+      r: 1,
+      rb: 0,
+      fromNecro: true,
+    });
+    e.spawnCd = necroInterval();
+  }
 }
 export function frostTurn(e) {
   if (e.frostCd > 0) {

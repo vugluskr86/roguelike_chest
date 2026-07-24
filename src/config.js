@@ -105,8 +105,8 @@ export const CFG = {
   DIFF: {
     budgetBase: 4, // бюджет угрозы на этаже 1
     budgetGrow: 2.5, // прирост бюджета за каждый следующий этаж
-    maxEnemies: 7,
     minEnemies: 3,
+    maxElite: 3, // не больше 3 врагов с ценой ≥5 (guardian, queen, mimic, frost)
     cost: {
       pawn: 1,
       knight: 3,

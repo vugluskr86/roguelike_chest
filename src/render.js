@@ -6,7 +6,8 @@
 import { S } from './state.js';
 import { dom } from './dom.js';
 import { CFG, GLYPH, KEY_COLOR_HEX, NAME, STATUS_META } from './config.js';
-import { activeForm, allThreats, enemyThreat, playerOptions } from './moves.js';
+import { activeForm, cachedThreats, playerOptions } from './moves.js';
+import { invalidateThreats } from './moves.js';
 import { statusVal } from './status.js';
 import { key, tileColor } from './util.js';
 import { RELICS, CURSES } from './content.js';
@@ -1561,43 +1562,44 @@ export function renderNow(ts) {
   dom.ctx.translate(-camera.x * T, -camera.y * T);
   dom.ctx.clearRect(0, 0, CFG.W * T, CFG.H * T);
   const insp = S.hoverEnemy || S.selectedEnemy;
-  const threats = insp ? enemyThreat(insp) : allThreats();
-  // тайлы (палитра биома)
+  const threats = cachedThreats(insp);
+  // тайлы (палитра биома) — только видимые клетки
   const bLight = (S.biome && S.biome.light) || '#a2937c',
     bDark = (S.biome && S.biome.dark) || '#4b433c';
-  for (let y = 0; y < CFG.H; y++)
-    for (let x = 0; x < CFG.W; x++) {
-      dom.ctx.fillStyle = S.walls.has(key(x, y))
-        ? '#201b16'
-        : tileColor(x, y) === 0
-          ? bLight
-          : bDark;
+  const camX0 = Math.floor(camera.x);
+  const camY0 = Math.floor(camera.y);
+  const camX1 = Math.min(CFG.W, camX0 + CFG.VIEW_W + 2);
+  const camY1 = Math.min(CFG.H, camY0 + CFG.VIEW_H + 2);
+  const blind = S.challenge === 'blind_descent';
+  for (let y = Math.max(0, camY0 - 1); y < camY1; y++)
+    for (let x = Math.max(0, camX0 - 1); x < camX1; x++) {
+      // слепой спуск: затемняем всё за пределами радиуса 2
+      if (blind && Math.max(Math.abs(x - S.player.x), Math.abs(y - S.player.y)) > 2) {
+        dom.ctx.fillStyle = '#0a0c10';
+      } else {
+        dom.ctx.fillStyle = S.walls.has(key(x, y))
+          ? '#201b16'
+          : tileColor(x, y) === 0
+            ? bLight
+            : bDark;
+      }
       dom.ctx.fillRect(x * T, y * T, T, T);
-      if (S.walls.has(key(x, y))) {
-        dom.ctx.strokeStyle = 'rgba(0,0,0,.5)';
-        dom.ctx.strokeRect(x * T + 3.5, y * T + 3.5, T - 7, T - 7);
-      }
-      // подсветка промо-клеток (y=0, не стена) с анимированной прозрачностью
-      if (y === 0 && !S.walls.has(key(x, y))) {
-        const pp = (ts || 0) / 900;
-        const pa = S.promotionUsed ? 0.05 : 0.18 + Math.sin(pp * Math.PI * 2) * 0.1;
-        dom.ctx.fillStyle = `rgba(201,162,39,${pa})`;
-        dom.ctx.fillRect(x * T, y * T, T, T);
-        dom.ctx.strokeStyle = `rgba(201,162,39,${pa + 0.2})`;
-        dom.ctx.lineWidth = 2;
-        dom.ctx.strokeRect(x * T + 2, y * T + 2, T - 4, T - 4);
-      }
-    }
-  // челлендж «Слепой спуск»: затемняем всё за пределами радиуса 2 от игрока
-  if (S.challenge === 'blind_descent') {
-    for (let y = 0; y < CFG.H; y++)
-      for (let x = 0; x < CFG.W; x++) {
-        if (Math.max(Math.abs(x - S.player.x), Math.abs(y - S.player.y)) > 2) {
-          dom.ctx.fillStyle = '#0a0c10';
+      if (!blind || Math.max(Math.abs(x - S.player.x), Math.abs(y - S.player.y)) <= 2) {
+        if (S.walls.has(key(x, y))) {
+          dom.ctx.strokeStyle = 'rgba(0,0,0,.5)';
+          dom.ctx.strokeRect(x * T + 3.5, y * T + 3.5, T - 7, T - 7);
+        }
+        if (y === 0 && !S.walls.has(key(x, y))) {
+          const pp = (ts || 0) / 900;
+          const pa = S.promotionUsed ? 0.05 : 0.18 + Math.sin(pp * Math.PI * 2) * 0.1;
+          dom.ctx.fillStyle = `rgba(201,162,39,${pa})`;
           dom.ctx.fillRect(x * T, y * T, T, T);
+          dom.ctx.strokeStyle = `rgba(201,162,39,${pa + 0.2})`;
+          dom.ctx.lineWidth = 2;
+          dom.ctx.strokeRect(x * T + 2, y * T + 2, T - 4, T - 4);
         }
       }
-  }
+    }
   // угрозы (скрыты под туманом)
   for (const k of threats) {
     if (S.special && S.special.get(k) && S.special.get(k).type === 'fog') continue;

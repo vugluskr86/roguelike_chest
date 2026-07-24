@@ -9,7 +9,7 @@ import { CFG, GLYPH, KEY_GLYPH, NAME, STD_TYPES } from './config.js';
 import { RELICS, CURSES } from './content.js';
 import { SCRIPT } from './content/script.js';
 import { enemiesTurn } from './enemies.js';
-import { tormentorHit, dispatchBossEvents, BOSS_CFG } from './bosses.js';
+import { tormentorHit, dispatchBossEvents, BOSS_CFG, linkedRookRevenge } from './bosses.js';
 import { snapshotRoom, loadRoom } from './board.js';
 import { offerLoot } from './loot.js';
 import { endRunMeta, recordKill, unlockAch } from './meta.js';
@@ -79,8 +79,9 @@ export function tryMoveTo(x, y) {
       return;
     }
     // Мучитель: своя механика фаз (теряет диагональ, на нуле — распад на бегущих)
-    if (e.bossId === 'tormentor' && !has('guard_pierce')) {
+    if (e.bossId === 'tormentor') {
       activeForm().cooldown = fatigue;
+      if (has('guard_pierce')) e.armor = 1; // Бронебой — сразу последняя фаза (распад)
       dispatchBossEvents(tormentorHit(e), {
         log: (t) => log(t),
         addSpeech: (x, y, t, kind) => addSpeech(x, y, t, kind),
@@ -104,6 +105,24 @@ export function tryMoveTo(x, y) {
     S.player.capturedThisFloor++;
     S.player.totalCaptures++;
     recordKill(e.type, false);
+    // Месть Ладьи: если убитая ладья была в связке, выжившая бьёт вне очереди
+    if (e.linkedTo) {
+      const revengeEvents = linkedRookRevenge(e);
+      if (revengeEvents.some((ev) => ev && ev.ch === 'capture')) {
+        // Выжившая ладья бьёт игрока немедленно
+        degradePlayer(null);
+        if (S.gameOver) {
+          render();
+          syncUI();
+          return;
+        }
+      } else {
+        revengeEvents.forEach((ev) => {
+          if (ev && ev.ch === 'speech') addSpeech(ev.x, ev.y, ev.text, ev.kind || 'boss');
+          if (ev && ev.ch === 'log') log(ev.text);
+        });
+      }
+    }
     unlockAch('first_blood');
     activeForm().cooldown = fatigue; // усталость §4.5
     if (has('trophy'))
@@ -448,6 +467,25 @@ export function afterEnemies() {
     if (f && f.cooldown > 0) f.cooldown--;
   });
   spreadLava();
+  // Жернов: победа по квоте bossDown (Кукловод), а не по пустому списку врагов
+  const millQuota = BOSS_CFG.puppeteer.jamQuota;
+  if (S.floor === 11 && S.millFed >= millQuota && !S.gameOver) {
+    const room = S.rooms[S.currentRoom];
+    if (room && !room.cleared) {
+      room.cleared = true;
+      room.enemies = [];
+    }
+    log('Ярус зачищен! Жернов встал.', 'g');
+    if (!S.player.lostFormThisFloor) unlockAch('flawless');
+    render();
+    syncUI();
+    if (S.runMode === 'campaign' && SCRIPT.interludes.act2to3) {
+      openInterlude(SCRIPT.interludes.act2to3, () => offerLoot());
+      return;
+    }
+    offerLoot();
+    return;
+  }
   if (S.enemies.length === 0 && !S.gameOver) {
     // в редакторе — победа при зачистке всех врагов
     if (isEditorRunning()) {

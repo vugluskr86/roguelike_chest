@@ -4,6 +4,36 @@ import { curse, enemyAt, has } from './state.js';
 import { statusVal } from './status.js';
 import { DIAG, KNIGHT_J, ORTHO, inB, key, tileColor } from './util.js';
 
+// ===== кэш угроз и ходов игрока (сбрасывается после каждого хода) =====
+let threatCache = null;
+let threatCacheKey = '';
+let playerOptsCache = null;
+let playerOptsKey = '';
+
+/** Сбросить кэш угроз и ходов игрока — вызывать после хода игрока/врагов. */
+export function invalidateThreats() {
+  threatCache = null;
+  threatCacheKey = '';
+  playerOptsCache = null;
+  playerOptsKey = '';
+}
+
+export function cachedThreats(insp) {
+  const k = insp ? 'e' + S.enemies.indexOf(insp) : 'all';
+  if (threatCache && threatCacheKey === k) return threatCache;
+  threatCacheKey = k;
+  threatCache = insp ? enemyThreat(insp) : allThreats();
+  return threatCache;
+}
+
+function cachedPlayerOptions() {
+  const k = `${S.player.x},${S.player.y},${S.player.facing[0]},${S.player.facing[1]},${S.player.active},t${S.turn}`;
+  if (playerOptsCache && playerOptsKey === k) return playerOptsCache;
+  playerOptsKey = k;
+  playerOptsCache = playerOptions();
+  return playerOptsCache;
+}
+
 export function genMoves(piece, form, isEnemyCell, isBlocked) {
   const moves = [],
     captures = [];
@@ -107,6 +137,52 @@ export function genMoves(piece, form, isEnemyCell, isBlocked) {
     case 'queen':
       slide([...ORTHO, ...DIAG], Math.max(1, (form.r ?? CFG.BASE_R.queen) + reachBonus));
       break;
+    case 'archbishop': {
+      slide(DIAG, Math.max(1, (form.r ?? CFG.BASE_R.archbishop) + reachBonus));
+      for (const [dx, dy] of KNIGHT_J) {
+        const x = piece.x + dx,
+          y = piece.y + dy;
+        if (!inB(x, y) || S.walls.has(key(x, y)) || blk(x, y, null)) continue;
+        if (isEnemyCell(x, y)) captures.push({ x, y });
+        else if (!isBlocked(x, y)) moves.push({ x, y });
+      }
+      break;
+    }
+    case 'chancellor': {
+      slide(ORTHO, Math.max(1, (form.r ?? CFG.BASE_R.chancellor) + reachBonus));
+      for (const [dx, dy] of KNIGHT_J) {
+        const x = piece.x + dx,
+          y = piece.y + dy;
+        if (!inB(x, y) || S.walls.has(key(x, y)) || blk(x, y, null)) continue;
+        if (isEnemyCell(x, y)) captures.push({ x, y });
+        else if (!isBlocked(x, y)) moves.push({ x, y });
+      }
+      break;
+    }
+    case 'beast': {
+      const LEAP2 = [
+        [2, 0],
+        [-2, 0],
+        [0, 2],
+        [0, -2],
+        [2, 2],
+        [2, -2],
+        [-2, 2],
+        [-2, -2],
+        [1, 2],
+        [1, -2],
+        [-1, 2],
+        [-1, -2],
+      ];
+      for (const [dx, dy] of LEAP2) {
+        const x = piece.x + dx,
+          y = piece.y + dy;
+        if (!inB(x, y) || S.walls.has(key(x, y)) || blk(x, y, null)) continue;
+        if (isEnemyCell(x, y)) captures.push({ x, y });
+        else if (!isBlocked(x, y)) moves.push({ x, y });
+      }
+      break;
+    }
     case 'king': {
       for (const [dx, dy] of [...ORTHO, ...DIAG]) {
         const x = piece.x + dx,

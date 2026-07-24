@@ -820,6 +820,39 @@ button.again {
   line-height: 1;
   white-space: nowrap;
 }
+.editor-tab-row {
+  display: flex;
+  gap: 2px;
+  margin-bottom: 0;
+}
+.editor-tab-btn {
+  background: #242833;
+  border: 1px solid #3a3e49;
+  color: var(--muted);
+  font-size: 12px;
+  padding: 3px 10px;
+  border-radius: 5px 5px 0 0;
+  cursor: pointer;
+  min-height: unset;
+  border-bottom: none;
+}
+.editor-tab-btn.active {
+  background: #181b22;
+  color: var(--txt);
+  border-color: #3a3e49;
+  border-bottom: 1px solid #181b22;
+  margin-bottom: -1px;
+}
+.editor-group-body {
+  background: #181b22;
+  border: 1px solid #3a3e49;
+  border-radius: 0 5px 5px 5px;
+  padding: 4px 6px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 3px;
+  margin-bottom: 4px;
+}
 .editor-sep {
   width: 100%;
   height: 1px;

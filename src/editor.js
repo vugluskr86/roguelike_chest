@@ -12,6 +12,7 @@ import { render } from './render.js';
 import { closeModal, log } from './ui.js';
 import { dom } from './dom.js';
 import { key, inB, makeForm, ORTHO } from './util.js';
+import { invalidateThreats } from './moves.js';
 
 export function isEditorRunning() {
   return state.running;
@@ -38,14 +39,17 @@ let state = {
   tool: 'wall',
   brush: false,
   statusEl: null,
-  activeBtn: null,
   pendingLink: null,
   running: false,
   runBtn: null,
   doorIdCounter: 1,
+  activeTab: 'enemies', // активная вкладка объектов
 };
 let editorBackup = null;
 let manifestData = null;
+let undoStack = [];
+const UNDO_MAX = 50;
+let _editorKeyHandler = null;
 
 // ===== LEVEL LOADER =====
 
@@ -232,6 +236,7 @@ export function openEditor() {
   state.brush = false;
   state.running = false;
   editorBackup = null;
+  invalidateThreats(); // сбросить кэш угроз — красная подсветка не переносится из игры
   document.getElementById('editorBar').style.display = '';
   state.statusEl = document.getElementById('editorStatus');
   buildToolbar();
@@ -348,115 +353,169 @@ function stopRun() {
   render();
 }
 
+// ===== UNDO =====
+
+function pushUndo(x, y) {
+  const k = key(x, y);
+  undoStack.push({
+    x,
+    y,
+    walls: S.walls.has(k),
+    special: S.special.has(k) ? { ...S.special.get(k) } : null,
+    enemies: S.enemies
+      .filter((e) => e.x === x && e.y === y)
+      .map((e) => ({ ...e, status: { ...e.status } })),
+  });
+  if (undoStack.length > UNDO_MAX) undoStack.shift();
+}
+
+function undo() {
+  if (!undoStack.length) {
+    state.statusEl.textContent = 'Нечего отменять.';
+    return;
+  }
+  const prev = undoStack.pop();
+  const k = key(prev.x, prev.y);
+  snapshotEditorRoom();
+  if (prev.walls) S.walls.add(k);
+  else S.walls.delete(k);
+  S.special.delete(k);
+  if (prev.special) S.special.set(k, prev.special);
+  S.enemies = S.enemies.filter((e) => !(e.x === prev.x && e.y === prev.y));
+  prev.enemies.forEach((e) => S.enemies.push(e));
+  render();
+  state.statusEl.textContent = 'Отмена (Ctrl+Z).';
+}
+
 // ===== TOOLBAR =====
 
-function buildToolbar() {
-  const renderBtns = (elId, items) => {
-    const el = document.getElementById(elId);
-    el.innerHTML = '';
-    items.forEach((t) => {
-      const btn = document.createElement('button');
-      btn.textContent = t.label;
-      btn.title = t.title || t.label;
-      if (t.id === state.tool) {
-        btn.classList.add('active');
-        state.activeBtn = btn;
-      }
-      if (t.id === 'run') state.runBtn = btn;
-      btn.onclick = () => {
-        if (state.activeBtn) state.activeBtn.classList.remove('active');
-        if (t.id === 'brush') {
-          state.brush = !state.brush;
-          btn.textContent = state.brush ? '🖌✓' : '🖌';
-          if (state.brush) btn.classList.add('active');
-          updateStatus();
-          return;
-        }
-        if (t.id === 'copy') {
-          exportJSON();
-          return;
-        }
-        if (t.id === 'run') {
-          if (state.running) stopRun();
-          else runLevel();
-          return;
-        }
-        if (t.id === 'close') {
-          closeEditor();
-          return;
-        }
-        if (t.id === 'import') {
-          importJSON();
-          return;
-        }
-        if (t.id === 'open') {
-          openLevelSelector();
-          return;
-        }
-        if (t.id === 'save') {
-          downloadLevel();
-          return;
-        }
-        if (t.id === 'addRoom') {
-          addRoom();
-          return;
-        }
-        if (t.id === 'prevRoom') {
-          prevRoom();
-          return;
-        }
-        if (t.id === 'nextRoom') {
-          nextRoom();
-          return;
-        }
-        state.tool = t.id;
-        btn.classList.add('active');
-        state.activeBtn = btn;
-        updateStatus();
-      };
-      el.appendChild(btn);
-    });
-  };
-  renderBtns('editorActions', [...ACTIONS, ...TOOLS]);
+function selectTool(id) {
+  if (id === 'brush') {
+    state.brush = !state.brush;
+    updateStatus();
+    return;
+  }
+  if (id === 'copy') {
+    exportJSON();
+    return;
+  }
+  if (id === 'open') {
+    openLevelSelector();
+    return;
+  }
+  if (id === 'save') {
+    downloadLevel();
+    return;
+  }
+  if (id === 'import') {
+    importJSON();
+    return;
+  }
+  if (id === 'run') {
+    if (state.running) stopRun();
+    else runLevel();
+    return;
+  }
+  if (id === 'close') {
+    closeEditor();
+    return;
+  }
+  if (id === 'addRoom') {
+    addRoom();
+    return;
+  }
+  if (id === 'prevRoom') {
+    prevRoom();
+    return;
+  }
+  if (id === 'nextRoom') {
+    nextRoom();
+    return;
+  }
+  state.tool = id;
+  document.querySelectorAll('#editorBar button[data-tool]').forEach((b) => {
+    b.classList.toggle('active', b.dataset.tool === id);
+  });
+  updateStatus();
+}
 
-  // группы объектов с заголовками
+function buildToolbar() {
+  // ── Действия ──
+  const actEl = document.getElementById('editorActions');
+  actEl.innerHTML = '';
+  const actLabel = document.createElement('span');
+  actLabel.className = 'editor-group-label';
+  actLabel.textContent = 'Действия';
+  actEl.appendChild(actLabel);
+  ACTIONS.forEach((t) => {
+    const btn = document.createElement('button');
+    btn.textContent = t.label;
+    btn.title = t.title;
+    btn.dataset.tool = t.id;
+    if (t.id === state.tool) btn.classList.add('active');
+    if (t.id === 'run') state.runBtn = btn;
+    btn.onclick = () => selectTool(t.id);
+    actEl.appendChild(btn);
+  });
+
+  // ── Инструменты ──
+  const toolsEl = document.getElementById('editorTools');
+  toolsEl.innerHTML = '';
+  const toolsLabel = document.createElement('span');
+  toolsLabel.className = 'editor-group-label';
+  toolsLabel.textContent = 'Инструменты';
+  toolsEl.appendChild(toolsLabel);
+  TOOLS.forEach((t) => {
+    const btn = document.createElement('button');
+    btn.textContent = state.brush && t.id === 'brush' ? '🖌✓' : t.label;
+    btn.title = t.title;
+    btn.dataset.tool = t.id;
+    if (t.id === state.tool || (t.id === 'brush' && state.brush)) btn.classList.add('active');
+    btn.onclick = () => selectTool(t.id);
+    toolsEl.appendChild(btn);
+  });
+
+  // ── Объекты (табы) ──
   const objEl = document.getElementById('editorObjects');
   objEl.innerHTML = '';
+  const groups = [
+    { id: 'enemies', label: 'Противники', items: ENEMIES },
+    { id: 'terrain', label: 'Объекты', items: OBJECTS_TERRAIN },
+    { id: 'loot', label: 'Лут/Двери', items: OBJECTS_LOOT },
+  ];
 
-  const addGroup = (label, items) => {
-    const lbl = document.createElement('span');
-    lbl.className = 'editor-group-label';
-    lbl.textContent = label;
-    objEl.appendChild(lbl);
-    items.forEach((t) => {
+  // ряд табов
+  const tabRow = document.createElement('div');
+  tabRow.className = 'editor-tab-row';
+  groups.forEach((g) => {
+    const tab = document.createElement('button');
+    tab.className = 'editor-tab-btn';
+    if (g.id === state.activeTab) tab.classList.add('active');
+    tab.textContent = g.label;
+    tab.onclick = () => {
+      state.activeTab = g.id;
+      buildToolbar();
+    };
+    tabRow.appendChild(tab);
+  });
+  objEl.appendChild(tabRow);
+
+  // тело активного таба
+  const activeGroup = groups.find((g) => g.id === state.activeTab);
+  if (activeGroup) {
+    const body = document.createElement('div');
+    body.className = 'editor-group-body';
+    activeGroup.items.forEach((t) => {
       const btn = document.createElement('button');
       btn.textContent = t.label;
-      btn.title = t.title || t.label;
-      if (t.id === state.tool) {
-        btn.classList.add('active');
-        state.activeBtn = btn;
-      }
-      btn.onclick = () => {
-        if (state.activeBtn) state.activeBtn.classList.remove('active');
-        if (t.id === 'brush') {
-          state.brush = !state.brush;
-          btn.textContent = state.brush ? '🖌✓' : '🖌';
-          if (state.brush) btn.classList.add('active');
-          updateStatus();
-          return;
-        }
-        state.tool = t.id;
-        btn.classList.add('active');
-        state.activeBtn = btn;
-        updateStatus();
-      };
-      objEl.appendChild(btn);
+      btn.title = t.title;
+      btn.dataset.tool = t.id;
+      if (t.id === state.tool) btn.classList.add('active');
+      btn.onclick = () => selectTool(t.id);
+      body.appendChild(btn);
     });
-  };
-
-  addGroup('Противники', ENEMIES);
-  addGroup('Объекты', OBJECTS_TERRAIN);
-  addGroup('Лут/Двери', OBJECTS_LOOT);
+    objEl.appendChild(body);
+  }
 
   // селектор размера карты
   const sizeWrap = document.createElement('span');
@@ -489,13 +548,43 @@ function buildToolbar() {
   sizeWrap.appendChild(sepX);
   sizeWrap.appendChild(hInput);
   objEl.appendChild(sizeWrap);
-
   updateStatus();
+
+  // ── Горячие клавиши ──
+  if (_editorKeyHandler) document.removeEventListener('keydown', _editorKeyHandler, true);
+  _editorKeyHandler = (ev) => {
+    if (!editorActive || state.running || ev.target.tagName === 'INPUT') return;
+    const k = ev.key.toLowerCase();
+    if (k === 'w') {
+      ev.preventDefault();
+      selectTool('wall');
+    } else if (k === 'd') {
+      ev.preventDefault();
+      selectTool('delete');
+    } else if (k === 'b') {
+      ev.preventDefault();
+      selectTool('brush');
+    } else if (ev.key === 'Escape') {
+      ev.preventDefault();
+      if (state.tool !== 'wall') selectTool('wall');
+      else closeEditor();
+    } else if (ev.ctrlKey && k === 'z') {
+      ev.preventDefault();
+      undo();
+    } else if (/^[1-9]$/.test(k)) {
+      ev.preventDefault();
+      const openGroup = groups.find((g) => g.id === state.activeTab);
+      if (openGroup) {
+        const idx = parseInt(k) - 1;
+        if (idx < openGroup.items.length) selectTool(openGroup.items[idx].id);
+      }
+    }
+  };
+  document.addEventListener('keydown', _editorKeyHandler, true);
 }
 
 function resizeEditorBoard() {
   if (!editorActive) return;
-  // корректируем спавн если за границами
   if (S.player.x >= CFG.W) S.player.x = CFG.W - 1;
   if (S.player.y >= CFG.H) S.player.y = CFG.H - 1;
   render();
@@ -504,22 +593,18 @@ function resizeEditorBoard() {
 function updateStatus() {
   if (!state.statusEl) return;
   const brushStr = state.brush ? ' (Кисть)' : '';
-  if (state.tool === 'wall')
-    state.statusEl.textContent = 'Стена' + brushStr + ' | клик — поставить/убрать';
-  else if (state.tool === 'delete')
-    state.statusEl.textContent = 'Удалить | клик по клетке очищает всё';
-  else if (state.tool === 'link')
-    state.statusEl.textContent = 'Связь | клик по двери — открыть окно связей';
-  else if (state.tool === 'rotate')
-    state.statusEl.textContent = 'Поворот | клик по воротам/конвейеру меняет направление';
-  else if (state.tool === 'spawn')
-    state.statusEl.textContent = 'Спавн | клик устанавливает старт игрока';
-  else if (state.tool === 'flag')
-    state.statusEl.textContent = 'Флаги | клик по врагу для редактирования флагов';
+  let t = 'Нет';
+  if (state.tool === 'wall') t = 'Стена' + brushStr + ' | клик — поставить/убрать';
+  else if (state.tool === 'delete') t = 'Удалить | клик по клетке очищает всё';
+  else if (state.tool === 'link') t = 'Связь | клик по двери — окно связей';
+  else if (state.tool === 'rotate') t = 'Поворот | клик по воротам/конвейеру';
+  else if (state.tool === 'spawn') t = 'Спавн | клик устанавливает старт игрока';
+  else if (state.tool === 'flag') t = 'Флаги | клик по врагу для флагов';
   else if (state.tool.startsWith('enemy:'))
-    state.statusEl.textContent = GLYPH[state.tool.split(':')[1]] + ' | клик ставит врага';
+    t = GLYPH[state.tool.split(':')[1]] + ' | клик ставит врага';
   else if (state.tool.startsWith('special:'))
-    state.statusEl.textContent = state.tool.split(':')[1] + ' | клик ставит спец-клетку';
+    t = state.tool.split(':')[1] + ' | клик ставит спец-клетку';
+  state.statusEl.textContent = t + ' | ⌨ W D B Esc | Ctrl+Z отмена';
 }
 
 // ===== TOOL PARSING =====
@@ -602,12 +687,8 @@ function editEnemyFlags(x, y) {
       const input = document.createElement('input');
       input.type = 'number';
       input.value = f.get();
-      input.style.width = '60px';
-      input.style.background = '#242833';
-      input.style.color = '#d8d2c4';
-      input.style.border = '1px solid #3a3e49';
-      input.style.borderRadius = '5px';
-      input.style.padding = '4px 8px';
+      input.style.cssText =
+        'width:60px;background:#242833;color:#d8d2c4;border:1px solid #3a3e49;border-radius:5px;padding:4px 8px;';
       input.min = 0;
       input.onchange = () => {
         const v = parseInt(input.value, 10) || 0;
@@ -620,12 +701,8 @@ function editEnemyFlags(x, y) {
       const input = document.createElement('input');
       input.type = 'text';
       input.value = f.get();
-      input.style.flex = '1';
-      input.style.background = '#242833';
-      input.style.color = '#d8d2c4';
-      input.style.border = '1px solid #3a3e49';
-      input.style.borderRadius = '5px';
-      input.style.padding = '4px 8px';
+      input.style.cssText =
+        'flex:1;background:#242833;color:#d8d2c4;border:1px solid #3a3e49;border-radius:5px;padding:4px 8px;';
       input.onchange = () => {
         const v = input.value.trim();
         if (f.key === 'bossId') {
@@ -648,10 +725,7 @@ function editEnemyFlags(x, y) {
   });
 
   const actions = document.createElement('div');
-  actions.style.display = 'flex';
-  actions.style.gap = '8px';
-  actions.style.marginTop = '4px';
-
+  actions.style.cssText = 'display:flex;gap:8px;margin-top:4px';
   const clearBtn = document.createElement('button');
   clearBtn.textContent = 'Сбросить всё';
   clearBtn.onclick = () => {
@@ -668,26 +742,20 @@ function editEnemyFlags(x, y) {
     state.statusEl.textContent = 'Флаги сброшены.';
     render();
   };
-  actions.appendChild(clearBtn);
-
   const doneBtn = document.createElement('button');
   doneBtn.textContent = 'Готово';
   doneBtn.onclick = () => {
     closeModal();
     render();
   };
+  actions.appendChild(clearBtn);
   actions.appendChild(doneBtn);
-
   dom.mChoices.appendChild(actions);
   dom.overlay.classList.add('on');
 }
 
 // ===== DOOR LINKING MODAL =====
 
-/**
- * Открыть модалку связывания дверей.
- * @param {string|null} currentKey — ключ двери, на которой стоит игрок/курсор (текущая дверь)
- */
 function openDoorLinker(currentKey) {
   S.modalOpen = true;
   dom.modalBox.classList.remove('death');
@@ -696,7 +764,6 @@ function openDoorLinker(currentKey) {
   dom.mChoices.innerHTML = '';
   dom.mChoices.classList.add('loot-list');
 
-  // Собираем информацию о всех дверях
   const allDoors = [];
   S.rooms.forEach((r, roomIdx) => {
     r.special.forEach((sp, spKey) => {
@@ -766,30 +833,23 @@ function openDoorLinker(currentKey) {
       const isCurrent = currentKey === d.key;
       const isSel = !isCurrent && selectedIdx === idx;
       const isLinkedButNotCurrent = d.linked && !isCurrent;
-
       const row = document.createElement('div');
       row.className = 'shoprow door-row';
       const styleAdd = isCurrent ? 'border-color: #c9a227;' : isSel ? 'border-color: #58b3a4;' : '';
       row.setAttribute('style', styleAdd);
-
       const ci = doorColorIndicator(d.color);
       row.innerHTML = `<div class="si"><span class="ln">Комн.${d.room + 1}: дверь (${d.x},${d.y}) ${d.doorId} · ${ci} ${d.color}</span><span class="ld">Связана: ${d.linkedInfo}</span></div>`;
 
       if (isCurrent) {
         const badge = document.createElement('span');
         badge.textContent = 'Текущая';
-        badge.style.fontSize = '11px';
-        badge.style.color = '#c9a227';
-        badge.style.minWidth = '60px';
-        badge.style.textAlign = 'center';
+        badge.style.cssText = 'font-size:11px;color:#c9a227;min-width:60px;text-align:center';
         row.appendChild(badge);
       } else if (isLinkedButNotCurrent) {
-        // Связанная, не текущая — только кнопка разрыва ✕
         const unlinkBtn = document.createElement('button');
         unlinkBtn.textContent = '✕';
         unlinkBtn.title = 'Разорвать связь';
-        unlinkBtn.style.minHeight = '28px';
-        unlinkBtn.style.padding = '2px 8px';
+        unlinkBtn.style.cssText = 'min-height:28px;padding:2px 8px;';
         unlinkBtn.onclick = () => {
           unlinkPair(d);
           state.statusEl.textContent = 'Связь разорвана.';
@@ -797,7 +857,6 @@ function openDoorLinker(currentKey) {
         };
         row.appendChild(unlinkBtn);
       } else {
-        // Не связанная (или связь разорвали) — кнопка «Выбрать»
         const selBtn = document.createElement('button');
         selBtn.className = 'buy';
         selBtn.textContent = isSel ? 'Выбрана' : 'Выбрать';
@@ -807,19 +866,14 @@ function openDoorLinker(currentKey) {
         };
         row.appendChild(selBtn);
       }
-
       dom.mChoices.insertBefore(row, dom.mChoices.querySelector('.door-actions') || null);
     });
 
-    // кнопки действий
     let actRow = dom.mChoices.querySelector('.door-actions');
     if (!actRow) {
       actRow = document.createElement('div');
       actRow.className = 'door-actions';
-      actRow.style.display = 'flex';
-      actRow.style.gap = '8px';
-      actRow.style.marginTop = '4px';
-      actRow.style.flexWrap = 'wrap';
+      actRow.style.cssText = 'display:flex;gap:8px;margin-top:4px;flex-wrap:wrap';
       dom.mChoices.appendChild(actRow);
     }
     actRow.innerHTML = '';
@@ -831,10 +885,8 @@ function openDoorLinker(currentKey) {
         const src = allDoors.find((d) => d.key === currentKey);
         const tgt = allDoors[selectedIdx];
         if (src && tgt && src !== tgt) {
-          // разрываем старые связи обоих дверей
           unlinkPair(src);
           unlinkPair(tgt);
-          // ставим новую связь
           src.special.targetRoom = tgt.room;
           src.special.targetPos = { x: tgt.x, y: tgt.y };
           tgt.special.targetRoom = src.room;
@@ -862,7 +914,6 @@ function openDoorLinker(currentKey) {
     actRow.appendChild(unlinkAllBtn);
   };
 
-  // область прокрутки дверей
   const scroll = document.createElement('div');
   scroll.className = 'editor-scroll door-scroll';
   dom.mChoices.appendChild(scroll);
@@ -875,7 +926,6 @@ function openDoorLinker(currentKey) {
   refreshList();
 }
 
-/** Возвращает цветной индикатор для цвета двери. */
 function doorColorIndicator(color) {
   const map = { red: '🔴', blue: '🔵', green: '🟢', gold: '🟡', purple: '🟣' };
   return map[color] || '⚪';
@@ -885,6 +935,7 @@ function doorColorIndicator(color) {
 
 export function handleEditorClick(x, y) {
   if (!editorActive || !inB(x, y)) return;
+  pushUndo(x, y);
   snapshotEditorRoom();
   const parsed = parseTool(state.tool);
   if (!parsed) return;
@@ -909,9 +960,8 @@ export function handleEditorClick(x, y) {
       S.walls.add(k);
       S.special.delete(k);
       S.enemies = S.enemies.filter((e) => !(e.x === x && e.y === y));
-    } else if (S.walls.has(k)) {
-      S.walls.delete(k);
-    } else {
+    } else if (S.walls.has(k)) S.walls.delete(k);
+    else {
       S.walls.add(k);
       S.special.delete(k);
       S.enemies = S.enemies.filter((e) => !(e.x === x && e.y === y));
@@ -961,7 +1011,6 @@ export function handleEditorClick(x, y) {
       spec.dir = [0, -1];
     S.special.set(k, spec);
   } else if (parsed.kind === 'boss') {
-    // Очищаем окружение для босса
     S.walls.delete(k);
     S.special.delete(k);
     S.enemies = S.enemies.filter((e) => !(e.x === x && e.y === y));
@@ -989,7 +1038,6 @@ export function handleEditorClick(x, y) {
       S.special.set(k, { type: 'millstone', dir: [0, -1] });
     } else if (parsed.bossId === 'king') {
       S.enemies.push({ type: 'king', x, y, king: true, armor: 99, r: 1, status: {} });
-      // свита вокруг
       const retinue = [
         { dx: 0, dy: -2, type: 'queen', retinue: 'queen', r: 8, shield: 1 },
         { dx: -3, dy: 0, type: 'rook', retinue: 'rook', r: 8, passive: true },
@@ -1033,11 +1081,8 @@ export function handleEditorClick(x, y) {
     state.statusEl.textContent = `Босс «${parsed.bossId}» установлен.`;
   } else if (parsed.kind === 'link') {
     const sp = S.special.get(k);
-    if (sp && sp.type === 'door') {
-      openDoorLinker(k);
-    } else {
-      state.statusEl.textContent = 'Это не дверь — кликни по двери.';
-    }
+    if (sp && sp.type === 'door') openDoorLinker(k);
+    else state.statusEl.textContent = 'Это не дверь — кликни по двери.';
   }
   render();
 }
@@ -1087,7 +1132,6 @@ function buildLevelData() {
       ...(e.king ? { king: true } : {}),
       ...(e.retinue ? { retinue: e.retinue } : {}),
       ...(e.noAttackCd ? { noAttackCd: true } : {}),
-      ...(e.attackReady ? {} : {}),
       ...(e.r !== 1 ? { r: e.r } : {}),
     })),
     special: Object.fromEntries(r.special),
