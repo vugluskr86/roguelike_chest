@@ -88,6 +88,32 @@ npm run format   # Prettier проверка
 npm run deploy   # сборка + коммит + пуш (GitHub Pages)
 ```
 
+### Десктоп-сборка (Electron)
+
+```bash
+# Dev-режим — Vite + Electron
+npm run electron:dev
+
+# Сборка .exe / .dmg / .AppImage
+npm run electron:build
+# Результат → dist-electron/
+```
+
+### Android (APK)
+
+Требования: Java 17, Android SDK, Android Studio.
+
+```bash
+# Инициализация (одноразово)
+npx cap add android
+
+# Синхронизация после изменений
+npm run android:sync
+
+# Открыть в Android Studio → Build → Build Bundle(s) / APK(s) → Build APK(s)
+npm run android:open
+```
+
 ## Особенности
 
 - **Голод (Цугцванг)** — шкала сытости, тает каждый ход; взятия, Жилы и кости (🍖) насыщают; виньетка тьмы

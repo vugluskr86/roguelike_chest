@@ -4,6 +4,7 @@
  */
 import './styles.css';
 import './hud.css';
+import './ui-release.css';
 import { S } from './state.js';
 import { dom, initDom } from './dom.js';
 import { reset } from './board.js';

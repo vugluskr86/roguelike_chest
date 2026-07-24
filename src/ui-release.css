@@ -1,0 +1,356 @@
+/* ============================================================================
+   src/ui-release.css — подключать ПОСЛЕ основного style.css.
+
+   Версия 2: рассчитана на новую разметку index.html, где статус (#topbar)
+   и управление (#controlCard) разнесены по разным контейнерам. Скрипт для
+   переноса узлов больше не нужен — мобильный док делается здесь, чистым CSS.
+
+   Правила намеренно повторяют селекторы оригинала и перекрывают их порядком
+   каскада. Что можно удалить из style.css — помечено «⟵ заменяет».
+   ============================================================================ */
+
+:root {
+  /* ---- модалки ---- */
+  --modal-w-sm: 340px; /* настройки, короткие подтверждения */
+  --modal-w-md: 460px; /* лут, интерлюдии, промоушен, победа */
+  --modal-w-lg: 580px; /* справка, бестиарий, меню, итоги забега */
+  --modal-h-max: min(88dvh, 780px);
+  --modal-pad: 20px;
+
+  /* ---- арт 512×768 ---- */
+  --art-ratio: 2 / 3;
+  --art-band-h: 150px; /* полоса-баннер в шапке модалки */
+  --art-full-max: min(44dvh, 400px); /* крупный кадр интерлюдий */
+  --art-focus: 50% 30%; /* сюжет в этих картинках выше центра */
+}
+
+/* Пиксель-арт нельзя сглаживать. */
+.pixel,
+.loading-logo,
+.m-art {
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
+}
+
+/* ============================================================================
+   1. МОДАЛКИ — фиксированная оболочка
+   ============================================================================ */
+
+/* ⟵ заменяет .modal целиком.
+   Ключевое: width, а не только max-width. Без него флекс-элемент ужимается
+   по содержимому, и окно меняет ширину при каждом открытии. */
+.modal {
+  --modal-w: var(--modal-w-md);
+  width: var(--modal-w);
+  max-width: 94vw;
+  max-height: var(--modal-h-max);
+  padding: 0; /* отступы уехали внутрь секций */
+  overflow: hidden; /* скроллит только тело */
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  background: var(--panel);
+  border: 1px solid var(--promo);
+  border-radius: 8px;
+  text-align: center;
+}
+.modal.m-sm {
+  --modal-w: var(--modal-w-sm);
+}
+.modal.m-md {
+  --modal-w: var(--modal-w-md);
+}
+.modal.m-lg {
+  --modal-w: var(--modal-w-lg);
+}
+
+.m-head {
+  padding: var(--modal-pad) var(--modal-pad) 10px;
+  border-bottom: 1px solid #2a2d36;
+}
+.m-head:has(.m-art:not([hidden])) {
+  padding-top: 0;
+}
+.m-body {
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 14px var(--modal-pad);
+  min-height: 0;
+}
+.m-body:has(.choices:empty) {
+  padding: 0;
+}
+.m-actions {
+  display: flex;
+  gap: 8px;
+  padding: 12px var(--modal-pad) var(--modal-pad);
+  border-top: 1px solid #2a2d36;
+}
+.m-actions:empty {
+  display: none;
+}
+.m-actions button {
+  flex: 1;
+  margin: 0;
+}
+
+.modal h3 {
+  margin-bottom: 6px;
+}
+.modal p {
+  margin-bottom: 0;
+}
+.modal p:empty {
+  display: none;
+}
+
+/* Вложенный скролл внутри скроллящегося тела — ловушка на телефоне. */
+.m-body .scroll-shop {
+  max-height: none;
+  overflow: visible;
+}
+
+/* ============================================================================
+   2. АРТ 512×768
+   ============================================================================ */
+
+/* Полоса-баннер: меню, справка, бестиарий, события. */
+.m-art {
+  display: block;
+  width: 100%;
+  height: var(--art-band-h);
+  object-fit: cover;
+  object-position: var(--art-focus);
+  border-radius: 7px 7px 0 0;
+  border-bottom: 1px solid #2c2f38;
+}
+.m-art[hidden] {
+  display: none;
+}
+
+/* Крупный кадр: интерлюдии, эпилоги, появление боссов.
+   cover, а не contain — леттербоксинг рядом с рамкой читается как ошибка. */
+.m-art--full {
+  height: var(--art-full-max);
+  object-position: 50% 25%;
+}
+
+/* Полное 2:3 без обрезки — только там, где текста почти нет. */
+.m-art--exact {
+  height: auto;
+  aspect-ratio: var(--art-ratio);
+  object-fit: contain;
+  background: #14141f;
+}
+
+/* Заголовок ложится на нижний край картинки. */
+.m-head:has(.m-art:not([hidden])) h3 {
+  position: relative;
+  margin-top: -30px;
+  padding: 0 var(--modal-pad);
+  text-shadow:
+    0 2px 6px #0c0d12,
+    0 0 14px #0c0d12;
+}
+.m-head:has(.m-art:not([hidden])) p {
+  padding: 8px var(--modal-pad) 0;
+}
+
+/* ⟵ заменяет .loading-logo: было image-rendering: auto, логотип мылился. */
+.loading-logo {
+  width: 180px;
+  height: 270px; /* 2:3 заранее, чтобы экран не прыгал до загрузки файла */
+  object-fit: contain;
+  margin-bottom: 20px;
+}
+/* ⟵ фон загрузки был #1d1e3a при --ink #14161c: заметный шов на переходе */
+#loadingScreen {
+  background: var(--ink);
+}
+
+/* ============================================================================
+   3. СТАТУСНАЯ СТРОКА
+   ============================================================================ */
+
+#topbar {
+  width: 100%;
+  max-width: 940px;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 8px;
+  margin-bottom: 8px;
+}
+#topbar .hudbar {
+  margin: 0;
+}
+#topbar .hunger-bar {
+  flex: 1 1 220px;
+  min-width: 180px;
+}
+
+/* ============================================================================
+   4. МОБИЛЬНАЯ РАСКЛАДКА
+   ============================================================================ */
+
+@media (max-width: 780px) {
+  :root {
+    --modal-pad: 16px;
+    --art-band-h: 116px;
+    --art-full-max: min(38dvh, 320px);
+  }
+
+  body {
+    padding: 0 8px;
+    min-height: 100dvh;
+    /* место под фиксированный док; точную высоту меряет resizeBoard() */
+    padding-bottom: calc(112px + env(safe-area-inset-bottom, 0px));
+  }
+
+  /* Заголовок и подзаголовок съедают экран, не давая ничего в бою. */
+  h1,
+  .sub {
+    display: none;
+  }
+
+  #topbar {
+    position: sticky;
+    top: 0;
+    z-index: 8;
+    background: var(--ink);
+    padding: 6px 0 5px;
+    margin-bottom: 6px;
+    border-bottom: 1px solid #23262e;
+  }
+
+  .layout {
+    gap: 8px;
+  }
+  .board-wrap {
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+  /* Размер задаёт resizeBoard() инлайном — CSS только страхует. */
+  canvas {
+    max-width: 100%;
+  }
+
+  /* Карточка управления становится доком в зоне большого пальца. */
+  #controlCard {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 9;
+    border-radius: 0;
+    border-left: 0;
+    border-right: 0;
+    padding: 8px 8px calc(8px + env(safe-area-inset-bottom, 0px));
+    box-shadow: 0 -6px 18px rgba(0, 0, 0, 0.45);
+    touch-action: manipulation;
+  }
+  #controlCard h2 {
+    display: none;
+  }
+  #controlCard .wheel {
+    gap: 8px;
+    margin-bottom: 5px;
+  }
+  #controlCard .slot {
+    min-height: 56px;
+    padding: 6px 4px;
+  }
+  #controlCard .slot .glyph {
+    font-size: 30px;
+  }
+  #controlCard .slot .nm {
+    font-size: 10px;
+  }
+  #controlCard .status {
+    margin: 0 0 5px;
+    justify-content: center;
+    font-size: 11px;
+    color: var(--muted);
+    min-height: 13px;
+  }
+  #controlCard .btnrow {
+    gap: 6px;
+  }
+  #controlCard .btnrow button {
+    min-height: 42px;
+    font-size: 13px;
+    padding: 6px 8px;
+  }
+
+  #log {
+    height: 88px;
+  }
+
+  /* Модалка почти во весь экран, действия прижаты вниз. */
+  .modal {
+    width: 96vw;
+    max-width: 96vw;
+    max-height: min(92dvh, 900px);
+  }
+  .m-actions {
+    padding-bottom: calc(var(--modal-pad) + env(safe-area-inset-bottom, 0px));
+  }
+}
+
+/* Низкие экраны: доска важнее всего остального. */
+@media (max-width: 780px) and (max-height: 700px) {
+  body {
+    padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px));
+  }
+  #controlCard .slot {
+    min-height: 46px;
+  }
+  #controlCard .slot .glyph {
+    font-size: 25px;
+  }
+  #controlCard .slot .nm,
+  #controlCard .status {
+    display: none;
+  }
+  #log {
+    height: 60px;
+  }
+}
+
+/* ============================================================================
+   5. Мелочи, которые заметны только на релизе
+   ============================================================================ */
+
+/* Рёбра пересоздаются через innerHTML каждый syncUI — transition не срабатывает
+   никогда, только грузит стиль. */
+.rib {
+  transition: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .rib-starve,
+  .loading-hint {
+    animation: none;
+  }
+  .toast,
+  #loadingScreen {
+    transition: none;
+  }
+}
+
+.m-body button:focus-visible,
+.m-actions button:focus-visible {
+  outline-offset: -2px;
+}
+
+/* Тач-цели: 44px — нижняя граница, ниже начинают промахиваться. */
+@media (hover: none) and (pointer: coarse) {
+  .modal .choices button.loot {
+    min-height: 56px;
+  }
+  .shoprow .buy,
+  .tab-btn {
+    min-height: 44px;
+  }
+}
