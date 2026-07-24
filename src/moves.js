@@ -1,8 +1,3 @@
-/**
- * src/moves.js — генерация ходов, угрозы, pathfinding.
- * Основные экспорты: genMoves(), enemyThreat(), allThreats(), playerOptions(),
- * activeForm(), effectiveForm(), attackSquaresFor(), movesToThreaten(), necroInterval().
- */
 import { S } from './state.js';
 import { CFG, MOVE_AS } from './config.js';
 import { curse, enemyAt, has } from './state.js';
@@ -12,11 +7,10 @@ import { DIAG, KNIGHT_J, ORTHO, inB, key, tileColor } from './util.js';
 export function genMoves(piece, form, isEnemyCell, isBlocked) {
   const moves = [],
     captures = [];
-  const mine = piece === S.player; // модификаторы действуют только на игрока
-  const hasteOn = statusVal(piece, 'haste') > 0; // ускорение действует и на игрока, и на врага
+  const mine = piece === S.player;
+  const hasteOn = statusVal(piece, 'haste') > 0;
   const free = (x, y) =>
     inB(x, y) && !S.walls.has(key(x, y)) && !isBlocked(x, y) && !isEnemyCell(x, y);
-  // ворота (только по стрелке) и цветовые зоны (только слон) действуют как стена
   const blk = (x, y, dir) => {
     const s = S.special && S.special.get(key(x, y));
     if (!s) return false;
@@ -25,9 +19,11 @@ export function genMoves(piece, form, isEnemyCell, isBlocked) {
       if (!dir) return true;
       return !(dir[0] === s.dir[0] && dir[1] === s.dir[1]);
     }
+    // пилон — сплошной блок; работающий жернов занимает клетку целиком
+    if (s.type === 'pillar') return true;
+    if (s.type === 'millstone' && !s.jammed) return true;
     return false;
   };
-  // бонус дальности слайдеров: реликвии (только игрок) + ускорение (любая фигура)
   const reachBonus =
     (mine
       ? (has('slider_reach') ? 1 : 0) +
@@ -40,7 +36,7 @@ export function genMoves(piece, form, isEnemyCell, isBlocked) {
         const x = piece.x + dx * s,
           y = piece.y + dy * s;
         if (!inB(x, y) || S.walls.has(key(x, y))) break;
-        if (blk(x, y, [dx, dy])) break; // ворота/зона — как стена
+        if (blk(x, y, [dx, dy])) break;
         if (isEnemyCell(x, y)) {
           captures.push({ x, y });
           break;
@@ -58,13 +54,11 @@ export function genMoves(piece, form, isEnemyCell, isBlocked) {
       if (free(mx, my) && !blk(mx, my, [fx, fy])) {
         moves.push({ x: mx, y: my });
         if ((mine && has('pawn_double')) || hasteOn) {
-          // Длинный шаг / ускорение: 2 клетки вперёд
           const x2 = piece.x + fx * 2,
             y2 = piece.y + fy * 2;
           if (free(x2, y2) && !blk(x2, y2, [fx, fy])) moves.push({ x: x2, y: y2 });
         }
       }
-      // базовые диагонали удара — вперёд; реликвия делает удар всенаправленным
       const perp =
         mine && has('pawn_omni')
           ? DIAG
@@ -92,7 +86,6 @@ export function genMoves(piece, form, isEnemyCell, isBlocked) {
         if (isEnemyCell(x, y)) captures.push({ x, y });
         else if (!isBlocked(x, y)) moves.push({ x, y });
       }
-      // улучшенный конь (промоушен ★ / реликвия / ускорение): + шаг на 1 ортогонально
       if (form.improved || (mine && has('knight_extra')) || hasteOn)
         for (const [dx, dy] of ORTHO) {
           const x = piece.x + dx,
@@ -114,77 +107,6 @@ export function genMoves(piece, form, isEnemyCell, isBlocked) {
     case 'queen':
       slide([...ORTHO, ...DIAG], Math.max(1, (form.r ?? CFG.BASE_R.queen) + reachBonus));
       break;
-    case 'archbishop': {
-      slide(DIAG, Math.max(1, (form.r ?? CFG.BASE_R.archbishop) + reachBonus));
-      for (const [dx, dy] of KNIGHT_J) {
-        const x = piece.x + dx,
-          y = piece.y + dy;
-        if (!inB(x, y) || S.walls.has(key(x, y)) || blk(x, y, null)) continue;
-        if (isEnemyCell(x, y)) captures.push({ x, y });
-        else if (!isBlocked(x, y)) moves.push({ x, y });
-      }
-      break;
-    }
-    case 'chancellor': {
-      slide(ORTHO, Math.max(1, (form.r ?? CFG.BASE_R.chancellor) + reachBonus));
-      for (const [dx, dy] of KNIGHT_J) {
-        const x = piece.x + dx,
-          y = piece.y + dy;
-        if (!inB(x, y) || S.walls.has(key(x, y)) || blk(x, y, null)) continue;
-        if (isEnemyCell(x, y)) captures.push({ x, y });
-        else if (!isBlocked(x, y)) moves.push({ x, y });
-      }
-      break;
-    }
-    case 'beast': {
-      const LEAP2 = [
-        [2, 0],
-        [-2, 0],
-        [0, 2],
-        [0, -2],
-        [2, 2],
-        [2, -2],
-        [-2, 2],
-        [-2, -2],
-        [1, 2],
-        [1, -2],
-        [-1, 2],
-        [-1, -2],
-      ]; // прыжки на 2 клетки в любую сторону (12 векторов)
-      for (const [dx, dy] of LEAP2) {
-        const x = piece.x + dx,
-          y = piece.y + dy;
-        if (!inB(x, y) || S.walls.has(key(x, y)) || blk(x, y, null)) continue;
-        if (isEnemyCell(x, y)) captures.push({ x, y });
-        else if (!isBlocked(x, y)) moves.push({ x, y });
-      }
-      break;
-    }
-    case 'infiltrator': {
-      // пешка без фасинга — бьёт по всем 4 диагоналям, ходит вперёд
-      const [fx, fy] = piece.facing;
-      const mx = piece.x + fx,
-        my = piece.y + fy;
-      if (free(mx, my) && !blk(mx, my, [fx, fy])) {
-        moves.push({ x: mx, y: my });
-        if ((mine && has('pawn_double')) || hasteOn) {
-          const x2 = piece.x + fx * 2,
-            y2 = piece.y + fy * 2;
-          if (free(x2, y2) && !blk(x2, y2, [fx, fy])) moves.push({ x: x2, y: y2 });
-        }
-      }
-      // бьёт по всем четырём диагоналям всегда
-      for (const [dx, dy] of DIAG) {
-        const x = piece.x + dx,
-          y = piece.y + dy;
-        if (inB(x, y) && isEnemyCell(x, y) && !blk(x, y, [dx, dy])) captures.push({ x, y });
-      }
-      break;
-    }
-    case 'bastion': {
-      // стационарный танк — не ходит
-      break;
-    }
     case 'king': {
       for (const [dx, dy] of [...ORTHO, ...DIAG]) {
         const x = piece.x + dx,
@@ -199,11 +121,9 @@ export function genMoves(piece, form, isEnemyCell, isBlocked) {
   return { moves, captures };
 }
 
-// Эффективная «форма» врага для движения/угрозы: двойник копирует активную форму игрока,
-// страж ходит как король, прочие — как их тип.
 export function effectiveForm(e) {
   if (e.type === 'mimic') {
-    if (has('mirror_break')) return { type: 'pawn', r: 1, homeColor: e.homeColor }; // «Разбитое зеркало»
+    if (has('mirror_break')) return { type: 'pawn', r: 1, homeColor: e.homeColor };
     const t = (S.player.wheel[S.player.active] || { type: 'pawn' }).type;
     return {
       type: t,
@@ -214,18 +134,15 @@ export function effectiveForm(e) {
   if (MOVE_AS[e.type]) return { type: MOVE_AS[e.type], r: 1, homeColor: e.homeColor };
   return e;
 }
-// Интервал призыва некроманта с учётом лута: реликвия вдвое реже, проклятие — чаще
 export function necroInterval() {
   return Math.max(
     1,
     CFG.DIFF.necroEvery * (has('silence') ? 2 : 1) - (curse('dark_summon') ? 1 : 0),
   );
 }
-
-// Битые поля одного врага: все клетки, куда он может пойти/взять на следующем ходу
 export function enemyThreat(e) {
-  if (e.type === 'necro' || e.type === 'frost') return new Set(); // стационарные — не бьют в упор
-  if (statusVal(e, 'stun') > 0) return new Set(); // оглушённый не атакует следующим ходом
+  if (e.type === 'necro' || e.type === 'frost') return new Set();
+  if (statusVal(e, 'stun') > 0) return new Set();
   const ef = effectiveForm(e);
   const set = new Set();
   if (ef.type === 'pawn') {
@@ -265,11 +182,9 @@ export function allThreats() {
   S.enemies.forEach((e) => enemyThreat(e).forEach((k) => set.add(k)));
   return set;
 }
-
 export function activeForm() {
   return S.player.wheel[S.player.active];
 }
-
 export function playerOptions() {
   const f = activeForm();
   return genMoves(
@@ -279,18 +194,16 @@ export function playerOptions() {
     () => false,
   );
 }
-
 export function threatCellsFrom(e, x, y) {
   const sx = e.x,
     sy = e.y;
   e.x = x;
   e.y = y;
-  const set = enemyThreat(e); // учитывает тип, дальность, бафф цвета слона и фасинг пешки
+  const set = enemyThreat(e);
   e.x = sx;
   e.y = sy;
   return set;
 }
-// Множество клеток, СТОЯ на которых враг e бьёт игрока (с учётом стен и других фигур).
 export function attackSquaresFor(e) {
   const s = new Set(),
     pk = key(S.player.x, S.player.y);
@@ -301,8 +214,6 @@ export function attackSquaresFor(e) {
     }
   return s;
 }
-// За сколько СВОИХ ходов враг из (sx,sy) доберётся до клетки, с которой бьёт игрока (BFS по его ходам).
-// 0 — уже бьёт отсюда; cap+ — не достаёт за разумное число ходов. Именно это чинит «залипание» коня.
 export function movesToThreaten(e, sx, sy, attackSet, cap = 5) {
   if (attackSet.has(key(sx, sy))) return 0;
   const seen = new Set([key(sx, sy)]);
@@ -337,5 +248,5 @@ export function movesToThreaten(e, sx, sy, attackSet, cap = 5) {
     }
     frontier = next;
   }
-  return cap + 5; // недостижимо за cap ходов
+  return cap + 5;
 }
