@@ -3,6 +3,7 @@
  * Подключает все модули, рендерит загрузочный экран, обрабатывает клавиатуру и касания.
  */
 import './styles.css';
+import './hud.css';
 import { S } from './state.js';
 import { dom, initDom } from './dom.js';
 import { reset } from './board.js';
@@ -17,6 +18,8 @@ import { inB, key, seedRNG } from './util.js';
 import { editorActive, handleEditorClick, isBrushActive, openEditor } from './editor.js';
 import { feedDebugChar } from './debug.js';
 import { initAudio } from './audio.js';
+import { setPreviewCell } from './preview.js';
+import { attachKeyNav } from './keynav.js';
 
 // ===== экран загрузки =====
 const LORE = [
@@ -91,6 +94,7 @@ function startGame() {
   openTitle();
 }
 
+attachKeyNav();
 // ===== запуск =====
 showLoadingScreen();
 
@@ -245,6 +249,7 @@ if (window.matchMedia && window.matchMedia('(hover:hover) and (pointer:fine)').m
       (cell && S.hoveredCell && (cell.x !== S.hoveredCell.x || cell.y !== S.hoveredCell.y))
     ) {
       S.hoveredCell = cell;
+      setPreviewCell(S.hoveredCell);
       changed = true;
     }
     if (changed) render();

@@ -6,8 +6,8 @@
 import { S } from './state.js';
 import { dom } from './dom.js';
 import { CFG, GLYPH, KEY_COLOR_HEX, NAME, STATUS_META } from './config.js';
-import { activeForm, cachedThreats, playerOptions } from './moves.js';
-import { invalidateThreats } from './moves.js';
+import { activeForm, allThreats, cachedThreats, playerOptions } from './moves.js';
+import { RISK, pendingMove, previewCell, riskOf, threatsAfterMove } from './preview.js';
 import { statusVal } from './status.js';
 import { key, tileColor } from './util.js';
 import { RELICS, CURSES } from './content.js';
@@ -323,6 +323,7 @@ export function requestRender() {
  */
 function hasActiveAnim() {
   if (animState.player) return true;
+  if (pendingMove()) return true;
   if (animState.enemies.size > 0) return true;
   if (particles.length > 0) return true;
   if (captureFlash) return true;
@@ -599,89 +600,6 @@ function drawModifierCounters(px, py, ts) {
     c.fillStyle = `rgba(232,124,124,${0.85 + pulse * 0.15})`;
     c.fillText(`☠${cur}`, bx + T * 0.92, by - T * 0.05);
   }
-  c.restore();
-}
-
-/**
- * Панель со списком модификаторов — рисуется в координатах вьюпорта
- * (после restore), поэтому не обрезается камерой и вмещает все 30 записей.
- * Показывается при наведении на клетку игрока.
- */
-function drawModifierPanel(playerScreenX) {
-  const rel = relicIds();
-  const cur = curseIds();
-  const total = rel.length + cur.length;
-  if (!total) return;
-  const c = dom.ctx;
-  const entries = [
-    ...rel.map((id) => ({ id, curse: false, name: (RELICS[id] || {}).name || id })),
-    ...cur.map((id) => ({ id, curse: true, name: (CURSES[id] || {}).name || id })),
-  ];
-  c.save();
-  c.font = '11px Georgia, serif';
-  c.textBaseline = 'middle';
-  const padX = 10,
-    padY = 8,
-    lineH = 14,
-    titleH = 16;
-  const vw = CFG.VIEW_W * T,
-    vh = CFG.VIEW_H * T;
-  /** Обрезать строку по ширине, чтобы гарантированно не вылезти за коробку. */
-  const fit = (s, w) => {
-    if (c.measureText(s).width <= w) return s;
-    let t = s;
-    while (t.length > 1 && c.measureText(t + '…').width > w) t = t.slice(0, -1);
-    return t + '…';
-  };
-  // колонок столько, чтобы список влезал по высоте вьюпорта
-  let cols = total > 16 ? 3 : total > 8 ? 2 : 1;
-  let rows = Math.ceil(total / cols);
-  while (titleH + rows * lineH + padY * 2 > vh - 16 && cols < 4) {
-    cols++;
-    rows = Math.ceil(total / cols);
-  }
-  const title = `Модификаторы · ✦${rel.length} ☠${cur.length}`;
-  let widest = 0;
-  entries.forEach((e) => {
-    widest = Math.max(widest, c.measureText(e.name).width);
-  });
-  const colW = widest + 22;
-  // ширина коробки: не уже заголовка и не шире вьюпорта
-  const boxW = Math.min(
-    Math.max(cols * colW + padX * 2, c.measureText(title).width + padX * 2),
-    vw - 16,
-  );
-  const boxH = titleH + rows * lineH + padY * 2;
-  const cellTextW = (boxW - padX * 2) / cols - 17; // место под текст записи в колонке
-  // ставим панель с противоположной стороны от фигуры, чтобы её не закрывать
-  const bx = Math.max(8, playerScreenX < vw / 2 ? vw - boxW - 8 : 8);
-  const by = 8;
-
-  c.fillStyle = 'rgba(8,10,14,.88)';
-  c.strokeStyle = 'rgba(120,128,144,.5)';
-  c.lineWidth = 1;
-  c.beginPath();
-  c.roundRect(bx, by, boxW, boxH, 6);
-  c.fill();
-  c.stroke();
-
-  c.textAlign = 'left';
-  c.fillStyle = '#8b91a0';
-  c.fillText(fit(title, boxW - padX * 2), bx + padX, by + padY + 6);
-
-  const stepX = (boxW - padX * 2) / cols; // колонки делят реальную ширину коробки
-  entries.forEach((e, i) => {
-    const col = Math.floor(i / rows);
-    const row = i % rows;
-    const ex = bx + padX + col * stepX;
-    const ey = by + padY + titleH + row * lineH + 6;
-    c.fillStyle = modColor(e.id, e.curse, 0.95);
-    c.beginPath();
-    c.arc(ex + 4, ey, 3.2, 0, 7);
-    c.fill();
-    c.fillStyle = e.curse ? '#e6b3ae' : '#cfe8e0';
-    c.fillText(fit(e.name, cellTextW), ex + 13, ey);
-  });
   c.restore();
 }
 
@@ -1077,6 +995,11 @@ export function drawSpecial(x, y, s, ts) {
     c.globalAlpha = 1;
   } else if (s.type === 'plate') {
     // ── ПЛИТА: утопленная кнопка с фаской, заклёпками и дыханием ──
+    const isChain = !!s.chain;
+    if (isChain && s.broken) {
+      // разорванная цепь: тусклая, без пульса
+      c.globalAlpha = 0.35;
+    }
     const p = ats / 1800 + seed;
     const breathe = 0.5 + 0.5 * Math.sin(p * Math.PI * 2);
     const k = T * 0.3;
@@ -1105,7 +1028,7 @@ export function drawSpecial(x, y, s, ts) {
       c.fill();
     });
     // пульсирующий индикатор в центре
-    glow(c, cx, cy, T * 0.2, '160,220,140', 0.1 + breathe * 0.18);
+    glow(c, cx, cy, T * 0.2, isChain ? '201,162,39' : '160,220,140', 0.1 + breathe * 0.18);
     c.fillStyle = `rgba(196,236,170,${0.5 + breathe * 0.4})`;
     c.beginPath();
     c.arc(cx, cy, T * 0.07 + breathe * 1.1, 0, 7);
@@ -1606,6 +1529,18 @@ export function renderNow(ts) {
     const [x, y] = k.split(',').map(Number);
     hatch(x, y, '#b3423a', ts);
   }
+  // предпросмотр: какие клетки СТАНУТ битыми после выбранного хода.
+  // Показываем только разницу — иначе поле превращается в сплошную штриховку.
+  const pv = pendingMove() || previewCell();
+  if (pv && !S.gameOver && !S.modalOpen) {
+    const base = insp ? allThreats() : threats;
+    for (const k of threatsAfterMove(pv.x, pv.y)) {
+      if (base.has(k)) continue;
+      if (S.special && S.special.get(k) && S.special.get(k).type === 'fog') continue;
+      const [x, y] = k.split(',').map(Number);
+      hatch(x, y, '#e0a03a', ts); // янтарь = «появится после хода»
+    }
+  }
   // особые клетки (под фигурами, над угрозами)
   if (S.special)
     S.special.forEach((s, k) => {
@@ -1625,18 +1560,44 @@ export function renderNow(ts) {
   // подсветка ходов игрока
   if (!S.gameOver && !S.modalOpen) {
     const { moves, captures } = playerOptions();
-    dom.ctx.fillStyle = 'rgba(88,179,164,.85)';
+    const cx = (c) => c.x * T + T / 2;
+    const cy = (c) => c.y * T + T / 2;
+    // бирюза — безопасно, янтарь — потеряешь форму, багрец — конец забега
+    const FILL = ['rgba(88,179,164,.85)', 'rgba(224,160,58,.92)', 'rgba(179,66,58,.95)'];
     for (const m of moves) {
+      const r = riskOf(m.x, m.y);
+      dom.ctx.fillStyle = FILL[r];
       dom.ctx.beginPath();
-      dom.ctx.arc(m.x * T + T / 2, m.y * T + T / 2, 6, 0, 7);
+      dom.ctx.arc(cx(m), cy(m), r === RISK.SAFE ? 6 : 7, 0, 7);
       dom.ctx.fill();
+      if (r === RISK.FATAL) {
+        // перечёркнутая точка — читается и без цвета
+        dom.ctx.strokeStyle = 'rgba(16,10,10,.9)';
+        dom.ctx.lineWidth = 2;
+        dom.ctx.beginPath();
+        dom.ctx.moveTo(cx(m) - 4, cy(m) - 4);
+        dom.ctx.lineTo(cx(m) + 4, cy(m) + 4);
+        dom.ctx.stroke();
+      }
     }
-    dom.ctx.strokeStyle = 'rgba(208,90,60,.95)';
     dom.ctx.lineWidth = 3;
     for (const c of captures) {
+      // зелёное кольцо = взятие без ответа; красное = после взятия ты под боем
+      dom.ctx.strokeStyle =
+        riskOf(c.x, c.y) === RISK.SAFE ? 'rgba(110,200,140,.95)' : 'rgba(208,90,60,.95)';
       dom.ctx.beginPath();
-      dom.ctx.arc(c.x * T + T / 2, c.y * T + T / 2, T * 0.36, 0, 7);
+      dom.ctx.arc(cx(c), cy(c), T * 0.36, 0, 7);
       dom.ctx.stroke();
+    }
+    // клетка, ждущая подтверждения
+    const pm = pendingMove();
+    if (pm) {
+      const ph = 0.5 + 0.5 * Math.sin(((ts || 0) / 520) * Math.PI * 2);
+      dom.ctx.strokeStyle = `rgba(242,233,216,${0.5 + ph * 0.5})`;
+      dom.ctx.lineWidth = 2.5;
+      dom.ctx.setLineDash([5, 4]);
+      dom.ctx.strokeRect(pm.x * T + 3, pm.y * T + 3, T - 6, T - 6);
+      dom.ctx.setLineDash([]);
     }
   }
   // фигуры
@@ -1841,15 +1802,6 @@ export function renderNow(ts) {
   dom.ctx.moveTo(0, 0);
   dom.ctx.lineTo(CFG.VIEW_W * T, 0);
   dom.ctx.stroke();
-  // панель модификаторов — при наведении на свою фигуру (координаты вьюпорта)
-  if (
-    S.hoveredCell &&
-    S.player &&
-    S.hoveredCell.x === S.player.x &&
-    S.hoveredCell.y === S.player.y
-  ) {
-    drawModifierPanel((pp.x - camera.x) * T);
-  }
 }
 
 // ========== обратная совместимость: render() = requestRender() ==========

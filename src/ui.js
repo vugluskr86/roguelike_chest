@@ -13,6 +13,7 @@ import { maybeEvent } from './events.js';
 import { applyOption } from './loot.js';
 import { META, achProgress, buyUpgrade, codexProgress, upgradeCost } from './meta.js';
 import { activeForm } from './moves.js';
+import { syncHud } from './hud.js';
 
 export function openRunSummary(title, subtitle, earned) {
   S.modalOpen = true;
@@ -54,7 +55,7 @@ export function openRunSummary(title, subtitle, earned) {
              .join('')}</div></div>`
          : ''
      }
-     <div class="ssec"><div class="sh">Журнал</div><div class="run-log">${dom.logEl ? dom.logEl.innerHTML : ''}</div></div>`;
+     <div class="ssec"><div class="sh">Журнал</div><div class="run-log">${runLog.slice(-300).join('')}</div></div>`;
   dom.mChoices.appendChild(wrap);
 
   const row = document.createElement('div');
@@ -451,9 +452,9 @@ export function openHelp(from) {
 
     <div class="hsec"><div class="hh">Боссы</div>
       Каждые несколько ярусов ты встречаешь босса с уникальной механикой. Босс-этажи
-      (6, 8, 11, 18) — авторские арены с особыми правилами. Пока бой не окончен,
+      (5, 8, 11, 18) — авторские арены с особыми правилами. Пока бой не окончен,
       голод не тратится.<br>
-      • <b>Слон-Мучитель</b> (ярус 6) — ходит по диагоналям, состоит из трёх сшитых
+      • <b>Слон-Мучитель</b> (ярус 5) — ходит по диагоналям, состоит из трёх сшитых
         тел. Каждый удар снимает одно тело и одну диагональ. Когда брони не остаётся —
         рассыпается на три бегущие пешки.<br>
       • <b>Спаянные Ладьи</b> (ярус 8) — две ладьи, скованные спинами. Ходят строго
@@ -675,19 +676,50 @@ export function openSettings() {
   dom.mChoices.appendChild(mkToggle('Звук', 'SFX_ENABLED'));
   dom.mChoices.appendChild(mkToggle('Анимации', 'ANIM_ENABLED'));
 
+  // предпросмотр — обычный булев тумблер
+  dom.mChoices.appendChild(mkToggle('Показывать последствия хода', 'SHOW_PREVIEW'));
+
+  // подтверждение хода — три состояния
+  const modes = ['off', 'risky', 'all'];
+  const modeName = { off: 'выкл', risky: 'только опасные', all: 'все ходы' };
+  const row = document.createElement('div');
+  row.className = 'shoprow';
+  row.innerHTML = '<div class="si"><span class="ln">Подтверждать ход</span></div>';
+  const btn = document.createElement('button');
+  btn.className = 'buy';
+  btn.textContent = modeName[CFG.CONFIRM_MOVES] || 'выкл';
+  btn.onclick = () => {
+    const i = modes.indexOf(CFG.CONFIRM_MOVES);
+    CFG.CONFIRM_MOVES = modes[(i + 1) % modes.length];
+    saveSettings();
+    btn.textContent = modeName[CFG.CONFIRM_MOVES];
+  };
+  row.appendChild(btn);
+  dom.mChoices.appendChild(row);
+
   const back = document.createElement('button');
   back.className = 'again';
   back.textContent = 'Закрыть';
   back.onclick = closeModal;
   dom.mChoices.appendChild(back);
+
   dom.overlay.classList.add('on');
+}
+
+const LOG_DOM_LIMIT = 200;
+/** Полный журнал забега — для итогового экрана. DOM обрезается, этот массив нет. */
+export const runLog = [];
+export function clearRunLog() {
+  runLog.length = 0;
 }
 
 export function log(msg, cls) {
   const d = document.createElement('div');
   if (cls) d.className = cls;
   d.innerHTML = msg;
+  runLog.push(d.outerHTML);
   dom.logEl.appendChild(d);
+  while (dom.logEl.childNodes.length > LOG_DOM_LIMIT) dom.logEl.removeChild(dom.logEl.firstChild);
   dom.logEl.scrollTop = dom.logEl.scrollHeight;
 }
 
@@ -745,27 +777,6 @@ export function syncUI() {
   const dirNames = { '0,-1': 'север', '1,0': 'восток', '0,1': 'юг', '-1,0': 'запад' };
   dom.faceInfo.textContent =
     activeForm().type === 'pawn' ? 'фасинг: ' + dirNames[S.player.facing.join(',')] : '';
-  // реликвии и проклятия
-  const relicCard = document.getElementById('relicCard'),
-    relicsEl = document.getElementById('relics');
-  if (relicCard && relicsEl) {
-    const rids = [...S.player.relics],
-      cids = [...S.player.curses];
-    relicCard.style.display = rids.length || cids.length ? 'block' : 'none';
-    relicsEl.innerHTML = '';
-    rids.forEach((id) => {
-      const c = document.createElement('span');
-      c.className = 'chip chip-' + TIER_META[relicTier(id)].cls;
-      c.textContent = RELICS[id].name;
-      c.title = RELICS[id].desc + ' (' + TIER_META[relicTier(id)].name + ')';
-      relicsEl.appendChild(c);
-    });
-    cids.forEach((id) => {
-      const c = document.createElement('span');
-      c.className = 'chip curse';
-      c.textContent = '☠ ' + CURSES[id].name;
-      c.title = CURSES[id].desc;
-      relicsEl.appendChild(c);
-    });
-  }
+
+  syncHud();
 }

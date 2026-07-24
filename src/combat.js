@@ -46,7 +46,9 @@ import {
   makeForm,
   pick,
   tileColor,
+  bossOnFloor,
 } from './util.js';
+import { clearPending, confirmMove } from './preview.js';
 
 export function tryMoveTo(x, y) {
   if (S.gameOver || S.modalOpen) return;
@@ -61,6 +63,13 @@ export function tryMoveTo(x, y) {
       y,
       enemyType: enemyAt(x, y).type,
     });
+    return;
+  }
+  // двухступенчатое подтверждение: первый тап показывает последствия,
+  // второй по той же клетке выполняет ход (CFG.CONFIRM_MOVES)
+  if (!confirmMove(x, y)) {
+    render();
+    syncUI();
     return;
   }
   // фасинг обновляется по направлению шага (для любой формы — пригодится пешке)
@@ -215,22 +224,22 @@ export function triggerSpecialForPlayer() {
       }
     }
   } else if (s.type === 'plate') {
-    if (s.opens && S.walls.has(key(s.opens.x, s.opens.y))) {
-      S.walls.delete(key(s.opens.x, s.opens.y));
-      if (s.chain) {
-        S.chainsBroken = (S.chainsBroken || 0) + 1;
-        log(`Цепь разорвана (${S.chainsBroken}/${BOSS_CFG.redKing.chains}).`, 'g');
-        const king = S.enemies.find((e) => e.king);
-        if (king && SCRIPT.bosses.redKing) {
-          const line = SCRIPT.bosses.redKing.chainBreak[S.chainsBroken];
-          if (line) {
-            addSpeech(king.x, king.y, line.text, 'boss');
-            log(line.text);
-          }
+    if (s.chain) {
+      if (s.broken) return; // цепь уже разорвана — плита отработала
+      s.broken = true;
+      S.chainsBroken = (S.chainsBroken || 0) + 1;
+      log(`Цепь разорвана (${S.chainsBroken}/${BOSS_CFG.redKing.chains}).`, 'g');
+      const king = S.enemies.find((e) => e.king);
+      if (king && SCRIPT.bosses.redKing) {
+        const line = SCRIPT.bosses.redKing.chainBreak[S.chainsBroken];
+        if (line) {
+          addSpeech(king.x, king.y, line.text, 'boss');
+          log(line.text);
         }
-      } else {
-        log('Плита открывает проход.', 'g');
       }
+    } else if (s.opens && S.walls.has(key(s.opens.x, s.opens.y))) {
+      S.walls.delete(key(s.opens.x, s.opens.y));
+      log('Плита открывает проход.', 'g');
     }
   } else if (s.type === 'lava') {
     log('Ты в лаве! Форма разрушена.', 'r');
@@ -387,9 +396,11 @@ export function pass() {
 }
 
 export function endPlayerTurn() {
+  clearPending();
   if (S.player.status && S.player.status.haste > 0) S.player.status.haste--; // тик ускорения игрока
   // Голод: на босс-этажах не тратится
-  if (!isBossFloor(S.floor)) {
+  // голод замирает только на реальном босс-бое, а не на любом «боссовом» номере
+  if (!(S.runMode === 'campaign' && isBossFloor(S.floor))) {
     S.player.hunger -= CFG.HUNGER.perTurn;
     if (S.player.hunger <= 0) {
       S.player.hunger = 0;
@@ -469,7 +480,7 @@ export function afterEnemies() {
   spreadLava();
   // Жернов: победа по квоте bossDown (Кукловод), а не по пустому списку врагов
   const millQuota = BOSS_CFG.puppeteer.jamQuota;
-  if (S.floor === 11 && S.millFed >= millQuota && !S.gameOver) {
+  if (bossOnFloor(S.floor) === 'millstone' && S.millFed >= millQuota && !S.gameOver) {
     const room = S.rooms[S.currentRoom];
     if (room && !room.cleared) {
       room.cleared = true;

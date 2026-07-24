@@ -44,6 +44,15 @@ export function makeForm(type, homeColor = 0, improved = false) {
   };
 }
 
+/** Этаж → id босса. Единственное место, где это знание живёт. */
+export const BOSS_FLOORS = {
+  5: 'tormentor',
+  8: 'spawnedRooks',
+  11: 'millstone',
+  18: 'redKing',
+};
+export const FINAL_FLOOR = 18;
+
 // ========== Mersenne Twister (32-bit) ==========
 
 function MersenneTwister(seed) {
@@ -101,11 +110,9 @@ export function randInt(n) {
 
 export const pick = (a) => a[randInt(a.length)];
 
-/** Этажи с боссами — голод не тратится. */
-export const isBossFloor = (f) => [5, 11, 18].includes(f);
-
-/** Финальный ярус кампании. */
-export const isFinalFloor = (f) => f >= 18;
+export const isBossFloor = (f) => Object.prototype.hasOwnProperty.call(BOSS_FLOORS, f);
+export const isFinalFloor = (f) => f === FINAL_FLOOR;
+export const bossOnFloor = (f) => BOSS_FLOORS[f] || null;
 
 export function shuffle(a) {
   for (let i = a.length - 1; i > 0; i--) {

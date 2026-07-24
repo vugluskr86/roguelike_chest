@@ -14,7 +14,8 @@ import { clearSpeech, render, screenFade } from './render.js';
 import { SCRIPT } from './content/script.js';
 import { curse, enemyAt, has } from './state.js';
 import { applyStatus, cleanse } from './status.js';
-import { log, syncUI } from './ui.js';
+import { clearRunLog, log, syncUI } from './ui.js';
+import { clearPending } from './preview.js';
 import {
   ORTHO,
   inB,
@@ -26,6 +27,7 @@ import {
   random,
   shuffle,
   tileColor,
+  bossOnFloor,
 } from './util.js';
 
 export function floodReach(wset, start) {
@@ -74,37 +76,49 @@ export function generateRoom() {
       w.add(key(x, y));
     }
   } else if (style === 'maze') {
-    // лабиринт — randomized DFS с проходами
-    const visited = new Set();
-    function carve(cx, cy) {
-      visited.add(key(cx, cy));
-      const dirs = shuffle([...ORTHO]);
-      for (const [dx, dy] of dirs) {
-        const nx = cx + dx * 2,
-          ny = cy + dy * 2;
-        if (!canWall(nx, ny) || visited.has(key(nx, ny))) continue;
-        const wx = cx + dx,
-          wy = cy + dy;
-        w.add(key(wx, wy));
-        w.add(key(nx, ny));
-        carve(nx, ny);
-        // сносим промежуточную стену — проход
-        w.delete(key(wx, wy));
-        w.delete(key(nx, ny));
+    // всё стена, DFS прогрызает коридоры по нечётным клеткам
+    for (let y = 1; y < CFG.H - 1; y++)
+      for (let x = 1; x < CFG.W - 1; x++) if (canWall(x, y)) w.add(key(x, y));
+
+    const inMaze = (x, y) => x > 0 && x < CFG.W - 1 && y > 0 && y < CFG.H - 1;
+    const seen = new Set([key(1, 1)]);
+    w.delete(key(1, 1));
+    const stack = [{ x: 1, y: 1 }];
+    while (stack.length) {
+      const c = stack[stack.length - 1];
+      const dirs = shuffle([...ORTHO]).filter(([dx, dy]) => {
+        const nx = c.x + dx * 2,
+          ny = c.y + dy * 2;
+        return inMaze(nx, ny) && !seen.has(key(nx, ny));
+      });
+      if (!dirs.length) {
+        stack.pop();
+        continue;
       }
+      const [dx, dy] = dirs[0];
+      const nx = c.x + dx * 2,
+        ny = c.y + dy * 2;
+      w.delete(key(c.x + dx, c.y + dy)); // стена между клетками
+      w.delete(key(nx, ny));
+      seen.add(key(nx, ny));
+      stack.push({ x: nx, y: ny });
     }
-    // заполняем сетку стенами
-    for (let y = 1; y <= CFG.H - 2; y += 2)
-      for (let x = 1; x <= CFG.W - 2; x += 2) {
-        if (canWall(x, y)) w.add(key(x, y));
-      }
-    carve(1, 1);
-    // удаляем изолированные стены (без соседей)
-    const isolated = [...w].filter((k) => {
+
+    // расплетаем часть тупиков — появляются петли и длинные диагонали
+    const braid = 0.35;
+    for (const k of [...seen]) {
       const [x, y] = k.split(',').map(Number);
-      return [...ORTHO].every(([dx, dy]) => !w.has(key(x + dx, y + dy)));
-    });
-    isolated.forEach((k) => w.delete(k));
+      const open = ORTHO.filter(([dx, dy]) => !w.has(key(x + dx, y + dy)));
+      if (open.length > 1 || random() > braid) continue;
+      const cand = shuffle(
+        ORTHO.filter(([dx, dy]) => inMaze(x + dx, y + dy) && w.has(key(x + dx, y + dy))),
+      );
+      if (cand.length) w.delete(key(x + cand[0][0], y + cand[0][1]));
+    }
+
+    // старт и клетка над ним всегда свободны
+    w.delete(key(start.x, start.y));
+    w.delete(key(start.x, start.y - 1));
   } else if (style === 'grid') {
     // решётка — регулярная сетка 3×3 с проходами
     const gapX = Math.floor((CFG.W - 2) / 3);
@@ -271,10 +285,10 @@ export function placeSpecials(wset, reach, start) {
   return sp;
 }
 
-export function buildFloorEnemies(flr) {
+export function buildFloorEnemies(flr, share = 1) {
   const D = CFG.DIFF;
-  const maxEnemies = Math.min(5 + Math.floor(flr / 4), 10);
-  let budget = (D.budgetBase + D.budgetGrow * (flr - 1)) * Math.sqrt((CFG.W * CFG.H) / 99);
+  const maxEnemies = Math.max(2, Math.round(Math.min(5 + Math.floor(flr / 4), 10) * share));
+  let budget = (D.budgetBase + D.budgetGrow * (flr - 1)) * Math.sqrt((CFG.W * CFG.H) / 99) * share;
   if (flr === 1 && META.upgrades.headstart) budget -= 2; // мета-апгрейд «Разведка»
   const qcap = flr >= D.queenCapDeepFloor ? D.queenCapDeep : D.queenCap;
   const avail = Object.keys(D.cost).filter((t) => flr >= D.unlockFloor[t]);
@@ -296,7 +310,7 @@ export function buildFloorEnemies(flr) {
     if ((D.cost[t] || 1) >= 5) eliteCount++;
     budget -= D.cost[t];
   }
-  while (bag.length < D.minEnemies) bag.push('pawn');
+  while (bag.length < Math.max(1, Math.round(D.minEnemies * share))) bag.push('pawn');
   return shuffle(bag);
 }
 export function enemyRangeBonus(flr) {
@@ -307,9 +321,9 @@ export function enemyRangeBonus(flr) {
   return b;
 }
 
-export function spawnEnemiesForFloor(f, reach) {
+export function spawnEnemiesForFloor(f, reach, share = 1) {
   S.enemies = [];
-  const bag = buildFloorEnemies(f);
+  const bag = buildFloorEnemies(f, share);
   const rb = enemyRangeBonus(f);
   const pk = key(S.player.x, S.player.y);
   // кандидаты: достижимые клетки в верхних ~62% доски, не вплотную к игроку
@@ -426,7 +440,9 @@ export function generateBossRoom(bossId) {
       [2, CFG.H - 3],
       [CFG.W - 3, CFG.H - 3],
     ].forEach(([cx, cy]) => {
-      sp.set(key(cx, cy), { type: 'plate', chain: true, opens: { x: cx, y: cy } });
+      // цепь — не механическая плита: она ничего не «открывает», а снимает
+      // неуязвимость. opens здесь был самоссылкой и не срабатывал никогда.
+      sp.set(key(cx, cy), { type: 'plate', chain: true, broken: false });
     });
     // король в центре (неуязвим)
     const king = {
@@ -583,19 +599,15 @@ export function newFloor() {
   S.biome = biomeFor(S.floor);
   S.currentRoom = 0;
   S.rooms = [];
-
+  S.keys.clear(); // ключи действуют в пределах этажа
+  // Позиция игрока нужна ДО генерации: spawnEnemiesForFloor() по ней проверяет,
+  // что этаж не начинается с шаха, и не ставит врагов вплотную к старту.
+  S.player.x = Math.floor(CFG.W / 2);
+  S.player.y = CFG.H - 1;
+  S.player.facing = [0, -1];
   // босс-ярус: авторская комната вместо процедурной
   if (S.runMode === 'campaign' && isBossFloor(S.floor)) {
-    const bossId =
-      S.floor === 5
-        ? 'tormentor'
-        : S.floor === 8
-          ? 'spawnedRooks'
-          : S.floor === 11
-            ? 'millstone'
-            : S.floor === 18
-              ? 'redKing'
-              : null;
+    const bossId = bossOnFloor(S.floor);
     if (bossId) {
       const room = generateBossRoom(bossId);
       S.walls = room.walls;
@@ -629,6 +641,7 @@ export function newFloor() {
         S.millFed = S.millFed ?? 0;
       }
       clearSpeech();
+      clearPending();
       cleanse(S.player);
       S.player.lostFormThisFloor = false;
       const bossNames = {
@@ -655,16 +668,21 @@ export function newFloor() {
   const maxRooms = Math.min(C.startMax + Math.floor(S.floor / C.growEvery), C.cap);
   const minRooms = Math.min(C.startMin + Math.floor(S.floor / C.growEvery), maxRooms);
   const nRooms = minRooms + randInt(Math.max(1, maxRooms - minRooms + 1));
+  // бюджет врагов делится между комнатами: этаж целиком должен помещаться
+  // в шкалу голода, иначе каждая комната = полноценный отдельный этаж
+  const share = Math.pow(nRooms, -(C.budgetExp ?? 0.65));
   for (let r = 0; r < nRooms; r++) {
     const room = generateRoom();
     S.walls = room.walls;
     S.special = room.specials;
-    spawnEnemiesForFloor(S.floor, room.reach);
+    spawnEnemiesForFloor(S.floor, room.reach, share);
     S.rooms.push({ walls: room.walls, enemies: S.enemies, special: room.specials, cleared: false });
   }
   // соединяем соседние комнаты дверями (только если комнат > 1)
   if (nRooms > 1) {
     for (let r = 0; r < nRooms; r++) {
+      // при двух комнатах первая итерация уже сделала обе двери
+      if (nRooms === 2 && r > 0) break;
       const next = (r + 1) % nRooms;
       // дверь A→B на правой стене комнаты A
       const doorX = CFG.W - 1;
@@ -806,6 +824,7 @@ export function newFloor() {
   S.player.capturedThisFloor = 0;
   S.player.hunger = CFG.HUNGER.start;
   clearSpeech();
+  clearPending();
   cleanse(S.player);
   S.player.lostFormThisFloor = false;
   if (S.floor >= 5) unlockAch('deep');
@@ -995,6 +1014,7 @@ export function reset() {
     'Новый забег. Зачисти ярус — выбираешь награду и спускаешься глубже, сохраняя формы и модификаторы.',
     '',
   );
+  clearRunLog();
   // мета-апгрейды: стартовые слоты и реликвии
   const extraSlots = META.upgrades.startSlots || 0;
   for (let i = 0; i < extraSlots; i++) if (S.player.wheel.length < 5) S.player.wheel.push(null);

@@ -78,14 +78,18 @@ export const CFG = {
   ANIM_ENABLED: true, // анимации включены
   FATIGUE_K: 2, // кулдаун формы после взятия
   ENEMY_CAPTURE_CD: 1, // кулдаун врага после взятия игрока
+  // ── интерфейс ──
+  CONFIRM_MOVES: 'risky', // 'off' | 'risky' | 'all' — подтверждение хода вторым тапом
+  SHOW_PREVIEW: true, // показывать угрозы, которые появятся после хода
   HUNGER: {
-    start: 24, // сытость в начале этажа
+    start: 20, // сытость в начале этажа
+    cap: 30, // ← новое: потолок сытости
     perTurn: 1, // тратится каждый ход
     passExtra: 2, // дополнительно за пас (итого 3)
-    capture: 6, // даётся за взятие
+    capture: 4, // даётся за взятие
     vein: 8, // даёт Жила (бывшая руна)
     starveDegrade: 1, // при 0: деградация каждый ход
-    food: 12, // еда (кость) восстанавливает столько голода
+    food: 10, // еда (кость) восстанавливает столько голода
   },
   EXTRA_SLOTS: 2, // слоты колеса помимо пешки
   LADDER: {
@@ -149,6 +153,7 @@ export const CFG = {
     startMax: 1,
     growEvery: 3,
     cap: 5,
+    budgetExp: 0.65, // доля бюджета на комнату = nRooms ^ -budgetExp
   },
 };
 export const KEY_COLORS = ['red', 'blue', 'green', 'gold', 'purple'];
