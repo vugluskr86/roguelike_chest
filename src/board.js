@@ -252,6 +252,12 @@ export function placeSpecials(wset, reach, start) {
     const c = take();
     if (c) sp.set(c.k, { type: 'lava' });
   }
+  // кости (еда) — 1–3 на этаж
+  const nFood = 1 + randInt(3);
+  for (let f = 0; f < nFood; f++) {
+    const c = take();
+    if (c) sp.set(c.k, { type: 'food' });
+  }
   // свитки — 1–2 на этаж (случайная реликвия или проклятие)
   const nScroll = 1 + randInt(2);
   for (let s = 0; s < nScroll; s++) {

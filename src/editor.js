@@ -151,6 +151,10 @@ const ENEMIES = [
   { id: 'enemy:assassin', label: '🗡', title: 'Ассасин' },
   { id: 'enemy:priest', label: '✝', title: 'Жрец' },
   { id: 'enemy:frost', label: '❄', title: 'Маг' },
+  { id: 'enemy:boss:tormentor', label: '👁', title: 'Мучитель' },
+  { id: 'enemy:boss:rooks', label: '♜♜', title: 'Ладьи' },
+  { id: 'enemy:boss:millstone', label: '◎', title: 'Жернов' },
+  { id: 'enemy:boss:king', label: '♛', title: 'Король' },
 ];
 
 const OBJECTS_TERRAIN = [
@@ -523,6 +527,7 @@ function parseTool(toolId) {
   if (toolId === 'rotate') return { kind: 'rotate' };
   if (toolId === 'link') return { kind: 'link' };
   if (toolId === 'flag') return { kind: 'flag' };
+  if (toolId.startsWith('enemy:boss:')) return { kind: 'boss', bossId: toolId.split(':')[2] };
   if (toolId.startsWith('enemy:')) return { kind: 'enemy', enemyType: toolId.split(':')[1] };
   if (toolId.startsWith('special:key:'))
     return { kind: 'special', specialType: 'key', keyColor: toolId.split(':')[2] };
@@ -951,6 +956,77 @@ export function handleEditorClick(x, y) {
     if (spec.type === 'conveyor' || spec.type === 'gate' || spec.type === 'millstone')
       spec.dir = [0, -1];
     S.special.set(k, spec);
+  } else if (parsed.kind === 'boss') {
+    // Очищаем окружение для босса
+    S.walls.delete(k);
+    S.special.delete(k);
+    S.enemies = S.enemies.filter((e) => !(e.x === x && e.y === y));
+    if (parsed.bossId === 'tormentor') {
+      S.enemies.push({
+        type: 'bishop',
+        x,
+        y,
+        bossId: 'tormentor',
+        armor: 3,
+        phase: 1,
+        stunCd: 3,
+        r: 4,
+        status: {},
+      });
+    } else if (parsed.bossId === 'rooks') {
+      const nx = x + 1;
+      S.enemies.push({ type: 'rook', x, y, linkedTo: 'rookPair', r: 6, status: {} });
+      if (inB(nx, y) && !S.walls.has(key(nx, y))) {
+        S.enemies = S.enemies.filter((e) => !(e.x === nx && e.y === y));
+        S.special.delete(key(nx, y));
+        S.enemies.push({ type: 'rook', x: nx, y, linkedTo: 'rookPair', r: 6, status: {} });
+      }
+    } else if (parsed.bossId === 'millstone') {
+      S.special.set(k, { type: 'millstone', dir: [0, -1] });
+    } else if (parsed.bossId === 'king') {
+      S.enemies.push({ type: 'king', x, y, king: true, armor: 99, r: 1, status: {} });
+      // свита вокруг
+      const retinue = [
+        { dx: 0, dy: -2, type: 'queen', retinue: 'queen', r: 8, shield: 1 },
+        { dx: -3, dy: 0, type: 'rook', retinue: 'rook', r: 8, passive: true },
+        { dx: 3, dy: 0, type: 'rook', retinue: 'rook', r: 8, passive: true },
+        {
+          dx: 3,
+          dy: -4,
+          type: 'knight',
+          retinue: 'knight',
+          r: 1,
+          noAttackCd: true,
+          attackReady: true,
+        },
+        {
+          dx: -3,
+          dy: -4,
+          type: 'knight',
+          retinue: 'knight',
+          r: 1,
+          noAttackCd: true,
+          attackReady: true,
+        },
+      ];
+      retinue.forEach(({ dx, dy, type, retinue, r, shield, passive, noAttackCd, attackReady }) => {
+        const rx = x + dx,
+          ry = y + dy;
+        if (inB(rx, ry) && !S.walls.has(key(rx, ry))) {
+          S.enemies = S.enemies.filter((e) => !(e.x === rx && e.y === ry));
+          S.special.delete(key(rx, ry));
+          const e2 = { type, x: rx, y: ry, retinue, r, status: {} };
+          if (shield) e2.status.shield = shield;
+          if (passive) e2.passive = true;
+          if (noAttackCd) {
+            e2.noAttackCd = true;
+            e2.attackReady = true;
+          }
+          S.enemies.push(e2);
+        }
+      });
+    }
+    state.statusEl.textContent = `Босс «${parsed.bossId}» установлен.`;
   } else if (parsed.kind === 'link') {
     const sp = S.special.get(k);
     if (sp && sp.type === 'door') {

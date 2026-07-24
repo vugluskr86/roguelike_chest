@@ -142,6 +142,7 @@ export function enemiesTurn() {
       const cap = opts.captures[0];
       console.log(`enemy ${e.type} at (${e.x},${e.y}) CAPTURES player -> (${cap.x},${cap.y})`);
       e.cd = CFG.ENEMY_CAPTURE_CD;
+      startMoveAnim(e, e.x, e.y, cap.x, cap.y);
       if (e.noAttackCd) e.attackReady = false;
       // ассасин отравляет при взятии
       if (e.type === 'assassin') applyStatus(S.player, 'poison', 2);
@@ -169,6 +170,7 @@ export function enemiesTurn() {
       console.log(
         `enemy ${e.type} at (${e.x},${e.y}) MOVES -> (${bestMove.x},${bestMove.y}), player at (${S.player.x},${S.player.y})`,
       );
+      startMoveAnim(e, e.x, e.y, bestMove.x, bestMove.y);
       e.x = bestMove.x;
       e.y = bestMove.y;
       // проверка спец-клетки под врагом

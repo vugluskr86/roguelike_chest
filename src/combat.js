@@ -244,6 +244,14 @@ export function triggerSpecialForPlayer() {
     S.special.delete(k);
     log(`Ты нашёл ${KEY_GLYPH[s.color]} ключ.`, 'g');
     playLoot();
+  } else if (s.type === 'food') {
+    S.special.delete(k);
+    S.player.hunger = Math.min(CFG.HUNGER.start, S.player.hunger + CFG.HUNGER.food);
+    log(
+      `Ты съедаешь кость (+${CFG.HUNGER.food} сытости, всего ${S.player.hunger}/${CFG.HUNGER.start}).`,
+      'g',
+    );
+    playLoot();
   } else if (s.type === 'scroll') {
     S.special.delete(k);
     playLoot();

@@ -1302,6 +1302,15 @@ export function drawSpecial(x, y, s, ts) {
       c.arc(sx, sy, 1.5, 0, 7);
       c.fill();
     }
+  } else if (s.type === 'food') {
+    // ── ЕДА (КОСТЬ): мерцающий символ еды ──
+    const p = ats / 1800 + seed;
+    const breathe = 0.5 + 0.5 * Math.sin(p * Math.PI * 2);
+    c.fillStyle = `rgba(212,166,106,${0.55 + breathe * 0.3})`;
+    c.font = T * 0.44 + "px 'Segoe UI Symbol','Noto Sans Symbols 2',serif";
+    c.textAlign = 'center';
+    c.textBaseline = 'middle';
+    c.fillText('🍖', cx, cy + 1);
   } else if (s.type === 'scroll') {
     // ── СВИТОК: пергамент с валиками, строками текста и пульсирующим «?» ──
     const p = ats / 2000 + seed;
@@ -1726,6 +1735,7 @@ export function renderNow(ts) {
     colorzone: 'Цветовая зона',
     door: 'Дверь',
     key: 'Ключ',
+    food: 'Кость',
     scroll: 'Свиток',
   };
   const cellTooltipLabel = (sp) => {
