@@ -1,3 +1,8 @@
+/**
+ * src/events.js — комнаты-события: Костоправ (лавка), Распайка (алтарь очищения),
+ * Жертвенник (святилище), Кости судьбы (азартный алтарь), Благословение.
+ * Основные экспорты: triggerEvent(), openShop(), openPurify(), openSanctuary(), openGamble(), openBlessing().
+ */
 import { S } from './state.js';
 import { dom } from './dom.js';
 import { newFloor } from './board.js';

@@ -1,3 +1,8 @@
+/**
+ * src/moves.js — генерация ходов, угрозы, pathfinding.
+ * Основные экспорты: genMoves(), enemyThreat(), allThreats(), playerOptions(),
+ * activeForm(), effectiveForm(), attackSquaresFor(), movesToThreaten(), necroInterval().
+ */
 import { S } from './state.js';
 import { CFG, MOVE_AS } from './config.js';
 import { curse, enemyAt, has } from './state.js';

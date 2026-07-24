@@ -1,3 +1,8 @@
+/**
+ * src/bosses.js — AI четырёх боссов: Мучитель (tormentor), Спаянные Ладьи (linkedRooks),
+ * Жернов (millstone), Кукловод (puppeteer), Красный Король (redKing).
+ * Конфигурация в BOSS_CFG, логика ходов возвращает массив событий для dispatchBossEvents().
+ */
 import { S } from './state.js';
 import { CFG } from './config.js';
 import { enemyAt } from './state.js';

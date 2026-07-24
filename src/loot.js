@@ -1,3 +1,7 @@
+/**
+ * src/loot.js — кости (реликвии), швы (проклятия), награды между этажами.
+ * Основные экспорты: offerLoot(), applyRelic(), applyCurse().
+ */
 import { S } from './state.js';
 import { relicTier, tierWeight } from './config.js';
 import { CURSES, RELICS } from './content.js';

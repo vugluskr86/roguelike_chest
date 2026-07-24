@@ -1,3 +1,7 @@
+/**
+ * src/meta.js — мета-прогрессия: осколки (Пепел), достижения, бестиарий, сохранения.
+ * Основные экспорты: META, metaLoad(), metaSave(), unlockAch(), codexSeeEnemy(), recordKill(), endRunMeta().
+ */
 import { S } from './state.js';
 import { BESTIARY_TRIO, GOLD_DROP } from './config.js';
 import { ACHIEVEMENTS, CURSES, META_UPGRADES, RELICS } from './content.js';

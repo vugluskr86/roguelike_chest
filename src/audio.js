@@ -1,3 +1,8 @@
+/**
+ * src/audio.js — синтезированные звуки через Web Audio API (OscillatorNode + GainNode).
+ * Без внешних аудиофайлов: move, capture, death, trap, portal, rune, promotion, loot.
+ * Ленивая инициализация AudioContext при первом касании.
+ */
 import { CFG } from './config.js';
 
 /**

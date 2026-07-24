@@ -1,3 +1,8 @@
+/**
+ * src/render.js — Canvas-рендер, камера, анимации, виньетка, speech-облачка.
+ * Основные экспорты: render(), resizeBoard(), drawPiece(), drawSpecial(), addSpeech(),
+ * clearSpeech(), spawnParticles(), startCaptureFlash(), screenFade(), startMoveAnim().
+ */
 import { S } from './state.js';
 import { dom } from './dom.js';
 import { CFG, GLYPH, KEY_COLOR_HEX, NAME, STATUS_META } from './config.js';

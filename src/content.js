@@ -1,3 +1,6 @@
+/**
+ * src/content.js — контент-данные: кости (RELICS), швы (CURSES), мета-апгрейды (META_UPGRADES), челленджи (CHALLENGES).
+ */
 export const RELICS = {
   pawn_double: { name: 'Длинный шаг', desc: 'Пешка может ходить на 1–2 клетки вперёд.' },
   pawn_omni: {

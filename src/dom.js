@@ -1,3 +1,7 @@
+/**
+ * src/dom.js — кеширование DOM-элементов и инициализация ссылок.
+ * Экспорты: dom (объект), initDom().
+ */
 export const dom = {};
 export function initDom() {
   dom.cv = document.getElementById('board');

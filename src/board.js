@@ -1,3 +1,7 @@
+/**
+ * src/board.js — генерация этажа: 6 стилей биомов, спавн врагов, босс-комнаты, комнаты.
+ * Основные экспорты: generateRoom(), generateBossRoom(), spawnEnemiesForFloor(), newFloor(), reset().
+ */
 import { S } from './state.js';
 import { dom } from './dom.js';
 import { CFG, BIOMES, biomeFor, KEY_COLORS } from './config.js';

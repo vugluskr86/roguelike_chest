@@ -1,3 +1,8 @@
+/**
+ * src/status.js — движок статусов: яд, оглушение, щит, ускорение.
+ * Работает одинаково для игрока и врагов.
+ * Основные экспорты: applyStatus(), cleanse(), statusVal().
+ */
 import { S } from './state.js';
 import { curse } from './state.js';
 

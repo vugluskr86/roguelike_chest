@@ -1,3 +1,8 @@
+/**
+ * src/util.js — хелперы: направления, проверки границ, Mersenne Twister, RNG.
+ * Основные экспорты: ORTHO, DIAG, KNIGHT_J, key(), inB(), tileColor(), cheb(),
+ * makeForm(), randInt(), pick(), shuffle(), seedRNG(), random(), isBossFloor(), isFinalFloor().
+ */
 import { CFG } from './config.js';
 
 export const ORTHO = [

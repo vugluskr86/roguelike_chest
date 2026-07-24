@@ -1,3 +1,8 @@
+/**
+ * src/enemies.js — AI врагов: обычные типы, necroTurn(), frostTurn(), priestPulse().
+ * Вызов bossTurn() + dispatchBossEvents() перед ходом обычных врагов.
+ * Основной экспорт: enemiesTurn().
+ */
 import { S } from './state.js';
 import { afterEnemies, degradePlayer } from './combat.js';
 import { CFG, GLYPH, NAME } from './config.js';

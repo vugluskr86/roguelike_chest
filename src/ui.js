@@ -1,3 +1,8 @@
+/**
+ * src/ui.js — DOM-интерфейс: модалки, настройки, шкала голода, интерлюдии, лог.
+ * Основные экспорты: log(), syncUI(), openModal(), openInterlude(), openSettings(),
+ * openTitle(), openRunSummary(), openLoot(), toast(), closeModal().
+ */
 import { S } from './state.js';
 import { dom } from './dom.js';
 import { reset } from './board.js';

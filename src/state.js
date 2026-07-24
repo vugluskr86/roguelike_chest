@@ -1,3 +1,7 @@
+/**
+ * src/state.js — глобальное мутабельное состояние игры S и хелперы.
+ * Экспорты: S (объект), has(), curse(), enemyAt(), isBossEntity().
+ */
 export const S = {
   walls: null,
   player: null,

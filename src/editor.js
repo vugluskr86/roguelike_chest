@@ -1,4 +1,8 @@
 /**
+ * src/editor.js — встроенный редактор уровней (canvas + DOM).
+ * Основные экспорты: openEditor(), handleEditorClick(), isEditorRunning(), stopEditorRun().
+ */
+/**
  * Встроенный редактор уровней.
  */
 import { S } from './state.js';

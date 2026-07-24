@@ -1,3 +1,7 @@
+/**
+ * src/config.js — константы, настройки, биомы (6), статусы, JSDoc-typedefs.
+ * Экспорты: CFG, CFG.HUNGER, CFG.ROOMS, GLYPH, NAME, BIOMES, STATUS_META, loadSettings(), saveSettings().
+ */
 // ---------- UI ----------
 // ---------- Рендер ----------
 // ---------- Промоушен §5 ----------

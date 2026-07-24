@@ -1,3 +1,8 @@
+/**
+ * src/combat.js — действия игрока, поток хода, голод, боссы, голоса костей.
+ * Основные экспорты: tryMoveTo(), rotate(), switchForm(), pass(), endPlayerTurn(),
+ * degradePlayer(), triggerSpecialForPlayer(), triggerBossPhase(), openVictory().
+ */
 import { S } from './state.js';
 import { dom } from './dom.js';
 import { CFG, GLYPH, KEY_GLYPH, NAME, STD_TYPES } from './config.js';
