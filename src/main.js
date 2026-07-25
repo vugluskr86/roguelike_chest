@@ -15,6 +15,7 @@ import { playerOptions } from './moves.js';
 import { camera, render, resizeBoard, startRenderLoop } from './render.js';
 import { enemyAt } from './state.js';
 import { closeModal, openHelp, openSettings, openTitle } from './ui.js';
+import { isTutorial } from './tutorial.js';
 import { inB, key, seedRNG } from './util.js';
 import { editorActive, handleEditorClick, isBrushActive, openEditor } from './editor.js';
 import { feedDebugChar } from './debug.js';
@@ -92,7 +93,7 @@ function startGame() {
   reset();
   resizeBoard();
   startRenderLoop();
-  openTitle();
+  if (!isTutorial()) openTitle();
 }
 
 attachKeyNav();

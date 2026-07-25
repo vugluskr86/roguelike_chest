@@ -10,6 +10,7 @@ import { playDeath } from './audio.js';
 import { log, syncUI } from './ui.js';
 import { DIAG, ORTHO, cheb, inB, key, tileColor } from './util.js';
 import { bossTurn, dispatchBossEvents, linkedRookRevenge } from './bosses.js';
+import { isTutorial } from './tutorial.js';
 
 function handleBossCapture(by) {
   if (!by) {
@@ -28,6 +29,7 @@ function handleBossCapture(by) {
 }
 
 export function enemiesTurn() {
+  if (isTutorial()) return; // обучение управляет ходами самостоятельно
   const bossEvents = bossTurn();
   dispatchBossEvents(bossEvents, {
     log: (t) => log(t),

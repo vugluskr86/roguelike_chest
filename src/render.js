@@ -7,6 +7,7 @@ import { S } from './state.js';
 import { dom } from './dom.js';
 import { CFG, GLYPH, KEY_COLOR_HEX, NAME, STATUS_META } from './config.js';
 import { activeForm, allThreats, cachedThreats, playerOptions } from './moves.js';
+import { tutorialTargets } from './tutorial.js';
 import { RISK, pendingMove, previewCell, riskOf, threatsAfterMove } from './preview.js';
 import { statusVal } from './status.js';
 import { key, tileColor } from './util.js';
@@ -332,6 +333,7 @@ function hasActiveAnim() {
   // аура модификаторов дышит и вращается — нужен покадровый рендер
   if (CFG.ANIM_ENABLED && S.player && modCount() > 0) return true;
   if (speech.length > 0) return true;
+  if (tutorialTargets().length) return true;
   return false;
 }
 
@@ -1598,6 +1600,15 @@ export function renderNow(ts) {
       dom.ctx.setLineDash([5, 4]);
       dom.ctx.strokeRect(pm.x * T + 3, pm.y * T + 3, T - 6, T - 6);
       dom.ctx.setLineDash([]);
+    }
+    // цели обучения — золотое пульсирующее кольцо
+    for (const c of tutorialTargets()) {
+      const ph = 0.5 + 0.5 * Math.sin(((ts || 0) / 700) * Math.PI * 2);
+      dom.ctx.strokeStyle = `rgba(201,162,39,${0.55 + ph * 0.45})`;
+      dom.ctx.lineWidth = 3;
+      dom.ctx.beginPath();
+      dom.ctx.arc(c.x * T + T / 2, c.y * T + T / 2, T * 0.4 - ph * 2, 0, 7);
+      dom.ctx.stroke();
     }
   }
   // фигуры

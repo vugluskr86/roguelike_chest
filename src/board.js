@@ -11,10 +11,11 @@ import { applyRelic } from './loot.js';
 import { META, codexSeeEnemy, unlockAch } from './meta.js';
 import { necroInterval, threatCellsFrom } from './moves.js';
 import { clearSpeech, render, screenFade } from './render.js';
+import { startTutorial } from './tutorial.js';
 import { SCRIPT } from './content/script.js';
 import { curse, enemyAt, has } from './state.js';
 import { applyStatus, cleanse } from './status.js';
-import { clearRunLog, log, syncUI } from './ui.js';
+import { clearRunLog, log, openTitle, syncUI } from './ui.js';
 import { clearPending } from './preview.js';
 import {
   ORTHO,
@@ -1023,6 +1024,14 @@ export function reset() {
     const pool = Object.keys(RELICS);
     shuffle(pool);
     pool.slice(0, startRelics).forEach(applyRelic);
+  }
+  if (!META.tutorialDone) {
+    console.log('Tutorial: first floor');
+    startTutorial(() => {
+      newFloor();
+      openTitle();
+    });
+    return;
   }
   newFloor();
 }

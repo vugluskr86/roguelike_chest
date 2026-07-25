@@ -37,6 +37,21 @@ import {
 import { closeModal, log, openInterlude, openModal, openRunSummary, syncUI } from './ui.js';
 import { isEditorRunning, stopEditorRun } from './editor.js';
 import {
+  tutorialAllowsMove,
+  tutorialAllowsSwitch,
+  tutorialAllowsPass,
+  tutorialAllowsRotate,
+  tutorialNudge,
+  tutorialSnapshot,
+  tutorialHungerActive,
+  tutorialEnemiesFrozen,
+  tutorialBlocksDegrade,
+  tutorialMark,
+  tutorialCheck,
+  isTutorial,
+  hint,
+} from './tutorial.js';
+import {
   ORTHO,
   cheb,
   inB,
@@ -56,6 +71,11 @@ export function tryMoveTo(x, y) {
   const isCap = captures.some((c) => c.x === x && c.y === y);
   const isMove = moves.some((c) => c.x === x && c.y === y);
   if (!isCap && !isMove) return;
+  if (!tutorialAllowsMove(x, y)) {
+    tutorialNudge('move');
+    return;
+  }
+  tutorialSnapshot();
   // если ход (не взятие) — клетка должна быть свободна от врагов
   if (isMove && enemyAt(x, y)) {
     console.warn('tryMoveTo BLOCKED: enemy occupies target cell', {
@@ -284,6 +304,7 @@ export function triggerSpecialForPlayer() {
       `Ты съедаешь кость (+${CFG.HUNGER.food} сытости, всего ${S.player.hunger}/${CFG.HUNGER.start}).`,
       'g',
     );
+    tutorialMark('eat');
     playLoot();
   } else if (s.type === 'scroll') {
     S.special.delete(k);
@@ -340,6 +361,7 @@ export function unlockType(t, colorAt) {
 export function switchForm(i) {
   if (S.gameOver || S.modalOpen) return;
   if (S.challenge === 'lone_figure') return; // челлендж: без смены формы
+  if (!tutorialAllowsSwitch()) return tutorialNudge('switch');
   const f = S.player.wheel[i];
   if (!f || i === S.player.active) return;
   if (f.cooldown > 0) {
@@ -374,6 +396,7 @@ export function switchForm(i) {
 export function rotate(dir) {
   // бесплатное микродействие
   if (S.gameOver || S.modalOpen) return;
+  if (!tutorialAllowsRotate()) return tutorialNudge('rotate');
   const i = ORTHO.findIndex(([dx, dy]) => dx === S.player.facing[0] && dy === S.player.facing[1]);
   S.player.facing = ORTHO[(i + dir + 4) % 4];
   render();
@@ -434,11 +457,18 @@ export function endPlayerTurn() {
       log(`🌀 Хаос: форма сменена на <b>${NAME[activeForm().type]}</b>.`, 'p');
     }
   }
+  tutorialCheck();
+  if (isTutorial() && tutorialEnemiesFrozen()) {
+    render();
+    syncUI();
+    return; // враги в обучении стоят
+  }
   enemiesTurn();
 }
 
 // Статусы игрока в начале его хода: яд (деградация на 0) и оглушение (пропуск хода)
 export function startPlayerTurn() {
+  if (isTutorial()) return false;
   if (has('toxic_aura')) {
     for (const o of S.enemies) if (cheb(o, S.player) <= 1) applyStatus(o, 'poison', 1);
   } // «Ядовитая аура»
@@ -460,6 +490,11 @@ export function startPlayerTurn() {
 }
 
 export function afterEnemies() {
+  if (isTutorial()) {
+    render();
+    syncUI();
+    return; // обучение управляет переходами самостоятельно
+  }
   S.turn++;
   // голоса костей: декремент и случайные реплики
   if (S.player.boneVoiceTimer > 0) {

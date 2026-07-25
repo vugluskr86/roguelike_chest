@@ -17,8 +17,11 @@ export function defaultMeta() {
     upgrades: { startSlots: 0, startRelics: 0, headstart: 0 },
     codex: { enemies: {}, relics: {}, curses: {}, kills: {} },
     achievements: {},
+    tutorialDone: false,
+    hints: {},
   };
 }
+export const saveMeta = metaSave;
 export let META = defaultMeta();
 export function metaLoad() {
   try {
