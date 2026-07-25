@@ -11,7 +11,6 @@ import { tutorialTargets } from './tutorial.js';
 import { RISK, pendingMove, previewCell, riskOf, threatsAfterMove } from './preview.js';
 import { statusVal } from './status.js';
 import { key, tileColor } from './util.js';
-import { RELICS, CURSES } from './content.js';
 
 export let T = CFG.TILE; // логический размер тайла (CSS-пиксели); пересчитывается в resizeBoard()
 

@@ -84,9 +84,9 @@ export function openRunSummary(title, subtitle, earned) {
 export function openTitle() {
   S.modalOpen = true;
   dom.modalBox.classList.remove('death');
-  dom.mTitle.textContent = '♟ Chess Roguelike';
+  dom.mTitle.textContent = '\u265f \u042d\u043d\u0434\u0448\u043f\u0438\u043b\u044c';
   dom.mText.textContent =
-    'Мета-прогресс сохраняется между забегами. Трать пепел на перманентные апгрейды.';
+    '\u041c\u0435\u0442\u0430-\u043f\u0440\u043e\u0433\u0440\u0435\u0441\u0441 \u0441\u043e\u0445\u0440\u0430\u043d\u044f\u0435\u0442\u0441\u044f \u043c\u0435\u0436\u0434\u0443 \u0437\u0430\u0431\u0435\u0433\u0430\u043c\u0438. \u0422\u0440\u0430\u0442\u044c \u043f\u0435\u043f\u0435\u043b \u043d\u0430 \u043f\u0435\u0440\u043c\u0430\u043d\u0435\u043d\u0442\u043d\u044b\u0435 \u0430\u043f\u0433\u0440\u0435\u0439\u0434\u044b.';
   dom.mChoices.innerHTML = '';
   dom.mChoices.classList.add('loot-list');
 
@@ -131,7 +131,7 @@ export function openTitle() {
       buy.textContent = 'макс';
       buy.disabled = true;
     } else {
-      buy.textContent = `${cost} ✦`;
+      buy.textContent = `${cost} \u2726`;
       buy.disabled = META.shards < cost;
       buy.onclick = () => {
         if (buyUpgrade(id)) openTitle();
@@ -310,7 +310,7 @@ export function openCodex() {
   });
   html += '</div>';
   const relIds = Object.keys(RELICS);
-  html += `<div class="hsec"><div class="hh">Реликвии ${relIds.filter((id) => META.codex.relics[id]).length}/${relIds.length}</div>`;
+  html += `<div class="hsec"><div class="hh">Кости ${relIds.filter((id) => META.codex.relics[id]).length}/${relIds.length}</div>`;
   relIds.forEach((id) => {
     html += META.codex.relics[id]
       ? `<div class="cdx"><b>${RELICS[id].name}</b><span>${RELICS[id].desc}</span></div>`
@@ -318,7 +318,7 @@ export function openCodex() {
   });
   html += '</div>';
   const curIds = Object.keys(CURSES);
-  html += `<div class="hsec"><div class="hh">Проклятия ${curIds.filter((id) => META.codex.curses[id]).length}/${curIds.length}</div>`;
+  html += `<div class="hsec"><div class="hh">Швы ${curIds.filter((id) => META.codex.curses[id]).length}/${curIds.length}</div>`;
   curIds.forEach((id) => {
     html += META.codex.curses[id]
       ? `<div class="cdx"><b>☠ ${CURSES[id].name}</b><span>${CURSES[id].desc}</span></div>`
@@ -352,7 +352,7 @@ export function openAchievements() {
   Object.keys(ACHIEVEMENTS).forEach((id) => {
     const a = ACHIEVEMENTS[id],
       got = META.achievements[id];
-    html += `<div class="cdx${got ? '' : ' locked'}"><b>${got ? '🏆' : '🔒'} ${a.name}</b><span>${a.desc}</span></div>`;
+    html += `<div class="cdx${got ? '' : ' locked'}"><b>${got ? '\u{1f3c6}' : '\u{1f512}'} ${a.name}</b><span>${a.desc}</span></div>`;
   });
   html += '</div>';
   box.innerHTML = html;
@@ -380,7 +380,7 @@ export function openHelp(from) {
   H.className = 'help';
   H.innerHTML = `
     <div class="hsec"><div class="hh">Цель</div>
-      Спускайся по этажам, зачищая всех врагов. Каждый следующий этаж — новая случайная доска и более
+      Спускайся по ярусам, зачищая всех врагов. Каждый следующий ярус — новая случайная доска и более
       опасные враги. Смерть завершает забег, но пепел и рекорды сохраняются.</div>
 
     <div class="hsec"><div class="hh">Ход и управление</div>
@@ -421,7 +421,7 @@ export function openHelp(from) {
       (аварийная деградация).</div>
 
     <div class="hsec"><div class="hh">Биомы</div>
-      Этажи идут наборами со своей генерацией, палитрой и пулами (сменяются каждые 2 этажа):<br>
+      Ярусы идут наборами со своей генерацией, палитрой и пулами (сменяются каждые 2 яруса):<br>
       • <b>Залы</b> — открытые пространства, слоны/ферзи/двойники.<br>
       • <b>Коридоры</b> — тесные проходы, ладьи/стражи/ассасины, ворота и плиты.<br>
       • <b>Лабиринт</b> — узкие извилистые коридоры, кони/слоны/ферзи.<br>
@@ -432,14 +432,14 @@ export function openHelp(from) {
     <div class="hsec"><div class="hh">Особые клетки</div>
       • <span style="color:#c23b30">▼ Паутина</span> — наступишь: теряешь форму; враг — гибнет. Одноразовые (можно заманивать врагов).<br>
       • <span style="color:#9b6dd0">◎ Портал</span> — переносит к парному кольцу. Инструмент мобильности.<br>
-      • <span style="color:#58b3a4">◈ Руна</span> — снимает усталость со всех форм и статусы. Одноразовая.<br>
+      • <span style="color:#58b3a4">◈ Жила</span> — снимает усталость со всех форм и статусы. Одноразовая.<br>
       • <span style="color:#8fd0e6">❄ Лёд</span> — оглушает при входе (и тебя, и врага). Персистентный.<br>
       • <span style="color:#96a0b0">☁ Туман</span> — скрывает подсветку угрозы: шагаешь вслепую.<br>
       • <span style="color:#7aa0c0">→ Конвейер</span> — сдвигает фигуру на клетку по стрелке после хода.<br>
       • <span style="color:#c9a227">→ Ворота</span> — пройти можно только по стрелке (иначе как стена).<br>
       • <span style="color:#b0a8f0">♝ Цветовая зона</span> — проходима только в форме слона: его личный коридор.<br>
       • <span style="color:#8fae7a">▣ Плита</span> — наступишь: открывает соседнюю стену (проход/ловушка для врагов).<br>
-      • <span style="color:#d65a28">≈ Лава</span> — растекается по этажу и уничтожает любого, кто в ней окажется.</div>
+      • <span style="color:#d65a28">≈ Лава</span> — растекается по ярусу и уничтожает любого, кто в ней окажется.</div>
 
     <div class="hsec"><div class="hh">Враги</div>
       Обычные шахматные фигуры двигаются к тебе, стремясь доставить удар. Особые:<br>
@@ -451,7 +451,7 @@ export function openHelp(from) {
       • <b>${GLYPH.frost} Морозный маг</b> — неподвижен; <b>оглушает</b> тебя на расстоянии.</div>
 
     <div class="hsec"><div class="hh">Боссы</div>
-      Каждые несколько ярусов ты встречаешь босса с уникальной механикой. Босс-этажи
+      Каждые несколько ярусов ты встречаешь босса с уникальной механикой. Босс-ярусы
       (5, 8, 11, 18) — авторские арены с особыми правилами. Пока бой не окончен,
       голод не тратится.<br>
       • <b>Слон-Мучитель</b> (ярус 5) — ходит по диагоналям, состоит из трёх сшитых
@@ -469,14 +469,14 @@ export function openHelp(from) {
         по линиям, Кони прыгают через раз. Когда цепи падут — Король открыт.</div>
 
     <div class="hsec"><div class="hh">Комнаты</div>
-      Этаж может состоять из нескольких комнат (1–5). Комнаты соединены дверями —
+      Ярус может состоять из нескольких комнат (1–5). Комнаты соединены дверями —
       кольцом, всегда проходимым. Часть дверей заперта на цветной ключ; ключ
-      всегда лежит в той же комнате, где запертая дверь. Чтобы завершить этаж,
+      всегда лежит в той же комнате, где запертая дверь. Чтобы завершить ярус,
       нужно зачистить <b>все</b> комнаты. Счётчик «комнаты 2/3» показывает прогресс.
       Если дверь открыта — проходи, враги ждут.</div>
 
     <div class="hsec"><div class="hh">Кости (еда)</div>
-      На этаже встречаются клетки с 🍖. Наступив, съедаешь кость и восполняешь
+      На ярусе встречаются клетки с 🍖. Наступив, съедаешь кость и восполняешь
       <b>12 сытости</b>. Шкала голода — 24 деления в HUD: зелёные рёбра —
       сытость, красные — голод. При 0 начинается деградация каждый ход.</div>
 
@@ -493,12 +493,12 @@ export function openHelp(from) {
       к редактированию.</div>
 
     <div class="hsec"><div class="hh">Золото и комнаты-события</div>
-      Враги роняют золото (🪙, копится в рамках забега, отдельно от осколков). Между этажами иногда возникает комната-событие:<br>
+      Враги роняют золото (🪙, копится в рамках забега, отдельно от пепла). Между ярусами иногда возникает комната-событие:<br>
       • <b>Костоправ</b> — купить кость или снять шов за золото.<br>
       • <b>Распайка</b> — снять один шов бесплатно (или золото, если швов нет).<br>
       • <b>Жертвенник</b> — пожертвовать форму ради редкой кости.<br>
       • <b>Кости судьбы</b> — ставка золотом: кость или шов.<br>
-      • <b>Алтарь благословения</b> — дар на следующий этаж: щит, ускорение или золото.</div>
+      • <b>Алтарь благословения</b> — дар на следующий ярус: щит, ускорение или золото.</div>
 
     <div class="hsec"><div class="hh">Статусы</div>
       Эффекты с счётчиком, отмечены цветными кружками у фигуры (работают и на тебе, и на врагах):<br>
@@ -506,10 +506,10 @@ export function openHelp(from) {
       • <span style="color:#e0c341">Оглушение</span> — пропуск хода.<br>
       • <span style="color:#5bb6d6">Щит</span> — поглощает следующее взятие.<br>
       • <span style="color:#e08a3f">Ускорение</span> — +1 дальность слайдерам, доп. шаг коню, двойной шаг пешке.<br>
-      Руна снимает с тебя все статусы.</div>
+      Жила снимает с тебя все статусы.</div>
 
     <div class="hsec"><div class="hh">Добыча: кости и швы</div>
-      После зачистки этажа выбираешь награду. Есть безопасные <b>кости</b> (перманентные плюсы)
+      После зачистки яруса выбираешь награду. Есть безопасные <b>кости</b> (перманентные плюсы)
       и проклятые сделки: <b>⚠ фаустова</b> (2 кости + шов) и <b>☠ алтарь</b>
       (3 кости + 2 шва). <b>Швы</b> — перманентные дебаффы. Кости копятся
       в синергии; всё видно в панели «Модификаторы».</div>
@@ -518,9 +518,9 @@ export function openHelp(from) {
        Режимы с особыми правилами — выбираются перед забегом в меню:<br>
        • <b>🔒 Одинокая фигура</b> — нельзя менять форму, взятие = конец.<br>
        • <b>🌫️ Слепой спуск</b> — видно только в радиусе 2 клеток.<br>
-       • <b>⚡ Шторм</b> — враги ходят дважды за ход (+50% осколков).<br>
+       • <b>⚡ Шторм</b> — враги сильнее и быстрее находят тебя (+50% пепла).<br>
        • <b>🌀 Хаотичное колесо</b> — каждые 3 хода форма меняется случайно.<br>
-       • <b>💀 Эскалация</b> — враги усиливаются с каждым этажом, ×2 осколков с этажа 5.</div>
+       • <b>💀 Эскалация</b> — враги усиливаются с каждым ярусом, ×2 пепла с яруса 5.</div>
 
      <div class="hsec"><div class="hh">Экзотические формы</div>
        Открываются в мета-магазине за пепел:<br>
@@ -538,8 +538,8 @@ export function openHelp(from) {
        Все звуки синтезируются через Web Audio (без загрузки файлов).</div>
 
      <div class="hsec"><div class="hh">Мета-прогрессия</div>
-      За каждый забег начисляется <b>пепел</b> (этаж×3 + взятия). Трать его в меню на перманентные
-      апгрейды: стартовые слоты, стартовые кости, облегчённый первый этаж. Прогресс и рекорд
+      За каждый забег начисляется <b>пепел</b> (ярус×3 + взятия). Трать его в меню на перманентные
+      апгрейды: стартовые слоты, стартовые кости, облегчённый первый ярус. Прогресс и рекорд
       сохраняются между забегами.</div>
   `;
   dom.mChoices.appendChild(H);
@@ -746,8 +746,8 @@ export function syncUI() {
       ? `<span class="hb">комнаты ${clearedRooms}/${S.rooms.length}</span>`
       : '') +
     `<span class="hb">ход ${S.turn}</span>` +
-    `<span class="hb gold">${S.player.gold || 0}🪙</span>` +
-    `<span class="hb shards">${META.shards || 0}✦</span>` +
+    `<span class="hb gold">${S.player.gold || 0}\u{1fa99}</span>` +
+    `<span class="hb shards">${META.shards || 0}\u2726</span>` +
     (S.keys.size > 0
       ? `<span class="hb keys">${[...S.keys].map((k) => KEY_GLYPH[k]).join('')}</span>`
       : '');
@@ -761,7 +761,7 @@ export function syncUI() {
       el.className =
         'slot' + (i === S.player.active ? ' active' : '') + (f.cooldown > 0 ? ' cd' : '');
       el.innerHTML =
-        `<div class="glyph">${GLYPH[f.type]}</div><div class="nm">${NAME[f.type]}${f.type === 'bishop' ? (f.homeColor === 0 ? ' ◽' : ' ◾') : ''}</div>` +
+        `<div class="glyph">${GLYPH[f.type]}</div><div class="nm">${NAME[f.type]}${f.type === 'bishop' ? (f.homeColor === 0 ? ' \u25fd' : ' \u25fe') : ''}</div>` +
         (f.improved ? '<span class="star">★</span>' : '') +
         (f.cooldown > 0 ? `<span class="cdn">${f.cooldown}</span>` : '');
       el.onclick = () => switchForm(i);

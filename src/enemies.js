@@ -1,6 +1,6 @@
 import { S } from './state.js';
 import { afterEnemies, degradePlayer } from './combat.js';
-import { CFG, GLYPH, NAME } from './config.js';
+import { CFG } from './config.js';
 import { recordKill } from './meta.js';
 import { effectiveForm, genMoves, necroInterval } from './moves.js';
 import { addSpeech, render, startMoveAnim, spawnParticles } from './render.js';
@@ -9,7 +9,8 @@ import { applyStatus, statusVal } from './status.js';
 import { playDeath } from './audio.js';
 import { log, syncUI } from './ui.js';
 import { DIAG, ORTHO, cheb, inB, key, tileColor } from './util.js';
-import { bossTurn, dispatchBossEvents, linkedRookRevenge } from './bosses.js';
+import { SCRIPT, actForFloor, pickLine } from './content/script.js';
+import { bossTurn, dispatchBossEvents } from './bosses.js';
 import { isTutorial } from './tutorial.js';
 
 function handleBossCapture(by) {
@@ -111,7 +112,6 @@ export function enemiesTurn() {
       },
     );
     if (opts.captures.length) {
-      const cap = opts.captures[0];
       e.cd = CFG.ENEMY_CAPTURE_CD;
       // враг остаётся на месте: игрок деградирует, но клетку не освобождает
       if (e.noAttackCd) e.attackReady = false;
@@ -135,6 +135,13 @@ export function enemiesTurn() {
       e.x = bestMove.x;
       e.y = bestMove.y;
       checkCellForEnemy(e);
+    }
+    // редкая реплика живого врага
+    if (Math.random() < 0.08 && !isBossEntity(e)) {
+      const act = actForFloor(S.floor);
+      const pool = (SCRIPT.enemyLines[e.type] && SCRIPT.enemyLines[e.type][act]) || [];
+      const line = pickLine(pool);
+      if (line) addSpeech(e.x, e.y, line, 'enemy');
     }
     if (e.status && e.status.haste > 0) e.status.haste--;
   }

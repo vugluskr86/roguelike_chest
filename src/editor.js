@@ -46,7 +46,6 @@ let state = {
   activeTab: 'enemies', // активная вкладка объектов
 };
 let editorBackup = null;
-let manifestData = null;
 let undoStack = [];
 const UNDO_MAX = 50;
 let _editorKeyHandler = null;
@@ -1061,7 +1060,7 @@ export function handleEditorClick(x, y) {
           attackReady: true,
         },
       ];
-      retinue.forEach(({ dx, dy, type, retinue, r, shield, passive, noAttackCd, attackReady }) => {
+      retinue.forEach(({ dx, dy, type, retinue, r, shield, passive, noAttackCd }) => {
         const rx = x + dx,
           ry = y + dy;
         if (inB(rx, ry) && !S.walls.has(key(rx, ry))) {

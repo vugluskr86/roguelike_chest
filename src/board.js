@@ -6,16 +6,16 @@ import { S } from './state.js';
 import { dom } from './dom.js';
 import { CFG, BIOMES, biomeFor, KEY_COLORS } from './config.js';
 import { RELICS } from './content.js';
-import { BOSS_CFG } from './bosses.js';
+import { BOSS_CFG, dispatchBossEvents } from './bosses.js';
 import { applyRelic } from './loot.js';
 import { META, codexSeeEnemy, unlockAch } from './meta.js';
 import { necroInterval, threatCellsFrom } from './moves.js';
-import { clearSpeech, render, screenFade } from './render.js';
+import { addSpeech, clearSpeech, render, screenFade } from './render.js';
 import { startTutorial } from './tutorial.js';
 import { SCRIPT } from './content/script.js';
 import { curse, enemyAt, has } from './state.js';
 import { applyStatus, cleanse } from './status.js';
-import { clearRunLog, log, openTitle, syncUI } from './ui.js';
+import { clearRunLog, log, openInterlude, openTitle, syncUI } from './ui.js';
 import { clearPending } from './preview.js';
 import {
   ORTHO,
@@ -651,8 +651,16 @@ export function newFloor() {
         millstone: 'Жернов',
         redKing: 'Красный Король',
       };
-      log(`── Ярус ${S.floor} · Босс: ${bossNames[bossId] || bossId} ──`, 'e');
-      if (SCRIPT.floorIntro[S.floor]) log(SCRIPT.floorIntro[S.floor], '');
+      const bossScript = SCRIPT.bosses[bossId];
+      const appear = bossScript && bossScript.appear;
+      if (appear) {
+        dispatchBossEvents(appear, {
+          log: (t) => log(t),
+          addSpeech: (x, y, t, kind) => addSpeech(x, y, t, kind),
+        });
+      } else {
+        log(`── Ярус ${S.floor} · Босс: ${bossNames[bossId] || bossId} ──`, 'e');
+      }
       render();
       syncUI();
       return;
@@ -993,6 +1001,7 @@ export function reset() {
     gold: 0,
     nextFloorStatus: [],
     hunger: CFG.HUNGER.start,
+    hungerMark: 1,
     boneVoiceTimer: 0,
   };
   S.unlocked = new Set(['pawn', 'knight']);
@@ -1010,11 +1019,10 @@ export function reset() {
   });
   S.gameOver = false;
   S.floor = 0;
+  S.walls = new Set(); // чтобы render() не падал во время пролога
+  S.special = new Map();
   if (dom.logEl) dom.logEl.innerHTML = '';
-  log(
-    'Новый забег. Зачисти ярус — выбираешь награду и спускаешься глубже, сохраняя формы и модификаторы.',
-    '',
-  );
+  log('Двигайся или будь съеден.', '');
   clearRunLog();
   // мета-апгрейды: стартовые слоты и реликвии
   const extraSlots = META.upgrades.startSlots || 0;
@@ -1031,6 +1039,14 @@ export function reset() {
       newFloor();
       openTitle();
     });
+    return;
+  }
+  if (META.runs === 0 && SCRIPT.interludes.prologue) {
+    openInterlude(SCRIPT.interludes.prologue, () => newFloor());
+    return;
+  }
+  if (META.runs >= 1 && SCRIPT.repeat && SCRIPT.repeat.prologue) {
+    openInterlude({ ...SCRIPT.repeat.prologue, button: 'Встать' }, () => newFloor());
     return;
   }
   newFloor();

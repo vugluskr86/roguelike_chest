@@ -5,6 +5,7 @@
  */
 import { S } from './state.js';
 import { CFG } from './config.js';
+import { SCRIPT } from './content/script.js';
 import { enemyAt } from './state.js';
 import { applyStatus } from './status.js';
 import { DIAG, ORTHO, cheb, inB, key, pick } from './util.js';
@@ -130,8 +131,17 @@ export function tormentorTurn(e) {
   if (e.stunCd <= 0) {
     if (cheb(S.player, e) <= C.stunRadius) {
       applyStatus(S.player, 'stun', C.stunDur);
-      out.push(ev.say(e.x, e.y, 'Я жёг.'));
-      out.push(ev.log('Три голоса кричат одновременно. Ты глохнешь.'));
+      const p1 = SCRIPT.bosses.tormentor.phase1;
+      if (p1)
+        p1.forEach((l) =>
+          l.ch === 'log'
+            ? out.push(ev.log(l.text))
+            : out.push(ev.say(e.x, e.y, l.text, l.kind || 'boss')),
+        );
+      else {
+        out.push(ev.say(e.x, e.y, 'Я жёг.'));
+        out.push(ev.log('Три голоса кричат одновременно. Ты глохнешь.'));
+      }
     }
     e.stunCd = C.stunEvery;
   } else e.stunCd--;
@@ -173,6 +183,12 @@ export function tormentorHit(e) {
   e.armor--;
   if (e.armor > 0) {
     e.phase = Math.min(e.phase + 1, C.diagsByPhase.length);
+    const phaseKey = e.phase <= 2 ? 'phase2' : 'phase3';
+    const script = SCRIPT.bosses.tormentor[phaseKey];
+    if (script)
+      return script.map((l) =>
+        l.ch === 'log' ? ev.log(l.text) : ev.say(e.x, e.y, l.text, l.kind || 'boss'),
+      );
     const said = ['Нас двое.', 'Я всё записал.'][Math.min(e.phase - 2, 1)] || 'Нас меньше.';
     return [ev.log('Одно тело отваливается. Оно ещё шевелится.'), ev.say(e.x, e.y, said)];
   }
@@ -202,9 +218,13 @@ export function tormentorHit(e) {
     born.push(p);
   }
   return [
-    ev.log('Он рассыпается. Три пешки бегут к стенам.'),
-    born[0] ? ev.say(born[0].x, born[0].y, 'Не нас.', 'enemy') : null,
-    born[1] ? ev.say(born[1].x, born[1].y, 'Мы только держали.', 'enemy') : null,
+    ...(SCRIPT.bosses.tormentor.death || []).map((l) => {
+      if (l.ch === 'speech') {
+        const target = born.shift();
+        return target ? ev.say(target.x, target.y, l.text, l.kind || 'boss') : ev.log(l.text);
+      }
+      return ev.log(l.text);
+    }),
   ].filter(Boolean);
 }
 
@@ -305,21 +325,37 @@ export function linkedRooksTurn(pair) {
     if (a.stuck >= C.breakAfterStuck) {
       delete a.linkedTo;
       delete b.linkedTo;
-      return [
-        ev.log('Они упёрлись друг в друга. Впервые за века — стоят.'),
-        ev.say(a.x, a.y, 'Отпусти меня.'),
-        ev.say(b.x, b.y, 'Отпусти меня.'),
+      const blockedScript = (SCRIPT.bosses.spawnedRooks && SCRIPT.bosses.spawnedRooks.blocked) || [
+        { ch: 'log', text: 'Они упёрлись друг в друга. Впервые за века — стоят.' },
+        { ch: 'speech', kind: 'boss', text: 'Отпусти меня.' },
+        { ch: 'speech', kind: 'boss', text: 'Отпусти меня.' },
       ];
+      return blockedScript
+        .map((l) => {
+          if (l.ch === 'log') return ev.log(l.text);
+          if (l.ch === 'speech') {
+            const speaker = l.speaker === 'b' ? b : a;
+            return ev.say(speaker.x, speaker.y, l.text, l.kind || 'boss');
+          }
+          return null;
+        })
+        .filter(Boolean);
     }
     out.push(ev.log(`Спина не гнётся. Ладьи встали (${a.stuck}/${C.breakAfterStuck}).`));
     // в упоре они грызутся — подсказка игроку, что он на верном пути
-    const pairs = [
-      ['Ты открыл ворота.', 'Ты назвал моё имя.'],
-      ['Я держал левый край.', 'Ты держал нож.'],
-      ['Мы могли уйти.', 'Мы и ушли. Сюда.'],
+    const banter = (SCRIPT.bosses.spawnedRooks && SCRIPT.bosses.spawnedRooks.banter) || [
+      { ch: 'speech', kind: 'boss', text: 'Ты открыл ворота.' },
+      { ch: 'speech', kind: 'boss', text: 'Ты назвал моё имя.' },
+      { ch: 'speech', kind: 'boss', text: 'Я держал левый край.' },
+      { ch: 'speech', kind: 'boss', text: 'Ты держал нож.' },
+      { ch: 'speech', kind: 'boss', text: 'Мы могли уйти.' },
+      { ch: 'speech', kind: 'boss', text: 'Мы и ушли. Сюда.' },
     ];
-    const p = pick(pairs);
-    out.push(ev.say(a.x, a.y, p[0]), ev.say(b.x, b.y, p[1]));
+    const i = Math.floor(Math.random() * (banter.length / 2)) * 2;
+    out.push(
+      ev.say(a.x, a.y, banter[i].text, banter[i].kind || 'boss'),
+      ev.say(b.x, b.y, banter[i + 1].text, banter[i + 1].kind || 'boss'),
+    );
     return out;
   }
 
@@ -338,10 +374,18 @@ export function linkedRookRevenge(killed) {
   if (!BOSS_CFG.linkedRooks.revenge || !killed.linkedTo) return [];
   const other = S.enemies.find((e) => e.linkedTo === killed.linkedTo && e !== killed);
   if (!other) return [];
+  const firstDeath = (SCRIPT.bosses.spawnedRooks && SCRIPT.bosses.spawnedRooks.firstDeath) || {
+    ch: 'speech',
+    kind: 'boss',
+    text: 'Наконец тихо.',
+  };
   if (rookAttacks(other).has(key(S.player.x, S.player.y))) {
-    return [ev.say(other.x, other.y, 'Наконец тихо.'), { ch: 'capture', by: other }];
+    return [
+      ev.say(other.x, other.y, firstDeath.text, firstDeath.kind),
+      { ch: 'capture', by: other },
+    ];
   }
-  return [ev.say(other.x, other.y, 'Наконец тихо.')];
+  return [ev.say(other.x, other.y, firstDeath.text, firstDeath.kind)];
 }
 
 // ════════════════════════════════════════════════════════════════
@@ -399,8 +443,12 @@ export function millstoneTurn() {
   }
   // квота набрана — глушим ВСЕ жернова, когда они уже расставлены по новым клеткам
   if (reachedQuota) {
-    out.push(ev.log('Жернов встал. Внутри — кости. Много.'));
-    out.push(ev.log('Некоторые ещё сжимают чужие.'));
+    const md = SCRIPT.bosses.millstone && SCRIPT.bosses.millstone.death;
+    if (md) out.push(ev.log(md.text));
+    else {
+      out.push(ev.log('Жернов встал. Внутри — кости. Много.'));
+      out.push(ev.log('Некоторые ещё сжимают чужие.'));
+    }
     out.push({ ch: 'bossDown', boss: 'puppeteer' });
     for (const k2 of [...S.special.keys()]) {
       const s2 = S.special.get(k2);
@@ -565,8 +613,20 @@ export function redKingTurn(king) {
     king.orderCd = C.orderEvery;
     const target = pick(retinue);
     target.kingOrder = true;
-    const line = target.retinue === 'knight' ? 'Простите.' : pick(['Иди.', 'Не он. Ты.']);
-    out.push(ev.say(king.x, king.y, line));
+    const orders = (SCRIPT.bosses.redKing && SCRIPT.bosses.redKing.orders) || [
+      { ch: 'speech', kind: 'boss', text: 'Иди.' },
+      { ch: 'speech', kind: 'boss', text: 'Не он. Ты.' },
+      { ch: 'speech', kind: 'boss', text: 'Простите.' },
+    ];
+    const ord =
+      target.retinue === 'knight'
+        ? orders.find((o) => o.text === 'Простите.') || {
+            ch: 'speech',
+            kind: 'boss',
+            text: 'Простите.',
+          }
+        : pick(orders.filter((o) => o.text !== 'Простите.'));
+    out.push(ev.say(king.x, king.y, ord.text, ord.kind || 'boss'));
   }
 
   // цепи целы — король неуязвим
@@ -575,7 +635,15 @@ export function redKingTurn(king) {
     king.exposed = true;
     out.push(ev.log('Цепи пали. Он открыт.'));
     if (!retinue.length) {
-      out.push(ev.say(king.x, king.y, 'Все.'), ev.say(king.x, king.y, 'Больше некого послать.'));
+      const alone = (SCRIPT.bosses.redKing && SCRIPT.bosses.redKing.alone) || [
+        { ch: 'speech', kind: 'boss', text: 'Все.' },
+        { ch: 'speech', kind: 'boss', text: 'Больше некого послать.' },
+      ];
+      alone.forEach((l) =>
+        out.push(
+          l.ch === 'speech' ? ev.say(king.x, king.y, l.text, l.kind || 'boss') : ev.log(l.text),
+        ),
+      );
     }
   }
   return out;
@@ -629,7 +697,11 @@ export function blindRookTurn(e) {
   e.fireCd = C.rookFireEvery;
 
   if (e.x !== S.player.x && e.y !== S.player.y) {
-    out.push(ev.log('Они бьют по линиям. Не по тебе. Просто по линиям.'));
+    const rf = (SCRIPT.bosses.redKing.rooks && SCRIPT.bosses.redKing.rooks.fight) || {
+      ch: 'log',
+      text: 'Они бьют по линиям. Не по тебе. Просто по линиям.',
+    };
+    out.push(rf.ch === 'speech' ? ev.say(e.x, e.y, rf.text, rf.kind) : ev.log(rf.text));
     return out;
   }
   const sx = Math.sign(S.player.x - e.x),

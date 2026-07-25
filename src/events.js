@@ -15,8 +15,9 @@ import {
   relicTier,
 } from './config.js';
 import { CURSES, RELICS } from './content.js';
+import { SCRIPT } from './content/script.js';
 import { applyCurse, applyRelic, cursePool, relicPool, rollWeighted } from './loot.js';
-import { unlockAch } from './meta.js';
+import { META, unlockAch } from './meta.js';
 import { closeModal, log, toast } from './ui.js';
 import { pick, randInt } from './util.js';
 
@@ -95,6 +96,20 @@ export let shopStock = null;
 export function openShop() {
   S.modalOpen = true;
   dom.modalBox.classList.remove('death');
+  // реплика Костоправа по состоянию билда
+  {
+    const seamCount = S.player.curses.size;
+    const boneCount = S.player.relics.size;
+    const bs = SCRIPT.bonesetterLines;
+    const rep = bs.repeat[META.runs];
+    if (rep) log(rep);
+    else if (seamCount >= 3) log(bs.bySeams.high);
+    else if (seamCount >= 2) log(bs.bySeams.mid);
+    else if (seamCount >= 1) log(bs.bySeams.low);
+    else if (seamCount === 0) log(bs.bySeams[0]);
+    if (boneCount > 4) log(bs.byBones.many);
+    else if (boneCount <= 1) log(bs.byBones.few);
+  }
   const usedR = new Set();
   const relics = rollWeighted(relicPool, 2, usedR, false).map((id) => ({
     kind: 'relic',

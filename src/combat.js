@@ -7,7 +7,7 @@ import { S } from './state.js';
 import { dom } from './dom.js';
 import { CFG, GLYPH, KEY_GLYPH, NAME, STD_TYPES } from './config.js';
 import { RELICS, CURSES } from './content.js';
-import { SCRIPT } from './content/script.js';
+import { SCRIPT, actForFloor, pickLine } from './content/script.js';
 import { enemiesTurn } from './enemies.js';
 import { tormentorHit, dispatchBossEvents, BOSS_CFG, linkedRookRevenge } from './bosses.js';
 import { snapshotRoom, loadRoom } from './board.js';
@@ -39,17 +39,13 @@ import { isEditorRunning, stopEditorRun } from './editor.js';
 import {
   tutorialAllowsMove,
   tutorialAllowsSwitch,
-  tutorialAllowsPass,
   tutorialAllowsRotate,
   tutorialNudge,
   tutorialSnapshot,
-  tutorialHungerActive,
   tutorialEnemiesFrozen,
-  tutorialBlocksDegrade,
   tutorialMark,
   tutorialCheck,
   isTutorial,
-  hint,
 } from './tutorial.js';
 import {
   ORTHO,
@@ -134,6 +130,12 @@ export function tryMoveTo(x, y) {
     S.player.capturedThisFloor++;
     S.player.totalCaptures++;
     recordKill(e.type, false);
+    // реплика при смерти врага
+    {
+      const act = actForFloor(S.floor);
+      const line = pickLine(SCRIPT.deathLines[act] || []);
+      if (line && Math.random() < 0.35) addSpeech(x, y, line, 'enemy');
+    }
     // Месть Ладьи: если убитая ладья была в связке, выжившая бьёт вне очереди
     if (e.linkedTo) {
       const revengeEvents = linkedRookRevenge(e);
@@ -190,7 +192,7 @@ export function triggerSpecialForPlayer() {
   if (!s) return;
   if (s.type === 'trap') {
     S.special.delete(k);
-    log('Ты наступаешь на шипы! Форма разрушена.', 'r');
+    log('Паутина рвёт тебя. Форма разрушена.', 'r');
     playTrap();
     degradePlayer(null);
   } else if (s.type === 'rune') {
@@ -201,6 +203,7 @@ export function triggerSpecialForPlayer() {
     });
     cleanse(S.player);
     S.player.hunger = CFG.HUNGER.start;
+    S.player.hungerMark = 1;
     log('Жила насыщает — усталость форм и статусы сняты.', 'g');
   } else if (s.type === 'ice') {
     applyStatus(S.player, 'stun', 1);
@@ -300,6 +303,7 @@ export function triggerSpecialForPlayer() {
   } else if (s.type === 'food') {
     S.special.delete(k);
     S.player.hunger = Math.min(CFG.HUNGER.start, S.player.hunger + CFG.HUNGER.food);
+    S.player.hungerMark = 1;
     log(
       `Ты съедаешь кость (+${CFG.HUNGER.food} сытости, всего ${S.player.hunger}/${CFG.HUNGER.start}).`,
       'g',
@@ -346,7 +350,7 @@ export function triggerBossPhase(bossId, phase) {
 export function unlockType(t, colorAt) {
   if (!STD_TYPES.has(t)) return; // спец-враги (страж/некромант/двойник) не дают форму
   if (S.unlocked.has(t)) {
-    log(`Тип «${NAME[t]}» уже открыт — дубликат (экономика §4.6 не в прототипе).`);
+    log(`«${NAME[t]}» у тебя уже есть. Кость лишняя.`);
     return;
   }
   S.unlocked.add(t);
@@ -425,6 +429,18 @@ export function endPlayerTurn() {
   // голод замирает только на реальном босс-бое, а не на любом «боссовом» номере
   if (!(S.runMode === 'campaign' && isBossFloor(S.floor))) {
     S.player.hunger -= CFG.HUNGER.perTurn;
+    // пороги голода — нарративные реплики
+    {
+      const ratio = S.player.hunger / CFG.HUNGER.start;
+      for (const th of [0.4, 0.25, 0.1, 0]) {
+        if (ratio <= th && (S.player.hungerMark ?? 1) > th) {
+          S.player.hungerMark = th;
+          const line = SCRIPT.hungerLines[th];
+          if (line) log(line, 'r');
+          break;
+        }
+      }
+    }
     if (S.player.hunger <= 0) {
       S.player.hunger = 0;
       log('Голод пожирает тебя. Форма разрушена.', 'r');
@@ -620,8 +636,8 @@ export function degradePlayer(byEnemy) {
     return;
   } // челлендж: взятие = конец
   if (byEnemy && has('venom')) applyStatus(byEnemy, 'poison', 2); // «Ядовитый след» — месть атакующему
-  if (statusVal(S.player, 'shield') > 0) {
-    // щит гасит взятие
+  if (statusVal(S.player, 'shield') > 0 && !curse('glass')) {
+    // щит гасит взятие (проклятие «Хрупкое тело» отменяет)
     S.player.status.shield--;
     log('Щит поглощает взятие!', 'g');
     if (byEnemy) {
@@ -670,7 +686,7 @@ export function death() {
   }
   S.gameOver = true;
   const earned = endRunMeta();
-  openRunSummary('Пешка пала', 'Взятие в форме пешки — конец забега (§2.2).', earned);
+  openRunSummary('Пешка пала', 'Последняя кость сломана. Дальше нечем ходить.', earned);
 }
 
 export function checkMate() {
@@ -683,7 +699,7 @@ export function checkMate() {
   const canSwitch = S.player.wheel.some((f, i) => f && i !== S.player.active && f.cooldown === 0);
   if (moves.length || captures.length || canSwitch) return;
   // мат: авто-деградация на месте + отброс соседей
-  log('МАТ: легальных действий нет. Аварийная деградация.', 'r');
+  log('Ходов нет. Тебя вскрывают на месте.', 'r');
   degradePlayer(null);
   if (S.gameOver) return;
   for (const e of S.enemies) {
@@ -708,31 +724,22 @@ export function openVictory() {
   S.gameOver = true;
   S.modalOpen = true;
   const earned = endRunMeta();
+  const finish = (id) => {
+    closeModal();
+    const e = SCRIPT.endings[id];
+    if (e) {
+      openInterlude({ ...e, button: 'Конец' }, () => openRunSummary(e.title, '', earned));
+    } else {
+      openRunSummary('Победа', '', earned);
+    }
+  };
   openModal(
     'Король пал',
     `Ты прошёл Подземелье до конца.\nЯрусов: ${S.floor} · Взятий: ${S.player.totalCaptures} · Пепел: +${earned}`,
     [
-      {
-        label: '⚔ Убить',
-        fn: () => {
-          closeModal();
-          openRunSummary('Победа', 'Король мёртв. Подземелье затихло. Ты свободен.', earned);
-        },
-      },
-      {
-        label: '♚ Занять место',
-        fn: () => {
-          closeModal();
-          openRunSummary('Новый Король', 'Ты сел на трон. Партия продолжается.', earned);
-        },
-      },
-      {
-        label: '💥 Сломать доску',
-        fn: () => {
-          closeModal();
-          openRunSummary('Доска сломана', 'Череп мёртвого бога расколот. Просыпайся.', earned);
-        },
-      },
+      { label: '⚔ Убить', fn: () => finish('kill') },
+      { label: '♚ Занять место', fn: () => finish('throne') },
+      { label: '💥 Сломать доску', fn: () => finish('breakBoard') },
     ],
     false,
   );
@@ -747,7 +754,7 @@ export function openPromotion() {
   } // нет открытых форм — промоушен пропускается
   openModal(
     'Линия восхождения',
-    'Пешка дошла до края и превращается. Выбери форму — она войдёт в колесо улучшенной (★): слайдеры +1 R, конь +шаг. Ты сразу станешь ею.',
+    'Пешка дошла до линии. Выбери, чьи кости прирастить — форма войдёт в колесо усиленной (★) и ты станешь ею прямо сейчас.',
     choices.map((t) => ({
       label: GLYPH[t] + ' ' + NAME[t],
       fn: () => {
