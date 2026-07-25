@@ -1,12 +1,7 @@
 /**
  * src/content/script.js — сценарий забега: реплики, диалоги боссов, интерлюдии, эпилоги.
- * Основные экспорты: SCRIPT, pickLine(), actForFloor().
+ * Основные экспорты: SCRIPT, SCRIPT_EN, getScript(), pickLine(), actForFloor().
  */
-// ============================================================================
-//  Сценарий забега — все тексты нарратива.
-//  Подключается к combat.js (взятия, голод), board.js (вход на ярус),
-//  events.js (Костоправ), ui.js (интерлюдии/эпилоги).
-// ============================================================================
 
 export const SCRIPT = {
   // ── Вход на ярус (лог, 1 строка) ──
@@ -60,14 +55,12 @@ export const SCRIPT = {
     },
   },
 
-  // ── Реплики при взятии (доска, enemy) ──
   deathLines: {
     act1: ['Спасибо.', 'Наконец.', 'Ты такой же.', 'Скажи им, что я был первым.'],
     act2: ['Спасибо, что перерезал.', 'Нить. Не меня.'],
     act3: ['Прости.', 'Я не хотел.', 'Он не заставлял.'],
   },
 
-  // ── Голоса костей (доска, bone) — 3 хода после смены формы ──
   boneVoices: {
     pawn: ['Я не пойду туда.', 'Там мой брат.'],
     knight: ['Слишком высоко.', 'Я боюсь падать.'],
@@ -76,7 +69,6 @@ export const SCRIPT = {
     queen: ['Я была всем сразу.', 'Теперь я в твоей руке.'],
   },
 
-  // ── Голод (лог, по порогам) ──
   hungerLines: {
     0.4: 'Кости начинают ныть.',
     0.25: 'Под доской стало тише. Оно слушает.',
@@ -84,7 +76,6 @@ export const SCRIPT = {
     0: 'Ешь или будь съеден.',
   },
 
-  // ── Костоправ (лог, по состоянию билда) ──
   bonesetterLines: {
     bySeams: {
       0: '— Ты чистый. Это ненадолго.',
@@ -96,7 +87,6 @@ export const SCRIPT = {
       many: '— Ты стал тяжёлым. Тьма любит тяжёлых.',
       few: '— Ты почти пешка. Так дольше живут.',
     },
-    // повторные забеги
     repeat: {
       2: '— Ты вернулся. Плохо.',
       3: '— Опять. Я начинаю тебя узнавать.',
@@ -105,9 +95,7 @@ export const SCRIPT = {
     },
   },
 
-  // ── Боссы ──
   bosses: {
-    // Слон-Мучитель (ярус 5)
     tormentor: {
       appear: [
         { ch: 'log', text: 'Он стоит в конце зала. Три тела сшиты в одно.' },
@@ -134,8 +122,6 @@ export const SCRIPT = {
       mercyKill: { ch: 'log', text: 'Ты добил всех. Ров затих.' },
       mercySpare: { ch: 'log', text: 'Ты дал им уйти. Они не поблагодарили.' },
     },
-
-    // Спаянные Ладьи (ярус 8)
     spawnedRooks: {
       appear: [
         { ch: 'log', text: 'Две Ладьи. Сросшиеся спинами. Они не смотрят друг на друга.' },
@@ -158,8 +144,6 @@ export const SCRIPT = {
       firstDeath: { ch: 'speech', kind: 'boss', text: 'Наконец тихо.' },
       secondDeath: { ch: 'log', text: 'Второй не сопротивлялся.' },
     },
-
-    // Жернов (ярус 11)
     millstone: {
       appear: [
         { ch: 'log', text: 'Жернов идёт по линии. Он не видит тебя.' },
@@ -170,8 +154,6 @@ export const SCRIPT = {
         text: 'Жернов встал. Внутри — кости. Много. Некоторые ещё сжимают чужие.',
       },
     },
-
-    // Красный Король (ярус 18)
     redKing: {
       appear: [
         { ch: 'log', text: 'Он сидит на троне из собственных костей.' },
@@ -195,7 +177,6 @@ export const SCRIPT = {
         { ch: 'speech', kind: 'boss', text: 'Все.' },
         { ch: 'speech', kind: 'boss', text: 'Больше некого послать.' },
       ],
-      // свита
       queen: {
         appear: {
           ch: 'speech',
@@ -227,9 +208,7 @@ export const SCRIPT = {
     },
   },
 
-  // ── Интерлюдии (модалки) ──
   interludes: {
-    // Пролог (первый забег)
     prologue: {
       title: '',
       lines: [
@@ -246,7 +225,6 @@ export const SCRIPT = {
       ],
       button: 'Встать',
     },
-    // Интерлюдия I → II (после яруса 5, до Костоправа)
     act1to2: {
       title: '',
       lines: [
@@ -267,7 +245,6 @@ export const SCRIPT = {
         { label: 'Забрать молча', mercy: -2, desc: 'Две кости' },
       ],
     },
-    // Интерлюдия II → III (после яруса 11)
     act2to3: {
       title: '',
       lines: [
@@ -287,7 +264,6 @@ export const SCRIPT = {
     },
   },
 
-  // ── Эпилоги (модалки) ──
   endings: {
     kill: {
       title: 'Разомкнуто',
@@ -342,7 +318,6 @@ export const SCRIPT = {
     },
   },
 
-  // ── Повторные забеги ──
   repeat: {
     prologue: {
       lines: [
@@ -361,6 +336,353 @@ export const SCRIPT = {
     ],
   },
 };
+
+export const SCRIPT_EN = {
+  floorIntro: {
+    1: 'You crawled out of the pit. Bones crack underfoot.',
+    2: 'The walls are ribbed. Some are still warm.',
+    3: 'Someone counted days here. More scratches than walls.',
+    4: 'The ditch ends. Ahead — flat floor.',
+    5: 'The ditch ends. The floor is tiled with shoulder blades — someone was busy.',
+    6: 'The floor is squared. You stand on a cell.',
+    7: 'Threads are strung overhead. They vanish into the dark.',
+    8: 'Something was dragged here. The trail never ends.',
+    9: 'The chains move on their own. No one is turning them.',
+    10: 'The cells are wet. It smells of iron.',
+    11: 'Ahead — a millstone. It will not stop.',
+    12: 'No cells. Just floor.',
+    13: 'Writings on the walls. All about a single game.',
+    14: 'Thrones stood here. Only the pedestals remain.',
+    15: 'Someone left a piece on the floor. It stares upward.',
+    16: 'The light is flat. Shadows do not stir.',
+    17: 'A door. Behind it — breathing.',
+    18: 'The throne room. He waits.',
+  },
+
+  enemyLines: {
+    pawn: {
+      act1: [
+        'Finish it.',
+        'I remember the name.',
+        'How long have I been here?',
+        'Stay back.',
+        'Are you going up?',
+        'There is no up.',
+        'It eats me from below.',
+      ],
+      act2: [
+        'Not me.',
+        'The hand moved on its own.',
+        'Stop. I cannot stand.',
+        'He looks the wrong way.',
+      ],
+    },
+    knight: {
+      act1: ['Where do you leap?', 'My horse left.'],
+      act2: ['Orders.', 'I held the flank.'],
+    },
+    bishop: {
+      act1: ['The diagonal is empty.', 'He waits on white.'],
+      act2: ['A thread.', 'Not this line.'],
+    },
+    rook: {
+      act1: ['Straight. Only straight.', 'I know no other way.'],
+      act2: ['This line is taken.', 'You stepped onto mine.'],
+    },
+    queen: {
+      act1: ['I was everything at once.', 'Now I am in your hand.'],
+      act2: ['A thread on my neck.', 'He plays me.'],
+    },
+  },
+
+  deathLines: {
+    act1: ['Thank you.', 'At last.', 'You are the same.', 'Tell them I was first.'],
+    act2: ['Thank you for cutting.', 'The thread. Not me.'],
+    act3: ['Forgive me.', 'I did not want this.', 'He did not force me.'],
+  },
+
+  boneVoices: {
+    pawn: ['I will not go there.', 'My brother is there.'],
+    knight: ['Too high.', 'I fear the fall.'],
+    bishop: ['Not this diagonal.', 'He waits on white.'],
+    rook: ['Straight. Only straight.', 'I know no other way.'],
+    queen: ['I was everything at once.', 'Now I am in your hand.'],
+  },
+
+  hungerLines: {
+    0.4: 'Your bones begin to ache.',
+    0.25: 'Below the board it grew quiet. It listens.',
+    0.1: 'Your fingers crumble. You can hear it eating.',
+    0: 'Eat or be eaten.',
+  },
+
+  bonesetterLines: {
+    bySeams: {
+      0: '"You are clean. It will not last."',
+      low: '"The seams hold. For now."',
+      mid: '"You rattle when you walk. Heard from a floor above."',
+      high: '"I do not know what you are now. Take another. It cannot get worse."',
+    },
+    byBones: {
+      many: '"You have grown heavy. The Darkness loves the heavy."',
+      few: '"You are almost a pawn. They live longer."',
+    },
+    repeat: {
+      2: '"You came back. Bad sign."',
+      3: '"Again. I am beginning to know you."',
+      5: '"Listen. Perhaps enough?"',
+      10: '"I stopped counting. Take what you need."',
+    },
+  },
+
+  bosses: {
+    tormentor: {
+      appear: [
+        { ch: 'log', text: 'He stands at the far end. Three bodies sewn into one.' },
+        { ch: 'speech', kind: 'boss', text: 'We were the Inquisition.' },
+      ],
+      phase1: [
+        { ch: 'speech', kind: 'boss', text: 'I burned.' },
+        { ch: 'speech', kind: 'boss', text: 'I held.' },
+        { ch: 'speech', kind: 'boss', text: 'I wrote it down.' },
+      ],
+      phase2: [
+        { ch: 'log', text: 'One body sloughs off. It still twitches.' },
+        { ch: 'speech', kind: 'boss', text: 'Two of us left.' },
+      ],
+      phase3: [
+        { ch: 'speech', kind: 'boss', text: 'I wrote it down.' },
+        { ch: 'speech', kind: 'boss', text: 'I wrote everything.' },
+      ],
+      death: [
+        { ch: 'log', text: 'He crumbles. Three pawns scatter to the walls.' },
+        { ch: 'speech', kind: 'enemy', text: 'Not us.' },
+        { ch: 'speech', kind: 'enemy', text: 'We only held.' },
+      ],
+      mercyKill: { ch: 'log', text: 'You finished them all. The ditch falls silent.' },
+      mercySpare: { ch: 'log', text: 'You let them go. They did not thank you.' },
+    },
+    spawnedRooks: {
+      appear: [
+        { ch: 'log', text: 'Two Rooks. Spines fused. They do not look at each other.' },
+        { ch: 'speech', kind: 'boss', text: 'He betrayed first.' },
+        { ch: 'speech', kind: 'boss', text: 'He lies.' },
+      ],
+      banter: [
+        { ch: 'speech', kind: 'boss', text: 'You opened the gate.' },
+        { ch: 'speech', kind: 'boss', text: 'You spoke my name.' },
+        { ch: 'speech', kind: 'boss', text: 'I held the left flank.' },
+        { ch: 'speech', kind: 'boss', text: 'You held the knife.' },
+        { ch: 'speech', kind: 'boss', text: 'We could have left.' },
+        { ch: 'speech', kind: 'boss', text: 'We did leave. Here.' },
+      ],
+      blocked: [
+        { ch: 'log', text: 'They jam against each other. For the first time in ages — they stop.' },
+        { ch: 'speech', kind: 'boss', text: 'Let me go.' },
+        { ch: 'speech', kind: 'boss', text: 'Let me go.' },
+      ],
+      firstDeath: { ch: 'speech', kind: 'boss', text: 'Quiet at last.' },
+      secondDeath: { ch: 'log', text: 'The second did not resist.' },
+    },
+    millstone: {
+      appear: [
+        { ch: 'log', text: 'The millstone rolls along its line. It does not see you.' },
+        { ch: 'log', text: 'It has never seen anyone.' },
+      ],
+      death: {
+        ch: 'log',
+        text: 'The millstone stops. Inside — bones. Many. Some still clutch others.',
+      },
+    },
+    redKing: {
+      appear: [
+        { ch: 'log', text: 'He sits on a throne of his own bones.' },
+        { ch: 'speech', kind: 'boss', text: 'You made it.' },
+        { ch: 'speech', kind: 'boss', text: 'Sit. Or break the chains. I do not care.' },
+        { ch: 'speech', kind: 'boss', text: 'I am tired of being the heart.' },
+      ],
+      chainBreak: {
+        1: { ch: 'speech', kind: 'boss', text: 'One. Good.' },
+        2: { ch: 'speech', kind: 'boss', text: 'You are faster than the last.' },
+        3: { ch: 'speech', kind: 'boss', text: 'There were forty before you.' },
+        4: { ch: 'speech', kind: 'boss', text: 'None reached the fourth.' },
+      },
+      orders: [
+        { ch: 'speech', kind: 'boss', text: 'Go.' },
+        { ch: 'speech', kind: 'boss', text: 'Not him. You.' },
+        { ch: 'speech', kind: 'boss', text: 'Forgive me.' },
+      ],
+      alone: [
+        { ch: 'log', text: 'The hall is empty. He is alone.' },
+        { ch: 'speech', kind: 'boss', text: 'All of them.' },
+        { ch: 'speech', kind: 'boss', text: 'No one left to send.' },
+      ],
+      queen: {
+        appear: {
+          ch: 'speech',
+          kind: 'boss',
+          text: 'I knew someone would come. I just did not think it would be a pawn.',
+        },
+        fight: {
+          ch: 'speech',
+          kind: 'boss',
+          text: 'He did not force me. I lay on the altar myself. He had no one left.',
+        },
+        death: { ch: 'speech', kind: 'boss', text: 'Tell him I do not regret it.' },
+      },
+      rooks: {
+        appear: { ch: 'log', text: 'Two figures. They do not turn toward sound.' },
+        fight: { ch: 'log', text: 'They strike along lines. Not at you. Just the lines.' },
+        death: { ch: 'log', text: 'She fell without a sound. As she stood.' },
+      },
+      knights: {
+        appear: { ch: 'speech', kind: 'boss', text: 'Sire. Sire. Sire.' },
+        fight: [
+          { ch: 'speech', kind: 'boss', text: 'I held the right flank.' },
+          { ch: 'speech', kind: 'boss', text: 'Right flank. Right.' },
+          { ch: 'speech', kind: 'boss', text: 'Where is my horse? I am the horse.' },
+          { ch: 'speech', kind: 'boss', text: 'What hour? What century?' },
+        ],
+        death: { ch: 'speech', kind: 'boss', text: 'Report to the King.' },
+      },
+    },
+  },
+
+  interludes: {
+    prologue: {
+      title: '',
+      lines: [
+        'You lost the battle.',
+        'You died.',
+        'They threw you into the Ditch, with the rest.',
+        '',
+        'A hundred years you lay among the bones and did not stir.',
+        'The dark beneath the board began to eat you.',
+        'You twitched — and it shrank back.',
+        '',
+        'Now you know the rule.',
+        'Move or be taken.',
+      ],
+      button: 'Rise',
+    },
+    act1to2: {
+      title: '',
+      lines: [
+        'The ditch ends.',
+        '',
+        'A figure lifts from the heap. It was once a Rook.',
+        'No edges remain. Only a stump and a sack.',
+        '',
+        '    "You are going down."',
+        '    "Everyone goes down. No one returns."',
+        '    "Take something. The dead do not need it."',
+        '',
+        'He opens the sack. Inside — bones.',
+      ],
+      choices: [
+        { label: '"How many?"', mercy: 0, desc: 'One bone, free' },
+        { label: '"What do you want in return?"', mercy: 1, desc: 'One bone + 10 ash' },
+        { label: 'Take in silence', mercy: -2, desc: 'Two bones' },
+      ],
+    },
+    act2to3: {
+      title: '',
+      lines: [
+        'The game stayed above.',
+        '',
+        'You descend where pieces are never sent.',
+        'Stairs are carved from bone. One bone, whole.',
+        "You walk along someone's spine.",
+        '',
+        'Below — light. Red, flat, sourceless.',
+        '',
+        '    Breathing comes from below.',
+        '    Slow. Exhausted.',
+        '    Someone has not slept for a very long time.',
+      ],
+      button: 'Descend',
+    },
+  },
+
+  endings: {
+    kill: {
+      title: 'Unclasped',
+      lines: [
+        'You strike. He does not block.',
+        '',
+        'The bones of the throne scatter. The light goes out flat, without a flare.',
+        'Above, in the world of the living, thousands of soldiers hit the ground',
+        'and stay there. Just lying there. For the first time.',
+        '',
+        'You feel the seams unthread.',
+        'Foreign bones drop off one by one.',
+        'The last remaining one is yours. The pawn one.',
+        '',
+        'You do not remember your name. But you remember there was one.',
+      ],
+    },
+    throne: {
+      title: 'Move',
+      lines: [
+        'You sit. The floor seals at your ankles.',
+        '',
+        'He crumbles by the throne — quietly, relieved.',
+        "You feel the threads. Thousands. Each one — someone's hand.",
+        '',
+        'A pit opens below. It reeks of hunger.',
+        'You understand what the Kings paid the Darkness with.',
+        'Not themselves.',
+        '',
+        'The first piece steps onto the board and awaits orders.',
+        'It looks at you the way you looked at him.',
+      ],
+    },
+    breakBoard: {
+      title: '…awaken',
+      lines: [
+        'You strike not at him. At the floor.',
+        '',
+        'The Bones of the Fallen in your grip crack at once — all twelve.',
+        'The floor splits.',
+        '',
+        'There is no Darkness beneath the board. Beneath is a skull.',
+        'Huge, old, hollow. The Dungeon is a crack in the bone.',
+        'The Players are not demons. They are dreams it dreamed',
+        'while it could still sleep.',
+        '',
+        'You fall into the skull.',
+        '',
+        'There are no cells there. No rules.',
+        'Pieces move that do not exist in chess.',
+      ],
+    },
+  },
+
+  repeat: {
+    prologue: {
+      lines: [
+        'You are back in the pit.',
+        'The bones are laid differently, but they are the same bones.',
+        '',
+        'You remember how it ended.',
+        'So do they.',
+      ],
+    },
+    enemyLines: ['You again.', 'Last time you fell here.', 'I waited.', 'How many times now?'],
+    kingSeen: [
+      { ch: 'speech', kind: 'boss', text: 'You have been here before.' },
+      { ch: 'speech', kind: 'boss', text: 'You have already chosen.' },
+      { ch: 'speech', kind: 'boss', text: 'Choose differently.' },
+    ],
+  },
+};
+
+import { isEnglish } from '../lang.js';
+
+/** Return SCRIPT or SCRIPT_EN based on current language. */
+export function getScript() {
+  return isEnglish() ? SCRIPT_EN : SCRIPT;
+}
 
 /** Взять случайную строку из пула, не повторяя последнюю (по ключу lastKey). */
 export function pickLine(pool, lastKey) {

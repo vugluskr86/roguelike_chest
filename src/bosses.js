@@ -5,7 +5,7 @@
  */
 import { S } from './state.js';
 import { CFG } from './config.js';
-import { SCRIPT } from './content/script.js';
+import { getScript } from './content/script.js';
 import { enemyAt } from './state.js';
 import { applyStatus } from './status.js';
 import { DIAG, ORTHO, cheb, inB, key, pick } from './util.js';
@@ -131,7 +131,7 @@ export function tormentorTurn(e) {
   if (e.stunCd <= 0) {
     if (cheb(S.player, e) <= C.stunRadius) {
       applyStatus(S.player, 'stun', C.stunDur);
-      const p1 = SCRIPT.bosses.tormentor.phase1;
+      const p1 = getScript().bosses.tormentor.phase1;
       if (p1)
         p1.forEach((l) =>
           l.ch === 'log'
@@ -184,7 +184,7 @@ export function tormentorHit(e) {
   if (e.armor > 0) {
     e.phase = Math.min(e.phase + 1, C.diagsByPhase.length);
     const phaseKey = e.phase <= 2 ? 'phase2' : 'phase3';
-    const script = SCRIPT.bosses.tormentor[phaseKey];
+    const script = getScript().bosses.tormentor[phaseKey];
     if (script)
       return script.map((l) =>
         l.ch === 'log' ? ev.log(l.text) : ev.say(e.x, e.y, l.text, l.kind || 'boss'),
@@ -218,7 +218,7 @@ export function tormentorHit(e) {
     born.push(p);
   }
   return [
-    ...(SCRIPT.bosses.tormentor.death || []).map((l) => {
+    ...(getScript().bosses.tormentor.death || []).map((l) => {
       if (l.ch === 'speech') {
         const target = born.shift();
         return target ? ev.say(target.x, target.y, l.text, l.kind || 'boss') : ev.log(l.text);
@@ -325,7 +325,7 @@ export function linkedRooksTurn(pair) {
     if (a.stuck >= C.breakAfterStuck) {
       delete a.linkedTo;
       delete b.linkedTo;
-      const blockedScript = (SCRIPT.bosses.spawnedRooks && SCRIPT.bosses.spawnedRooks.blocked) || [
+      const blockedScript = (getScript().bosses.spawnedRooks && getScript().bosses.spawnedRooks.blocked) || [
         { ch: 'log', text: 'Они упёрлись друг в друга. Впервые за века — стоят.' },
         { ch: 'speech', kind: 'boss', text: 'Отпусти меня.' },
         { ch: 'speech', kind: 'boss', text: 'Отпусти меня.' },
@@ -343,7 +343,7 @@ export function linkedRooksTurn(pair) {
     }
     out.push(ev.log(`Спина не гнётся. Ладьи встали (${a.stuck}/${C.breakAfterStuck}).`));
     // в упоре они грызутся — подсказка игроку, что он на верном пути
-    const banter = (SCRIPT.bosses.spawnedRooks && SCRIPT.bosses.spawnedRooks.banter) || [
+    const banter = (getScript().bosses.spawnedRooks && getScript().bosses.spawnedRooks.banter) || [
       { ch: 'speech', kind: 'boss', text: 'Ты открыл ворота.' },
       { ch: 'speech', kind: 'boss', text: 'Ты назвал моё имя.' },
       { ch: 'speech', kind: 'boss', text: 'Я держал левый край.' },
@@ -374,7 +374,7 @@ export function linkedRookRevenge(killed) {
   if (!BOSS_CFG.linkedRooks.revenge || !killed.linkedTo) return [];
   const other = S.enemies.find((e) => e.linkedTo === killed.linkedTo && e !== killed);
   if (!other) return [];
-  const firstDeath = (SCRIPT.bosses.spawnedRooks && SCRIPT.bosses.spawnedRooks.firstDeath) || {
+  const firstDeath = (getScript().bosses.spawnedRooks && getScript().bosses.spawnedRooks.firstDeath) || {
     ch: 'speech',
     kind: 'boss',
     text: 'Наконец тихо.',
@@ -443,7 +443,7 @@ export function millstoneTurn() {
   }
   // квота набрана — глушим ВСЕ жернова, когда они уже расставлены по новым клеткам
   if (reachedQuota) {
-    const md = SCRIPT.bosses.millstone && SCRIPT.bosses.millstone.death;
+    const md = getScript().bosses.millstone && getScript().bosses.millstone.death;
     if (md) out.push(ev.log(md.text));
     else {
       out.push(ev.log('Жернов встал. Внутри — кости. Много.'));
@@ -613,7 +613,7 @@ export function redKingTurn(king) {
     king.orderCd = C.orderEvery;
     const target = pick(retinue);
     target.kingOrder = true;
-    const orders = (SCRIPT.bosses.redKing && SCRIPT.bosses.redKing.orders) || [
+    const orders = (getScript().bosses.redKing && getScript().bosses.redKing.orders) || [
       { ch: 'speech', kind: 'boss', text: 'Иди.' },
       { ch: 'speech', kind: 'boss', text: 'Не он. Ты.' },
       { ch: 'speech', kind: 'boss', text: 'Простите.' },
@@ -635,7 +635,7 @@ export function redKingTurn(king) {
     king.exposed = true;
     out.push(ev.log('Цепи пали. Он открыт.'));
     if (!retinue.length) {
-      const alone = (SCRIPT.bosses.redKing && SCRIPT.bosses.redKing.alone) || [
+      const alone = (getScript().bosses.redKing && getScript().bosses.redKing.alone) || [
         { ch: 'speech', kind: 'boss', text: 'Все.' },
         { ch: 'speech', kind: 'boss', text: 'Больше некого послать.' },
       ];
@@ -697,7 +697,7 @@ export function blindRookTurn(e) {
   e.fireCd = C.rookFireEvery;
 
   if (e.x !== S.player.x && e.y !== S.player.y) {
-    const rf = (SCRIPT.bosses.redKing.rooks && SCRIPT.bosses.redKing.rooks.fight) || {
+    const rf = (getScript().bosses.redKing.rooks && getScript().bosses.redKing.rooks.fight) || {
       ch: 'log',
       text: 'Они бьют по линиям. Не по тебе. Просто по линиям.',
     };

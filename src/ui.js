@@ -7,7 +7,16 @@ import { S } from './state.js';
 import { dom } from './dom.js';
 import { reset } from './board.js';
 import { switchForm } from './combat.js';
-import { CFG, GLYPH, KEY_GLYPH, NAME, TIER_META, relicTier, saveSettings } from './config.js';
+import {
+  CFG,
+  GLYPH,
+  KEY_GLYPH,
+  NAME,
+  NAME_EN,
+  TIER_META,
+  relicTier,
+  saveSettings,
+} from './config.js';
 import { ACHIEVEMENTS, CHALLENGES, CURSES, META_UPGRADES, RELICS } from './content.js';
 import { maybeEvent } from './events.js';
 import { applyOption } from './loot.js';
@@ -15,9 +24,9 @@ import { META, achProgress, buyUpgrade, codexProgress, upgradeCost } from './met
 import { activeForm } from './moves.js';
 import { syncHud } from './hud.js';
 import { ART } from './assets.js';
+import { isEnglish, L, LContent, invalidateLang } from './lang.js';
 import { duck, syncMusicSettings } from './music.js';
 
-// ════════════════════════════════════════════════════════════════
 //  Оболочка модалки
 // ════════════════════════════════════════════════════════════════
 
@@ -211,48 +220,100 @@ export function openRunSummary(title, subtitle, earned, opts = {}) {
   const win = !!opts.win;
   shell('lg', opts.art || (win ? ART.victory : ART.runOver), 'aside');
   if (!win) dom.modalBox.classList.add('death');
-  dom.mTitle.textContent = win ? title : 'Забег окончен';
-  dom.mText.textContent = win ? subtitle : `${title} — ${subtitle}`;
+  dom.mTitle.textContent = win ? title : L('summary.runOver');
+  dom.mText.textContent = win ? subtitle : title + ' — ' + subtitle;
   dom.mChoices.classList.add('loot-list');
 
-  const rids = [...S.player.relics],
-    cids = [...S.player.curses];
-  const formsUnlocked = [...S.unlocked].filter((t) => t !== 'pawn').map((t) => NAME[t]);
-  const wrap = document.createElement('div');
+  var isEnSummary = isEnglish();
+  var rids = [...S.player.relics];
+  var cids = [...S.player.curses];
+  var formsUnlocked = [...S.unlocked]
+    .filter(function (t) {
+      return t !== 'pawn';
+    })
+    .map(function (t) {
+      return isEnSummary && NAME_EN[t] ? NAME_EN[t] : NAME[t];
+    });
+  var wrap = document.createElement('div');
   wrap.className = 'summary';
-  wrap.innerHTML = `<div class="sfloor"><span class="snum">${S.floor}</span><span class="slbl">ярус</span></div>
-       <div class="sstats">
-         <div><b>${S.player.totalCaptures}</b> взятий за забег</div>
-         <div><b>${rids.length}</b> костей · <b>${cids.length}</b> швов</div>
-         <div>формы: ${formsUnlocked.length ? formsUnlocked.join(', ') : 'только пешка и конь'}</div>
-         <div class="searn">+${earned} пепла · всего ${META.shards}</div>
-         <div class="srec">рекорд: ярус ${META.bestFloor} · забегов ${META.runs}</div>
-       </div>
-       ${
-         rids.length
-           ? `<div class="ssec"><div class="sh">Кости</div><div class="relics">${rids
-               .map(
-                 (id) => `<span class="chip" title="${RELICS[id].desc}">${RELICS[id].name}</span>`,
-               )
-               .join('')}</div></div>`
-           : ''
-       }
-     ${
-       cids.length
-         ? `<div class="ssec"><div class="sh">Швы</div><div class="relics">${cids
-             .map(
-               (id) =>
-                 `<span class="chip curse" title="${CURSES[id].desc}">☠ ${CURSES[id].name}</span>`,
-             )
-             .join('')}</div></div>`
-         : ''
-     }
-     <div class="ssec"><div class="sh">Журнал</div><div class="run-log">${runLog.slice(-300).join('')}</div></div>`;
+  var formsText = formsUnlocked.length
+    ? formsUnlocked.join(', ')
+    : L('summary.formsOnlyPawnKnight');
+  wrap.innerHTML =
+    '<div class="sfloor"><span class="snum">' +
+    S.floor +
+    '</span><span class="slbl">' +
+    L('summary.floor') +
+    '</span></div>' +
+    '<div class="sstats">' +
+    '<div><b>' +
+    S.player.totalCaptures +
+    '</b> ' +
+    L('summary.captures') +
+    '</div>' +
+    '<div><b>' +
+    rids.length +
+    '</b> ' +
+    L('summary.bones') +
+    ' · <b>' +
+    cids.length +
+    '</b> ' +
+    L('summary.seams') +
+    '</div>' +
+    '<div>' +
+    L('summary.forms', formsText) +
+    '</div>' +
+    '<div class="searn">' +
+    L('summary.ashEarned', earned, META.shards) +
+    '</div>' +
+    '<div class="srec">' +
+    L('summary.record', META.bestFloor, META.runs) +
+    '</div>' +
+    '</div>' +
+    (rids.length
+      ? '<div class="ssec"><div class="sh">' +
+        L('summary.bones') +
+        '</div><div class="relics">' +
+        rids
+          .map(function (id) {
+            return (
+              '<span class="chip" title="' +
+              LContent(RELICS[id], 'desc') +
+              '">' +
+              LContent(RELICS[id], 'name') +
+              '</span>'
+            );
+          })
+          .join('') +
+        '</div></div>'
+      : '') +
+    (cids.length
+      ? '<div class="ssec"><div class="sh">' +
+        L('summary.seams') +
+        '</div><div class="relics">' +
+        cids
+          .map(function (id) {
+            return (
+              '<span class="chip curse" title="' +
+              LContent(CURSES[id], 'desc') +
+              '">☠ ' +
+              LContent(CURSES[id], 'name') +
+              '</span>'
+            );
+          })
+          .join('') +
+        '</div></div>'
+      : '') +
+    '<div class="ssec"><div class="sh">' +
+    L('summary.journal') +
+    '</div><div class="run-log">' +
+    runLog.slice(-300).join('') +
+    '</div></div>';
   dom.mChoices.appendChild(wrap);
 
   action(
     mkButton(
-      'Ещё забег (R)',
+      L('meta.runAgain'),
       () => {
         closeModal();
         reset();
@@ -261,7 +322,7 @@ export function openRunSummary(title, subtitle, earned, opts = {}) {
     ),
   );
   action(
-    mkButton('В меню', () => {
+    mkButton(L('meta.toMenu'), () => {
       closeModal();
       openTitle();
     }),
@@ -275,10 +336,12 @@ export function openRunSummary(title, subtitle, earned, opts = {}) {
 
 export function openTitle() {
   shell('lg', ART.title, 'aside');
-  dom.mTitle.textContent = '♟ Эндшпиль';
+  dom.mTitle.textContent = L('meta.title');
   dom.mText.innerHTML =
-    `<span class="searn">Пепел: <b>${META.shards}</b></span><br>` +
-    `рекорд: ярус ${META.bestFloor} · забегов ${META.runs} · всего взятий ${META.totalCaptures}`;
+    `<span class="searn">` +
+    L('meta.shards', META.shards) +
+    `</span><br>` +
+    L('meta.record', META.bestFloor, META.runs, META.totalCaptures);
   dom.mChoices.classList.add('loot-list');
 
   // ── ФУТЕР: режим и старт. Не скроллится, виден сразу ──
@@ -296,13 +359,10 @@ export function openTitle() {
     S.runMode = m;
     bCamp.classList.toggle('on', m === 'campaign');
     bInf.classList.toggle('on', m === 'infinite');
-    hint.textContent =
-      m === 'campaign'
-        ? '18 ярусов, четыре босса, три финала'
-        : 'Ярусы без конца, боссов нет — только рекорд';
+    hint.textContent = m === 'campaign' ? L('meta.campDesc') : L('meta.infDesc');
   };
-  const bCamp = mkButton('⚔ Кампания', () => setMode('campaign'));
-  const bInf = mkButton('∞ Бесконечная', () => setMode('infinite'));
+  const bCamp = mkButton(L('meta.campaign'), () => setMode('campaign'));
+  const bInf = mkButton(L('meta.infinite'), () => setMode('infinite'));
   seg.appendChild(bCamp);
   seg.appendChild(bInf);
 
@@ -314,7 +374,7 @@ export function openTitle() {
 
   action(
     mkButton(
-      'Начать забег (R)',
+      L('meta.startRun'),
       () => {
         closeModal();
         reset();
@@ -328,10 +388,10 @@ export function openTitle() {
   tabs.className = 'tab-row';
   const tabMeta = document.createElement('button');
   tabMeta.className = 'tab-btn active';
-  tabMeta.textContent = 'Мета-прогресс';
+  tabMeta.textContent = L('meta.progress');
   const tabChall = document.createElement('button');
   tabChall.className = 'tab-btn';
-  tabChall.textContent = 'Челленджи';
+  tabChall.textContent = L('meta.challenges');
   tabs.appendChild(tabMeta);
   tabs.appendChild(tabChall);
   dom.mChoices.appendChild(tabs);
@@ -342,17 +402,29 @@ export function openTitle() {
   shopScroll.className = 'scroll-shop';
   const shop = document.createElement('div');
   shop.className = 'shop';
+  var isEnTitle = isEnglish();
   Object.keys(META_UPGRADES).forEach((id) => {
     const u = META_UPGRADES[id],
       lvl = META.upgrades[id] || 0,
       cost = upgradeCost(id);
+    const uname = isEnTitle && u.enName ? u.enName : u.name;
+    const udesc = isEnTitle && u.enDesc ? u.enDesc : u.desc;
     const row = document.createElement('div');
     row.className = 'shoprow';
-    row.innerHTML = `<div class="si"><span class="ln">${u.name} <span class="lvl">${lvl}/${u.max}</span></span><span class="ld">${u.desc}</span></div>`;
+    row.innerHTML =
+      '<div class="si"><span class="ln">' +
+      uname +
+      ' <span class="lvl">' +
+      lvl +
+      '/' +
+      u.max +
+      '</span></span><span class="ld">' +
+      udesc +
+      '</span></div>';
     const buy = document.createElement('button');
     buy.className = 'buy';
     if (cost == null) {
-      buy.textContent = 'макс';
+      buy.textContent = isEnTitle ? 'max' : 'макс';
       buy.disabled = true;
     } else {
       buy.textContent = `${cost} ✦`;
@@ -377,12 +449,22 @@ export function openTitle() {
   challSection.className = 'shop';
   Object.keys(CHALLENGES).forEach((id) => {
     const c = CHALLENGES[id];
+    const cname = isEnTitle && c.enName ? c.enName : c.name;
+    const cdesc = isEnTitle && c.enDesc ? c.enDesc : c.desc;
     const row = document.createElement('div');
     row.className = 'shoprow';
-    row.innerHTML = `<div class="si"><span class="ln">${c.icon} ${c.name}</span><span class="ld">${c.desc}</span></div>`;
+    row.innerHTML =
+      '<div class="si"><span class="ln">' +
+      c.icon +
+      ' ' +
+      cname +
+      '</span><span class="ld">' +
+      cdesc +
+      '</span></div>';
     const btn = document.createElement('button');
     btn.className = 'buy';
-    btn.textContent = S.challenge === id ? 'выбран' : 'выбрать';
+    btn.textContent =
+      S.challenge === id ? (isEnTitle ? 'selected' : 'выбран') : isEnTitle ? 'select' : 'выбрать';
     btn.style.borderColor = S.challenge === id ? '#e08a3f' : '';
     btn.onclick = () => {
       // выбор челленджа больше не запускает забег сам: игрок мог просто читать,
@@ -417,19 +499,19 @@ export function openTitle() {
   const nav = document.createElement('div');
   nav.className = 'menu-nav';
   nav.appendChild(
-    mkButton(`Бестиарий ${codexN.have}/${codexN.total}`, () => {
+    mkButton(L('meta.bestiary', codexN.have, codexN.total), () => {
       closeModal();
       openCodex();
     }),
   );
   nav.appendChild(
-    mkButton(`Достижения ${achN.have}/${achN.total}`, () => {
+    mkButton(L('meta.achievements', achN.have, achN.total), () => {
       closeModal();
       openAchievements();
     }),
   );
   nav.appendChild(
-    mkButton('Как играть', () => {
+    mkButton(L('meta.help'), () => {
       closeModal();
       openHelp('title');
     }),
@@ -498,12 +580,12 @@ export function clearToastQueue() {
 
 export function openCodex() {
   shell('lg', ART.codex, 'aside');
-  dom.mTitle.textContent = 'Бестиарий';
-  dom.mText.textContent = 'Записи открываются по мере встреч в забегах.';
+  dom.mTitle.textContent = L('modal.codex');
+  dom.mText.textContent = L('modal.codexText');
   dom.mChoices.classList.add('loot-list');
   const box = document.createElement('div');
   box.className = 'help';
-  const enemyList = [
+  var enemyList = [
     'pawn',
     'knight',
     'bishop',
@@ -516,49 +598,74 @@ export function openCodex() {
     'priest',
     'frost',
   ];
-  const enemyDesc = {
-    pawn: 'шаг вперёд, бьёт по диагоналям',
-    knight: 'прыжок буквой Г',
-    bishop: 'диагонали',
-    rook: 'ортогонали',
-    queen: 'все направления',
-    guardian: 'король + броня 2',
-    necro: 'неподвижен, призывает пешек',
-    mimic: 'копирует твою форму',
-    assassin: 'конь; отравляет при взятии',
-    priest: 'слон; щитует союзников',
-    frost: 'неподвижен; оглушает на дистанции',
-  };
-  let html = '<div class="hsec"><div class="hh">Враги</div>';
-  enemyList.forEach((t) => {
-    const seen = META.codex.enemies[t],
-      kills = META.codex.kills[t] || 0;
+  var isEnCodex = isEnglish();
+  var html = '<div class="hsec"><div class="hh">' + L('codex.enemies') + '</div>';
+  enemyList.forEach(function (t) {
+    var seen = META.codex.enemies[t];
+    var kills = META.codex.kills[t] || 0;
+    var nameStr = isEnCodex && NAME_EN[t] ? NAME_EN[t] : NAME[t];
     html += seen
-      ? `<div class="cdx"><b>${GLYPH[t]} ${NAME[t]}</b><span>${enemyDesc[t]} · убито: ${kills}</span></div>`
-      : `<div class="cdx locked"><b>? ??????</b><span>не встречен</span></div>`;
+      ? '<div class="cdx"><b>' +
+        GLYPH[t] +
+        ' ' +
+        nameStr +
+        '</b><span>' +
+        L('codex.desc.' + t) +
+        ' · ' +
+        L('codex.kills', kills) +
+        '</span></div>'
+      : '<div class="cdx locked"><b>? ??????</b><span>' + L('codex.locked.enemy') + '</span></div>';
   });
   html += '</div>';
-  const relIds = Object.keys(RELICS);
-  html += `<div class="hsec"><div class="hh">Кости ${relIds.filter((id) => META.codex.relics[id]).length}/${relIds.length}</div>`;
-  relIds.forEach((id) => {
+  var relIds = Object.keys(RELICS);
+  var relFound = relIds.filter(function (id) {
+    return META.codex.relics[id];
+  }).length;
+  html +=
+    '<div class="hsec"><div class="hh">' +
+    L('codex.bones') +
+    ' ' +
+    relFound +
+    '/' +
+    relIds.length +
+    '</div>';
+  relIds.forEach(function (id) {
     html += META.codex.relics[id]
-      ? `<div class="cdx"><b>${RELICS[id].name}</b><span>${RELICS[id].desc}</span></div>`
-      : `<div class="cdx locked"><b>? ??????</b><span>не найдена</span></div>`;
+      ? '<div class="cdx"><b>' +
+        LContent(RELICS[id], 'name') +
+        '</b><span>' +
+        LContent(RELICS[id], 'desc') +
+        '</span></div>'
+      : '<div class="cdx locked"><b>? ??????</b><span>' + L('codex.locked.bone') + '</span></div>';
   });
   html += '</div>';
-  const curIds = Object.keys(CURSES);
-  html += `<div class="hsec"><div class="hh">Швы ${curIds.filter((id) => META.codex.curses[id]).length}/${curIds.length}</div>`;
-  curIds.forEach((id) => {
+  var curIds = Object.keys(CURSES);
+  var curFound = curIds.filter(function (id) {
+    return META.codex.curses[id];
+  }).length;
+  html +=
+    '<div class="hsec"><div class="hh">' +
+    L('codex.seams') +
+    ' ' +
+    curFound +
+    '/' +
+    curIds.length +
+    '</div>';
+  curIds.forEach(function (id) {
     html += META.codex.curses[id]
-      ? `<div class="cdx"><b>☠ ${CURSES[id].name}</b><span>${CURSES[id].desc}</span></div>`
-      : `<div class="cdx locked"><b>? ??????</b><span>не встречено</span></div>`;
+      ? '<div class="cdx"><b>☠ ' +
+        LContent(CURSES[id], 'name') +
+        '</b><span>' +
+        LContent(CURSES[id], 'desc') +
+        '</span></div>'
+      : '<div class="cdx locked"><b>? ??????</b><span>' + L('codex.locked.seam') + '</span></div>';
   });
   html += '</div>';
   box.innerHTML = html;
   dom.mChoices.appendChild(box);
   action(
     mkButton(
-      'Назад в меню',
+      L('meta.toMenu'),
       () => {
         closeModal();
         openTitle();
@@ -572,8 +679,8 @@ export function openCodex() {
 export function openAchievements() {
   shell('lg', ART.codex, 'aside');
   const p = achProgress();
-  dom.mTitle.textContent = 'Достижения';
-  dom.mText.textContent = `Открыто ${p.have} из ${p.total}.`;
+  dom.mTitle.textContent = L('modal.achievements');
+  dom.mText.textContent = L('modal.achievementsText', p.have, p.total);
   dom.mChoices.classList.add('loot-list');
   const box = document.createElement('div');
   box.className = 'help';
@@ -581,7 +688,16 @@ export function openAchievements() {
   Object.keys(ACHIEVEMENTS).forEach((id) => {
     const a = ACHIEVEMENTS[id],
       got = META.achievements[id];
-    html += `<div class="cdx${got ? '' : ' locked'}"><b>${got ? '🏆' : '🔒'} ${a.name}</b><span>${a.desc}</span></div>`;
+    html +=
+      '<div class="cdx' +
+      (got ? '' : ' locked') +
+      '"><b>' +
+      (got ? '🏆' : '🔒') +
+      ' ' +
+      LContent(a, 'name') +
+      '</b><span>' +
+      LContent(a, 'desc') +
+      '</span></div>';
   });
   html += '</div>';
   box.innerHTML = html;
@@ -605,179 +721,182 @@ export function openAchievements() {
 
 export function openHelp(from) {
   shell('lg', ART.help, 'aside');
-  dom.mTitle.textContent = 'Как играть';
-  dom.mText.textContent = 'Шахматный рогалик: ты — фигура, что меняет свой тип по ходу спуска.';
+  dom.mTitle.textContent = L('help.title');
+  dom.mText.textContent = L('help.tagline');
   dom.mChoices.classList.add('loot-list');
 
+  var isEn = isEnglish();
+  var body = '';
+  // goal
+  body += '<div class="hsec"><div class="hh">' + L('help.goal') + '</div>';
+  body += isEn
+    ? 'Descend through floors, clearing all enemies. Each floor is a new random board with more dangerous foes. Death ends the run, but ash and records persist.</div>'
+    : 'Спускайся по ярусам, зачищая всех врагов. Каждый следующий ярус — новая случайная доска и более опасные враги. Смерть завершает забег, но пепел и рекорды сохраняются.</div>';
+  // controls
+  body += '<div class="hsec"><div class="hh">' + L('help.controls') + '</div>';
+  body += isEn
+    ? 'Turn-based: your move first, then all enemies act. One action per turn: move, capture, switch form, or pass.<br>• <b>Tap a cell</b> — move or capture. Teal dot = safe, amber = under threat, crimson cross = fatal.<br>• <b>Tap an enemy</b> — show/hide its threat zone.<br>• <b>Tap a form slot</b> — switch form (costs a turn).<br>• PC: <b>1–5</b> forms, <b>Q/E</b> rotate (free), <b>Space</b> pass, <b>Tab</b> cycle, <b>Esc</b> reset, <b>Enter</b> confirm.</div>'
+    : 'Игра пошаговая: сначала твой ход, затем ходят все враги. За ход — одно действие: переместиться, взять фигуру, сменить форму или спасовать.<br>• <b>Тап по клетке</b> — ход или взятие. Бирюзовая точка — безопасно, янтарная — встанешь под удар, багровая с крестом — там забег кончится.<br>• <b>Тап по врагу</b> — показать/скрыть его зону боя.<br>• <b>Тап по слоту формы</b> — сменить форму (тратит ход).<br>• ПК: <b>1–5</b> формы, <b>Q/E</b> поворот (бесплатно), <b>Space</b> пас, <b>Tab</b> перебор, <b>Esc</b> сброс, <b>Enter</b> подтвердить.</div>';
+  // preview
+  body += '<div class="hsec"><div class="hh">' + L('help.preview') + '</div>';
+  body += isEn
+    ? 'Hover or tap a move cell — amber hatching shows which cells will be threatened <b>after</b> the move. Red hatching = currently threatened. Enable confirmation in Settings.</div>'
+    : 'Наведи или тапни по клетке хода — янтарная штриховка покажет, какие клетки станут битыми <b>после</b> этого хода. Красная штриховка — то, что бито уже сейчас. В настройках можно включить подтверждение.</div>';
+  // forms (GLYPH)
+  body += '<div class="hsec"><div class="hh">' + L('help.forms') + '</div>';
+  if (isEn) {
+    body +=
+      'You play as one chess form; capture = moving onto an enemy cell.<br>• <b>' +
+      GLYPH.pawn +
+      ' Pawn</b> — moves 1 forward, attacks forward diagonals. Has <b>facing</b> — rotate free (Q/E). Blind from behind.<br>• <b>' +
+      GLYPH.knight +
+      ' Knight</b> — L-shaped leap over obstacles.<br>• <b>' +
+      GLYPH.bishop +
+      ' Bishop</b> — diagonals; on <b>own color</b> +1 range.<br>• <b>' +
+      GLYPH.rook +
+      ' Rook</b> — straight lines.<br>• <b>' +
+      GLYPH.queen +
+      ' Queen</b> — all directions, shorter range. Sliders stop at first obstacle; only knight passes through.</div>';
+  } else {
+    body +=
+      'Ты играешь одной из шахматных форм; взятие — это перемещение на клетку врага.<br>• <b>' +
+      GLYPH.pawn +
+      ' Пешка</b> — ходит на 1 вперёд, бьёт по передним диагоналям. У неё есть <b>направление взгляда</b> (фасинг) — поворачивай бесплатно (Q/E). Слепа со спины.<br>• <b>' +
+      GLYPH.knight +
+      ' Конь</b> — прыжок буквой «Г» через любые препятствия.<br>• <b>' +
+      GLYPH.bishop +
+      ' Слон</b> — по диагоналям; на клетке <b>своего цвета</b> бьёт на +1 дальше.<br>• <b>' +
+      GLYPH.rook +
+      ' Ладья</b> — по прямым линиям.<br>• <b>' +
+      GLYPH.queen +
+      ' Ферзь</b> — во все стороны, но дальность меньше. Слайдеры упираются в первое препятствие; сквозь ходит только конь.</div>';
+  }
+  // wheel
+  body += '<div class="hsec"><div class="hh">' + L('help.wheel') + '</div>';
+  body += isEn
+    ? 'Forms are in a wheel (slot 0 = permanent pawn). Switching <b>costs a turn</b>. After a capture the form <b>fatigues</b> for a few turns. New forms unlock when you capture an enemy of that type. The number on each slot shows moves available.</div>'
+    : 'Формы лежат в колесе (слот 0 — неудаляемая пешка). Смена формы <b>тратит ход</b>. Форма, совершившая взятие, <b>устаёт</b> на пару ходов. Новые формы открываются, когда ты берёшь вражескую фигуру её типа. Число в углу слота — сколько ходов даст эта форма.</div>';
+  // capture
+  body += '<div class="hsec"><div class="hh">' + L('help.capture') + '</div>';
+  body += isEn
+    ? 'No HP: capture is instant. When an enemy captures you, you <b>degrade</b> one tier (queen → rook → bishop/knight → pawn), losing the current form. Capture <b>as pawn = end of run</b>. Pawn is your last life.</div>'
+    : 'HP нет: взятие мгновенно. Когда враг берёт тебя — ты не гибнешь сразу, а <b>деградируешь</b> на ступень ниже (ферзь → ладья → слон/конь → пешка), теряя текущую форму. Взятие <b>в форме пешки — конец забега</b>. Пешка — твоя последняя жизнь.</div>';
+  // ascension
+  body += '<div class="hsec"><div class="hh">' + L('help.ascension') + '</div>';
+  body += isEn
+    ? 'The top row is a <span style="color:var(--promo)">golden line</span>. End your turn on it <b>as a pawn</b> to transform, improved (★).</div>'
+    : 'Верхний ряд — <span style="color:var(--promo)">золотая линия</span>. Закончи ход на ней <b>в форме пешки</b> — превратишься в выбранную форму, улучшенную (★).</div>';
+  // checkmate
+  body += '<div class="hsec"><div class="hh">' + L('help.checkmate') + '</div>';
+  body += isEn
+    ? 'All threatened cells are highlighted. Ending a turn on one = <b>check</b>. No legal moves on a threatened cell = <b>checkmate</b>: you are taken on the spot.</div>'
+    : 'Все битые поля врагов подсвечены. Закончил ход на битой клетке — <b>шах</b>. Нет ни одного легального хода на битой клетке — <b>мат</b>: тебя вскрывают на месте.</div>';
+  // biomes
+  body += '<div class="hsec"><div class="hh">' + L('help.biomes') + '</div>';
+  body += isEn
+    ? 'Floors come in sets, changing every 2 floors:<br>• <b>Halls</b> — open spaces, bishops/queens/mimics.<br>• <b>Corridors</b> — tight passages, rooks/guardians/assassins.<br>• <b>Maze</b> — winding corridors, knights/bishops/queens.<br>• <b>Grid</b> — 3×3 cells, rooks/guardians/priests.<br>• <b>Arena</b> — wall-free field, queens/mimics/assassins.<br>• <b>Pylons</b> — pillar labyrinth, knights/necromancers/mages.</div>'
+    : 'Ярусы идут наборами со своей генерацией, палитрой и пулами (сменяются каждые 2 яруса):<br>• <b>Залы</b> — открытые пространства, слоны/ферзи/двойники.<br>• <b>Коридоры</b> — тесные проходы, ладьи/стражи/ассасины.<br>• <b>Лабиринт</b> — извилистые коридоры, кони/слоны/ферзи.<br>• <b>Решётка</b> — ячейки 3×3, ладьи/стражи/жрецы.<br>• <b>Арена</b> — поле без стен, ферзи/двойники/ассасины.<br>• <b>Пилоны</b> — лабиринт столбов, кони/некроманты/маги.</div>';
+  // specials
+  body += '<div class="hsec"><div class="hh">' + L('help.specials') + '</div>';
+  body += isEn
+    ? '• <span style="color:#c23b30">▼ Web</span> — lose a form, enemy dies. One-use.<br>• <span style="color:#9b6dd0">◎ Portal</span> — teleports to its pair.<br>• <span style="color:#58b3a4">◈ Vein</span> — removes fatigue and statuses.<br>• <span style="color:#8fd0e6">❄ Ice</span> — stuns on entry.<br>• <span style="color:#96a0b0">☁ Fog</span> — hides threat overlay.<br>• <span style="color:#7aa0c0">→ Conveyor</span> — pushes after move.<br>• <span style="color:#c9a227">→ Gate</span> — passable only along arrow.<br>• <span style="color:#b0a8f0">♝ Color Zone</span> — bishop only.<br>• <span style="color:#8fae7a">▣ Plate</span> — opens a wall.<br>• <span style="color:#d65a28">≈ Lava</span> — spreads and burns.</div>'
+    : '• <span style="color:#c23b30">▼ Паутина</span> — теряешь форму, враг гибнет. Одноразовые.<br>• <span style="color:#9b6dd0">◎ Портал</span> — переносит к парному кольцу.<br>• <span style="color:#58b3a4">◈ Жила</span> — снимает усталость и статусы.<br>• <span style="color:#8fd0e6">❄ Лёд</span> — оглушает при входе.<br>• <span style="color:#96a0b0">☁ Туман</span> — скрывает угрозу.<br>• <span style="color:#7aa0c0">→ Конвейер</span> — сдвигает после хода.<br>• <span style="color:#c9a227">→ Ворота</span> — проход только по стрелке.<br>• <span style="color:#b0a8f0">♝ Цветовая зона</span> — только слон.<br>• <span style="color:#8fae7a">▣ Плита</span> — открывает стену.<br>• <span style="color:#d65a28">≈ Лава</span> — растекается и жжёт.</div>';
+  // enemies (GLYPH)
+  body += '<div class="hsec"><div class="hh">' + L('help.enemies') + '</div>';
+  if (isEn) {
+    body +=
+      'Standard chess pieces move toward you. Special:<br>• <b>' +
+      GLYPH.guardian +
+      ' Guardian</b> — double hit (armor).<br>• <b>' +
+      GLYPH.necro +
+      ' Necromancer</b> — summons pawns.<br>• <b>' +
+      GLYPH.mimic +
+      ' Mimic</b> — copies your active form.<br>• <b>' +
+      GLYPH.assassin +
+      ' Assassin</b> — knight, poisons.<br>• <b>' +
+      GLYPH.priest +
+      ' Priest</b> — bishop, shields allies.<br>• <b>' +
+      GLYPH.frost +
+      ' Frost Mage</b> — immobile, stuns at range.</div>';
+  } else {
+    body +=
+      'Обычные шахматные фигуры двигаются к тебе. Особые:<br>• <b>' +
+      GLYPH.guardian +
+      ' Страж</b> — двойной удар (броня).<br>• <b>' +
+      GLYPH.necro +
+      ' Некромант</b> — призывает пешек.<br>• <b>' +
+      GLYPH.mimic +
+      ' Двойник</b> — копирует твою форму.<br>• <b>' +
+      GLYPH.assassin +
+      ' Ассасин</b> — конь, отравляет.<br>• <b>' +
+      GLYPH.priest +
+      ' Жрец</b> — слон, щитует союзников.<br>• <b>' +
+      GLYPH.frost +
+      ' Морозный маг</b> — неподвижен, оглушает.</div>';
+  }
+  // bosses
+  body += '<div class="hsec"><div class="hh">' + L('help.bosses') + '</div>';
+  body += isEn
+    ? 'Boss floors (5, 8, 11, 18) are authored arenas. Hunger freezes.<br>• <b>Tormentor Bishop</b> (5) — three bodies, loses diagonals on hit.<br>• <b>Linked Rooks</b> (8) — move in sync, avenge a kill instantly.<br>• <b>Puppeteer + Millstone</b> (11) — bodies fall, millstone crushes. Feed three.<br>• <b>Red King</b> (18) — invulnerable, break four chains under retinue fire.</div>'
+    : 'Босс-ярусы (5, 8, 11, 18) — авторские арены. Голод не тратится.<br>• <b>Слон-Мучитель</b> (5) — три тела, теряет диагонали.<br>• <b>Спаянные Ладьи</b> (8) — ходят синхронно, мстят мгновенно.<br>• <b>Кукловод + Жернов</b> (11) — тела падают, жернов давит. Скорми три.<br>• <b>Красный Король</b> (18) — неуязвим, ломай четыре цепи под огнём свиты.</div>';
+  // rooms
+  body += '<div class="hsec"><div class="hh">' + L('help.rooms') + '</div>';
+  body += isEn
+    ? 'A floor has 1–5 rooms connected by doors. Locked doors need a matching key (always in the same room). Clear <b>all</b> rooms to finish. The room map ✓—●—🔑 at the top shows progress.</div>'
+    : 'Ярус — 1–5 комнат, соединены дверями. Запертые двери требуют ключ (всегда в той же комнате). Зачисти <b>все</b> комнаты. Строка «комнаты ✓—●—🔑» вверху показывает прогресс.</div>';
+  // food
+  body += '<div class="hsec"><div class="hh">' + L('help.food') + '</div>';
+  body += isEn
+    ? 'Cells with 🍖 restore hunger. The hunger bar shows turns until degradation. Captures and Veins also feed; pass costs more.</div>'
+    : 'Клетки с 🍖 восполняют сытость. Шкала голода показывает ходы до деградации. Взятия и Жилы тоже кормят; пас дороже.</div>';
+  // pillars
+  body += '<div class="hsec"><div class="hh">' + L('help.pillars') + '</div>';
+  body += isEn
+    ? '• <b>Pillar</b> — impassable stone block.<br>• <b>Millstone</b> — rolls in a straight line, crushes enemies and player; stops permanently once jammed.</div>'
+    : '• <b>Пилон</b> — непроходимый каменный блок.<br>• <b>Жернов</b> — катается по прямой, давит врагов и игрока; забитый встаёт навсегда.</div>';
+  // editor
+  body += '<div class="hsec"><div class="hh">' + L('help.editor') + '</div>';
+  body += isEn
+    ? 'The 🗺 Editor button in the menu. Place walls, enemies, special cells, doors and keys. Supports multiple rooms. Run a simulation and return to editing.</div>'
+    : 'Кнопка «🗺 Редактор» в меню. Расставляй стены, врагов, спец-клетки, двери и ключи. Поддерживает несколько комнат. Запусти симуляцию и вернись.</div>';
+  // events
+  body += '<div class="hsec"><div class="hh">' + L('help.events') + '</div>';
+  body += isEn
+    ? 'Enemies drop gold. Between floors an event room may appear: Bonesetter (buy bone/remove seam), Unstitching (remove seam free), Sanctuary (sacrifice form for bone), Dice Altar (gamble), Blessing Altar (gift for next floor).</div>'
+    : 'Враги роняют золото. Между ярусами — комната-событие: Костоправ, Распайка, Жертвенник, Кости судьбы, Алтарь благословения.</div>';
+  // statuses
+  body += '<div class="hsec"><div class="hh">' + L('help.statuses') + '</div>';
+  body += isEn
+    ? 'Colored dots on pieces: <span style="color:#6cbf5a">Poison</span> — countdown. <span style="color:#e0c341">Stun</span> — skip turn. <span style="color:#5bb6d6">Shield</span> — absorbs capture. <span style="color:#e08a3f">Haste</span> — +1 range. Vein removes all.</div>'
+    : 'Цветные кружки: <span style="color:#6cbf5a">Яд</span> — отсчёт. <span style="color:#e0c341">Оглушение</span> — пропуск хода. <span style="color:#5bb6d6">Щит</span> — поглощает взятие. <span style="color:#e08a3f">Ускорение</span> — +1 дальность. Жила снимает всё.</div>';
+  // loot
+  body += '<div class="hsec"><div class="hh">' + L('help.loot') + '</div>';
+  body += isEn
+    ? 'After clearing a floor, pick a reward. Safe <b>bones</b> and cursed deals: <b>⚠ Faustian</b> (2 bones + seam), <b>☠ Altar</b> (3 bones + 2 seams). <b>Seams</b> — permanent debuffs. Shown in Modifiers panel and rings.</div>'
+    : 'После зачистки — выбор награды. Безопасные <b>кости</b> и проклятые сделки: <b>⚠ фаустова</b> (2 кости + шов), <b>☠ алтарь</b> (3 кости + 2 шва). <b>Швы</b> — перманентные дебаффы. Видно в панели Модификаторов и кольцами.</div>';
+  // challenges
+  body += '<div class="hsec"><div class="hh">' + L('help.challenges') + '</div>';
+  body += isEn
+    ? '• <b>🔒 Lone Figure</b> — no switching, capture = death.<br>• <b>🌫️ Blind Descent</b> — 2-cell radius.<br>• <b>⚡ Storm</b> — stronger enemies, +50% ash.<br>• <b>🌀 Chaos Wheel</b> — random switch every 3 turns.<br>• <b>💀 Escalation</b> — enemies grow per floor, ×2 ash from floor 5.</div>'
+    : '• <b>🔒 Одинокая фигура</b> — без смены, взятие = конец.<br>• <b>🌫️ Слепой спуск</b> — радиус 2 клетки.<br>• <b>⚡ Шторм</b> — враги сильнее, +50% пепла.<br>• <b>🌀 Хаотичное колесо</b> — смена каждые 3 хода.<br>• <b>💀 Эскалация</b> — враги растут, ×2 пепла с яруса 5.</div>';
+  // exotic
+  body += '<div class="hsec"><div class="hh">' + L('help.exotic') + '</div>';
+  body += isEn
+    ? 'Unlock for ash: <b>♝ Archbishop</b> (bishop+knight), <b>♜ Chancellor</b> (rook+knight), <b>☣ Beast</b> (leaps 2 cells).</div>'
+    : 'Открываются за пепел: <b>♝ Архиепископ</b> (слон+конь), <b>♜ Канцлер</b> (ладья+конь), <b>☣ Изверг</b> (прыжки на 2).</div>';
+  // meta
+  body += '<div class="hsec"><div class="hh">' + L('help.meta') + '</div>';
+  body += isEn
+    ? 'Each run earns <b>ash</b> (floor×3 + captures). Spend on starting slots, starting bones, easier first floor. Progress persists across runs.</div>'
+    : 'За каждый забег — <b>пепел</b> (ярус×3 + взятия). Трать на стартовые слоты, стартовые кости, облегчённый первый ярус. Прогресс сохраняется между забегами.</div>';
   const H = document.createElement('div');
   H.className = 'help';
-  H.innerHTML = `
-    <div class="hsec"><div class="hh">Цель</div>
-      Спускайся по ярусам, зачищая всех врагов. Каждый следующий ярус — новая случайная доска и более
-      опасные враги. Смерть завершает забег, но пепел и рекорды сохраняются.</div>
-
-    <div class="hsec"><div class="hh">Ход и управление</div>
-      Игра пошаговая: сначала твой ход, затем ходят все враги. За ход — одно действие:
-      переместиться, взять фигуру, сменить форму или спасовать.<br>
-      • <b>Тап по клетке</b> — ход или взятие. Бирюзовая точка — безопасно, янтарная — встанешь
-        под удар, багровая с крестом — там забег кончится.<br>
-      • <b>Тап по врагу</b> — показать/скрыть его зону боя (красная штриховка).<br>
-      • <b>Тап по слоту формы</b> — сменить форму (тратит ход).<br>
-      • На ПК: <b>1–5</b> формы, <b>Q/E</b> поворот пешки (бесплатно), <b>Space</b> пас,
-        <b>Tab</b> перебор врагов, <b>Esc</b> сброс, <b>Enter</b> подтвердить ход.</div>
-
-    <div class="hsec"><div class="hh">Предпросмотр</div>
-      Наведи или тапни по клетке хода — янтарная штриховка покажет, какие клетки станут битыми
-      <b>после</b> этого хода. Красная штриховка — то, что бито уже сейчас.
-      В настройках можно включить подтверждение опасных ходов вторым тапом.</div>
-
-    <div class="hsec"><div class="hh">Формы фигур</div>
-      Ты играешь одной из шахматных форм; взятие — это перемещение на клетку врага.<br>
-      • <b>${GLYPH.pawn} Пешка</b> — ходит на 1 вперёд, бьёт по передним диагоналям. У неё есть
-        <b>направление взгляда</b> (фасинг) — поворачивай бесплатно (Q/E). Слепа со спины.<br>
-      • <b>${GLYPH.knight} Конь</b> — прыжок буквой «Г» через любые препятствия.<br>
-      • <b>${GLYPH.bishop} Слон</b> — по диагоналям; на клетке <b>своего цвета</b> бьёт на +1 дальше.<br>
-      • <b>${GLYPH.rook} Ладья</b> — по прямым линиям.<br>
-      • <b>${GLYPH.queen} Ферзь</b> — во все стороны, но дальность меньше (плата за универсальность).<br>
-      Слайдеры (слон/ладья/ферзь) упираются в первое препятствие; сквозь ходит только конь.</div>
-
-    <div class="hsec"><div class="hh">Колесо форм и усталость</div>
-      Формы лежат в колесе (слот 0 — неудаляемая пешка). Смена формы <b>тратит ход</b>.
-      Форма, совершившая взятие, <b>устаёт</b> на пару ходов — в неё нельзя переключиться.
-      Новые формы открываются, когда ты берёшь обычную вражескую фигуру её типа.
-      Число в углу слота — сколько ходов даст эта форма из текущей клетки.</div>
-
-    <div class="hsec"><div class="hh">Взятия и деградация</div>
-      HP нет: взятие мгновенно. Когда враг берёт тебя — ты не гибнешь сразу, а <b>деградируешь</b>
-      на ступень ниже по ценности (ферзь → ладья → слон/конь → пешка), теряя текущую форму.
-      Взятие <b>в форме пешки — конец забега</b>. Пешка — твоя последняя жизнь.</div>
-
-    <div class="hsec"><div class="hh">Восхождение</div>
-      Верхний ряд — <span style="color:var(--promo)">золотая линия</span>. Закончи ход на ней
-      <b>в форме пешки</b> — превратишься в выбранную форму, улучшенную (★).</div>
-
-    <div class="hsec"><div class="hh">Шах и мат</div>
-      Все битые поля врагов подсвечены. Закончил ход на битой клетке — <b>шах</b>: враг обязан
-      атаковать тебя следующим ходом. Нет ни одного легального хода на битой клетке — <b>мат</b>:
-      тебя вскрывают на месте.</div>
-
-    <div class="hsec"><div class="hh">Биомы</div>
-      Ярусы идут наборами со своей генерацией, палитрой и пулами (сменяются каждые 2 яруса):<br>
-      • <b>Залы</b> — открытые пространства, слоны/ферзи/двойники.<br>
-      • <b>Коридоры</b> — тесные проходы, ладьи/стражи/ассасины, ворота и плиты.<br>
-      • <b>Лабиринт</b> — узкие извилистые коридоры, кони/слоны/ферзи.<br>
-      • <b>Решётка</b> — комнаты-ячейки 3×3, ладьи/стражи/жрецы.<br>
-      • <b>Арена</b> — открытое поле без стен, ферзи/двойники/ассасины.<br>
-      • <b>Пилоны</b> — лабиринт столбов, кони/некроманты/маги, туман и зоны.</div>
-
-    <div class="hsec"><div class="hh">Особые клетки</div>
-      • <span style="color:#c23b30">▼ Паутина</span> — наступишь: теряешь форму; враг — гибнет. Одноразовые (можно заманивать врагов).<br>
-      • <span style="color:#9b6dd0">◎ Портал</span> — переносит к парному кольцу. Инструмент мобильности.<br>
-      • <span style="color:#58b3a4">◈ Жила</span> — снимает усталость со всех форм и статусы. Одноразовая.<br>
-      • <span style="color:#8fd0e6">❄ Лёд</span> — оглушает при входе (и тебя, и врага). Персистентный.<br>
-      • <span style="color:#96a0b0">☁ Туман</span> — скрывает подсветку угрозы: шагаешь вслепую.<br>
-      • <span style="color:#7aa0c0">→ Конвейер</span> — сдвигает фигуру на клетку по стрелке после хода.<br>
-      • <span style="color:#c9a227">→ Ворота</span> — пройти можно только по стрелке (иначе как стена).<br>
-      • <span style="color:#b0a8f0">♝ Цветовая зона</span> — проходима только в форме слона: его личный коридор.<br>
-      • <span style="color:#8fae7a">▣ Плита</span> — наступишь: открывает соседнюю стену (проход/ловушка для врагов).<br>
-      • <span style="color:#d65a28">≈ Лава</span> — растекается по ярусу и уничтожает любого, кто в ней окажется.</div>
-
-    <div class="hsec"><div class="hh">Враги</div>
-      Обычные шахматные фигуры двигаются к тебе, стремясь доставить удар. Особые:<br>
-      • <b>${GLYPH.guardian} Страж</b> — ходит как король, но нужен <b>двойной удар</b>: первый снимает щит.<br>
-      • <b>${GLYPH.necro} Некромант</b> — неподвижен и не атакует, но <b>призывает пешек</b>. Дорезай быстро.<br>
-      • <b>${GLYPH.mimic} Двойник</b> — <b>копирует твою активную форму</b>: сменишь форму — сменится и он.<br>
-      • <b>${GLYPH.assassin} Ассасин</b> — ходит конём; при взятии <b>отравляет</b> тебя.<br>
-      • <b>${GLYPH.priest} Жрец</b> — ходит слоном; периодически <b>даёт щит</b> соседним союзникам.<br>
-      • <b>${GLYPH.frost} Морозный маг</b> — неподвижен; <b>оглушает</b> тебя на расстоянии.</div>
-
-    <div class="hsec"><div class="hh">Боссы</div>
-      Каждые несколько ярусов ты встречаешь босса с уникальной механикой. Босс-ярусы
-      (5, 8, 11, 18) — авторские арены с особыми правилами. Пока бой не окончен,
-      голод не тратится.<br>
-      • <b>Слон-Мучитель</b> (ярус 5) — ходит по диагоналям, состоит из трёх сшитых
-        тел. Каждый удар снимает одно тело и одну диагональ. Когда брони не остаётся —
-        рассыпается на три бегущие пешки.<br>
-      • <b>Спаянные Ладьи</b> (ярус 8) — две ладьи, скованные спинами. Ходят строго
-        на одинаковый вектор. Если одна упирается в пилон или стену — стоят обе.
-        Убить по одной нельзя: вторая мстит мгновенно. Решение: завести в позицию,
-        где они блокируют друг друга — связь рвётся.<br>
-      • <b>Кукловод + Жернов</b> (ярус 11) — тела падают сверху бесконечно.
-        Жернов катается и давит всё на пути. Скорми ему три куклы — механизм заклинит,
-        и нити оборвутся.<br>
-      • <b>Красный Король</b> (ярус 18) — неуязвим, пока целы четыре Цепи (плиты в
-        углах). Ломай цепи под огнём свиты: Королева со щитом, слепые Ладьи бьют
-        по линиям, Кони прыгают через раз. Когда цепи падут — Король открыт.</div>
-
-    <div class="hsec"><div class="hh">Комнаты</div>
-      Ярус может состоять из нескольких комнат (1–5). Комнаты соединены дверями —
-      кольцом, всегда проходимым. Часть дверей заперта на цветной ключ; ключ
-      всегда лежит в той же комнате, где запертая дверь. Чтобы завершить ярус,
-      нужно зачистить <b>все</b> комнаты. Строка «комнаты ✓—●—🔑» вверху показывает прогресс.</div>
-
-    <div class="hsec"><div class="hh">Кости (еда)</div>
-      На ярусе встречаются клетки с 🍖. Наступив, съедаешь кость и восполняешь сытость.
-      Шкала голода вверху: рядом с ней — сколько ходов осталось до деградации.
-      Взятия и Жилы тоже кормят, пас — наоборот, дороже обычного хода.</div>
-
-    <div class="hsec"><div class="hh">Пилоны и жернова</div>
-      • <b>Пилон</b> — массивный каменный блок. Непроходим для всех. Враги
-        упираются в него как в стену.<br>
-      • <b>Жернов</b> — круглая спец-клетка, катается по прямой. Давит врагов
-        и игрока. Забитый жернов останавливается навсегда.</div>
-
-    <div class="hsec"><div class="hh">Редактор уровней</div>
-      Кнопка «🗺 Редактор» в меню. Позволяет расставлять стены,
-      врагов (включая всех боссов одной кнопкой), спец-клетки и двери с ключами.
-      Поддерживает несколько комнат. Можно запустить симуляцию и вернуться
-      к редактированию.</div>
-
-    <div class="hsec"><div class="hh">Золото и комнаты-события</div>
-      Враги роняют золото (🪙, копится в рамках забега, отдельно от пепла). Между ярусами иногда возникает комната-событие:<br>
-      • <b>Костоправ</b> — купить кость или снять шов за золото.<br>
-      • <b>Распайка</b> — снять один шов бесплатно (или золото, если швов нет).<br>
-      • <b>Жертвенник</b> — пожертвовать форму ради редкой кости.<br>
-      • <b>Кости судьбы</b> — ставка золотом: кость или шов.<br>
-      • <b>Алтарь благословения</b> — дар на следующий ярус: щит, ускорение или золото.</div>
-
-    <div class="hsec"><div class="hh">Статусы</div>
-      Эффекты с счётчиком, отмечены цветными кружками у фигуры (работают и на тебе, и на врагах):<br>
-      • <span style="color:#6cbf5a">Яд</span> — обратный отсчёт; на 0 враг гибнет, ты теряешь форму.<br>
-      • <span style="color:#e0c341">Оглушение</span> — пропуск хода.<br>
-      • <span style="color:#5bb6d6">Щит</span> — поглощает следующее взятие.<br>
-      • <span style="color:#e08a3f">Ускорение</span> — +1 дальность слайдерам, доп. шаг коню, двойной шаг пешке.<br>
-      Жила снимает с тебя все статусы.</div>
-
-    <div class="hsec"><div class="hh">Добыча: кости и швы</div>
-      После зачистки яруса выбираешь награду. Есть безопасные <b>кости</b> (перманентные плюсы)
-      и проклятые сделки: <b>⚠ фаустова</b> (2 кости + шов) и <b>☠ алтарь</b>
-      (3 кости + 2 шва). <b>Швы</b> — перманентные дебаффы. Всё надетое видно в панели
-      «Модификаторы» и кольцами вокруг твоей фигуры.</div>
-
-     <div class="hsec"><div class="hh">Челленджи</div>
-       Режимы с особыми правилами — выбираются перед забегом в меню:<br>
-       • <b>🔒 Одинокая фигура</b> — нельзя менять форму, взятие = конец.<br>
-       • <b>🌫️ Слепой спуск</b> — видно только в радиусе 2 клеток.<br>
-       • <b>⚡ Шторм</b> — враги сильнее и быстрее находят тебя (+50% пепла).<br>
-       • <b>🌀 Хаотичное колесо</b> — каждые 3 хода форма меняется случайно.<br>
-       • <b>💀 Эскалация</b> — враги усиливаются с каждым ярусом, ×2 пепла с яруса 5.</div>
-
-     <div class="hsec"><div class="hh">Экзотические формы</div>
-       Открываются в мета-магазине за пепел:<br>
-       • <b>♝ Архиепископ</b> — слон + конь: диагонали и прыжки буквой «Г».<br>
-       • <b>♜ Канцлер</b> — ладья + конь: ортогонали и прыжки буквой «Г».<br>
-       • <b>☣ Изверг</b> — прыжки ровно на 2 клетки в любую сторону (12 ходов).</div>
-
-     <div class="hsec"><div class="hh">Мета-прогрессия</div>
-      За каждый забег начисляется <b>пепел</b> (ярус×3 + взятия). Трать его в меню на перманентные
-      апгрейды: стартовые слоты, стартовые кости, облегчённый первый ярус. Прогресс и рекорд
-      сохраняются между забегами.</div>
-  `;
+  H.innerHTML = body;
   dom.mChoices.appendChild(H);
 
   action(
     mkButton(
-      from === 'title' ? 'Назад в меню' : 'Понятно',
+      from === 'title' ? L('modal.helpBackToMenu') : L('modal.helpOK'),
       () => {
         closeModal();
         if (from === 'title') openTitle();
@@ -814,11 +933,12 @@ export function openModal(title, text, btns, isDeath, opts = {}) {
 
 export function openLoot(options) {
   shell('md', ART.loot, 'aside');
-  dom.mTitle.textContent = 'Добыча яруса';
-  dom.mText.textContent =
-    'Выбери одно. Проклятые сделки дают больше силы, но вешают перманентный шов.';
+  dom.mTitle.textContent = L('modal.loot');
+  dom.mText.textContent = L('modal.lootText');
   dom.mChoices.classList.add('loot-list');
-  const KIND = { relic: '', faust: '⚠ Фаустова сделка', altar: '☠ Алтарь жертвы' };
+  var kfaust = L('modal.lootFaust');
+  var kaltar = L('modal.lootAltar');
+  const KIND = { relic: '', faust: kfaust, altar: kaltar };
   options.forEach((opt) => {
     const b = document.createElement('button');
     const cursed = opt.curses.length > 0;
@@ -827,7 +947,16 @@ export function openLoot(options) {
     if (KIND[opt.kind]) html += `<span class="lk">${KIND[opt.kind]}</span>`;
     opt.relics.forEach((id) => {
       const tm = TIER_META[relicTier(id)];
-      html += `<span class="ln ${tm.cls}">✦ ${RELICS[id].name} <em class="tag">${tm.name}</em></span><span class="ld">${RELICS[id].desc}</span>`;
+      html +=
+        '<span class="ln ' +
+        tm.cls +
+        '">✦ ' +
+        LContent(RELICS[id], 'name') +
+        ' <em class="tag">' +
+        LContent(TIER_META[relicTier(id)], 'name') +
+        '</em></span><span class="ld">' +
+        LContent(RELICS[id], 'desc') +
+        '</span>';
     });
     opt.curses.forEach((id) => {
       html += `<span class="cn">☠ ${CURSES[id].name}</span><span class="cd">${CURSES[id].desc}</span>`;
@@ -912,7 +1041,7 @@ export function closeModal() {
 
 export function openSettings() {
   shell('sm');
-  dom.mTitle.textContent = '⚙ Настройки';
+  dom.mTitle.textContent = L('settings.title');
   dom.mText.textContent = '';
   dom.mChoices.classList.add('loot-list');
 
@@ -930,50 +1059,66 @@ export function openSettings() {
     const row = mkRow(label);
     const btn = document.createElement('button');
     btn.className = 'buy';
-    btn.textContent = CFG[key] ? 'вкл' : 'выкл';
+    btn.textContent = CFG[key] ? L('on') : L('off');
     btn.onclick = () => {
       CFG[key] = !CFG[key];
       saveSettings();
       if (key.startsWith('MUSIC')) syncMusicSettings();
-      btn.textContent = CFG[key] ? 'вкл' : 'выкл';
+      btn.textContent = CFG[key] ? L('on') : L('off');
     };
     row.appendChild(btn);
     return row;
   };
 
-  dom.mChoices.appendChild(mkToggle('Звук', 'SFX_ENABLED'));
-  dom.mChoices.appendChild(mkToggle('Анимации', 'ANIM_ENABLED'));
-  dom.mChoices.appendChild(mkToggle('Музыка', 'MUSIC_ENABLED'));
-  dom.mChoices.appendChild(mkToggle('Показывать последствия хода', 'SHOW_PREVIEW'));
+  dom.mChoices.appendChild(mkToggle(L('settings.sound'), 'SFX_ENABLED'));
+  dom.mChoices.appendChild(mkToggle(L('settings.anim'), 'ANIM_ENABLED'));
+  dom.mChoices.appendChild(mkToggle(L('settings.music'), 'MUSIC_ENABLED'));
+  dom.mChoices.appendChild(mkToggle(L('settings.preview'), 'SHOW_PREVIEW'));
 
   // подтверждение хода — три состояния
   const modes = ['off', 'risky', 'all'];
-  const modeName = { off: 'выкл', risky: 'только опасные', all: 'все ходы' };
-  const cRow = mkRow('Подтверждать ход', 'Второй тап по клетке выполняет ход');
+  const cRow = mkRow(L('settings.confirm'), L('settings.confirmDesc'));
   const cBtn = document.createElement('button');
   cBtn.className = 'buy';
-  cBtn.textContent = modeName[CFG.CONFIRM_MOVES] || 'выкл';
+  cBtn.textContent = L('settings.' + CFG.CONFIRM_MOVES);
   cBtn.onclick = () => {
-    const i = modes.indexOf(CFG.CONFIRM_MOVES);
+    var i = modes.indexOf(CFG.CONFIRM_MOVES);
     CFG.CONFIRM_MOVES = modes[(i + 1) % modes.length];
     saveSettings();
-    cBtn.textContent = modeName[CFG.CONFIRM_MOVES];
+    cBtn.textContent = L('settings.' + CFG.CONFIRM_MOVES);
   };
   cRow.appendChild(cBtn);
   dom.mChoices.appendChild(cRow);
 
   // сброс обучения — динамический импорт, чтобы не заводить цикл ui ⇄ tutorial
-  const tRow = mkRow('Обучение', 'Показать сцены и подсказки заново');
+  const tRow = mkRow(L('settings.tutorial'), L('settings.tutorialDesc'));
   const tBtn = document.createElement('button');
   tBtn.className = 'buy';
-  tBtn.textContent = 'сбросить';
+  tBtn.textContent = L('settings.tutorialBtn');
   tBtn.onclick = () => {
     import('./tutorial.js').then((m) => m.resetHints && m.resetHints());
   };
   tRow.appendChild(tBtn);
   dom.mChoices.appendChild(tRow);
 
-  action(mkButton('Закрыть', closeModal, 'again'));
+  // язык: system / ru / en
+  const langModes = ['system', 'ru', 'en'];
+  const lRow = mkRow(L('settings.lang'));
+  const lBtn = document.createElement('button');
+  lBtn.className = 'buy';
+  lBtn.textContent = CFG.LANG === 'system' ? L('settings.langSystem') : CFG.LANG;
+  lBtn.onclick = () => {
+    var li = langModes.indexOf(CFG.LANG);
+    CFG.LANG = langModes[(li + 1) % langModes.length];
+    saveSettings();
+    invalidateLang();
+    lBtn.textContent = CFG.LANG === 'system' ? L('settings.langSystem') : CFG.LANG;
+    syncUI();
+  };
+  lRow.appendChild(lBtn);
+  dom.mChoices.appendChild(lRow);
+
+  action(mkButton(L('settings.close'), closeModal, 'again'));
   dom.overlay.classList.add('on');
 }
 
@@ -1011,12 +1156,18 @@ export function log(msg, cls) {
 export function syncUI() {
   const clearedRooms = S.rooms.filter((r) => r.cleared).length;
   document.getElementById('turnNo').innerHTML =
-    `<span class="hb">ярус ${S.floor}</span>` +
-    (S.biome ? `<span class="hb">${S.biome.name}</span>` : '') +
+    '<span class="hb">' +
+    L('summary.floor') +
+    ' ' +
+    S.floor +
+    '</span>' +
+    (S.biome ? '<span class="hb">' + S.biome.name + '</span>' : '') +
     (S.rooms.length > 1
-      ? `<span class="hb">комнаты ${clearedRooms}/${S.rooms.length}</span>`
+      ? '<span class="hb">' + L('hud.rooms') + ' ' + clearedRooms + '/' + S.rooms.length + '</span>'
       : '') +
-    `<span class="hb">ход ${S.turn}</span>` +
+    '<span class="hb">#' +
+    S.turn +
+    '</span>' +
     `<span class="hb gold">${S.player.gold || 0}🪙</span>` +
     `<span class="hb shards">${META.shards || 0}✦</span>` +
     (S.keys.size > 0
@@ -1037,7 +1188,7 @@ export function syncUI() {
     const slot = dom.wheelEl.children[i];
     if (!f) {
       slot.className = 'slot empty';
-      slot.innerHTML = '<div class="glyph">·</div><div class="nm">пусто</div>';
+      slot.innerHTML = '<div class="glyph">·</div><div class="nm">' + L('wheel.empty') + '</div>';
       slot.onclick = null;
       slot.removeAttribute('title');
     } else {
@@ -1046,11 +1197,13 @@ export function syncUI() {
       const elGlyph = slot.querySelector('.glyph');
       const elNm = slot.querySelector('.nm');
       if (elGlyph) elGlyph.textContent = GLYPH[f.type];
+      var isEnSummary = isEnglish();
+      var formName = isEnSummary && NAME_EN[f.type] ? NAME_EN[f.type] : NAME[f.type];
       if (elNm) {
         elNm.textContent =
-          NAME[f.type] + (f.type === 'bishop' ? (f.homeColor === 0 ? ' ◽' : ' ◾') : '');
+          formName + (f.type === 'bishop' ? (f.homeColor === 0 ? ' ◽' : ' ◾') : '');
       } else {
-        slot.innerHTML = `<div class="glyph">${GLYPH[f.type]}</div><div class="nm">${NAME[f.type]}${f.type === 'bishop' ? (f.homeColor === 0 ? ' ◽' : ' ◾') : ''}</div>`;
+        slot.innerHTML = `<div class="glyph">${GLYPH[f.type]}</div><div class="nm">${formName}${f.type === 'bishop' ? (f.homeColor === 0 ? ' ◽' : ' ◾') : ''}</div>`;
       }
       // star + cooldown badge: добавляем если появились, убираем если пропали
       let elStar = slot.querySelector('.star');
@@ -1070,16 +1223,23 @@ export function syncUI() {
       slot.onclick = () => switchForm(i);
       slot.title =
         i === S.player.active
-          ? 'Активная форма'
+          ? L('wheel.active')
           : f.cooldown > 0
-            ? 'Форма устала'
-            : 'Сменить (тратит ход)';
+            ? L('wheel.cd')
+            : L('wheel.switch');
     }
   });
 
-  const dirNames = { '0,-1': 'север', '1,0': 'восток', '0,1': 'юг', '-1,0': 'запад' };
-  dom.faceInfo.textContent =
-    activeForm().type === 'pawn' ? 'фасинг: ' + dirNames[S.player.facing.join(',')] : '';
+  var fDir = S.player.facing.join(',');
+  var dirKey =
+    fDir === '0,-1'
+      ? 'face.north'
+      : fDir === '1,0'
+        ? 'face.east'
+        : fDir === '0,1'
+          ? 'face.south'
+          : 'face.west';
+  dom.faceInfo.textContent = activeForm().type === 'pawn' ? L('face.label', L(dirKey)) : '';
 
   // шкалу голода, миникарту комнат и модификаторы рисует hud.js
   syncHud();

@@ -18,7 +18,7 @@ import {
   relicTier,
 } from './config.js';
 import { CURSES, RELICS } from './content.js';
-import { SCRIPT } from './content/script.js';
+import { getScript } from './content/script.js';
 import { ART } from './assets.js';
 import { applyCurse, applyRelic, cursePool, relicPool, rollWeighted } from './loot.js';
 import { META, unlockAch } from './meta.js';
@@ -112,7 +112,7 @@ export function openShop() {
   // реплика Костоправа по состоянию билда
   const seamCount = S.player.curses.size;
   const boneCount = S.player.relics.size;
-  const bs = SCRIPT.bonesetterLines;
+  const bs = getScript().bonesetterLines;
   const rep = bs.repeat[META.runs];
   if (rep) log(rep);
   else if (seamCount >= 3) log(bs.bySeams.high);

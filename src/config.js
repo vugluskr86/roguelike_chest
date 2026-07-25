@@ -78,6 +78,7 @@ export const CFG = {
   ANIM_ENABLED: true, // анимации включены
   MUSIC_ENABLED: true, // музыка включена
   MUSIC_VOLUME: 0.35, // громкость музыки (поверх LUFS-нормализации)
+  LANG: 'system', // язык: 'system' | 'ru' | 'en'
   FATIGUE_K: 2, // кулдаун формы после взятия
   ENEMY_CAPTURE_CD: 1, // кулдаун врага после взятия игрока
   // ── интерфейс ──
@@ -206,6 +207,25 @@ export const NAME = {
   priest: 'жрец',
   frost: 'морозный маг',
 };
+export const NAME_EN = {
+  pawn: 'Pawn',
+  knight: 'Knight',
+  bishop: 'Bishop',
+  rook: 'Rook',
+  queen: 'Queen',
+  archbishop: 'Archbishop',
+  chancellor: 'Chancellor',
+  infiltrator: 'Infiltrator',
+  bastion: 'Bastion',
+  beast: 'Beast',
+  king: 'King',
+  guardian: 'Guardian',
+  necro: 'Necromancer',
+  mimic: 'Mimic',
+  assassin: 'Assassin',
+  priest: 'Priest',
+  frost: 'Frost Mage',
+};
 export const STD_TYPES = new Set([
   'pawn',
   'knight',
@@ -325,9 +345,9 @@ export const RELIC_TIER = {
   extra_slot: 3,
 };
 export const TIER_META = {
-  1: { name: 'обычная', cls: 't-common' },
-  2: { name: 'редкая', cls: 't-rare' },
-  3: { name: 'эпическая', cls: 't-epic' },
+  1: { name: 'обычная', enName: 'common', cls: 't-common' },
+  2: { name: 'редкая', enName: 'rare', cls: 't-rare' },
+  3: { name: 'эпическая', enName: 'epic', cls: 't-epic' },
 };
 export const relicTier = (id) => RELIC_TIER[id] || 1;
 // Вес выбора: обычные ровные; редкие/эпические тем вероятнее, чем глубже; проклятые сделки тянут к редким
@@ -345,6 +365,7 @@ const SETTINGS_KEYS = [
   'CONFIRM_MOVES',
   'MUSIC_ENABLED',
   'MUSIC_VOLUME',
+  'LANG',
 ];
 
 export function loadSettings() {

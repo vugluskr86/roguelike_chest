@@ -9,7 +9,7 @@ import { applyStatus, statusVal } from './status.js';
 import { playDeath } from './audio.js';
 import { log, syncUI } from './ui.js';
 import { DIAG, ORTHO, cheb, inB, key, tileColor } from './util.js';
-import { SCRIPT, actForFloor, pickLine } from './content/script.js';
+import { getScript, actForFloor, pickLine } from './content/script.js';
 import { bossTurn, dispatchBossEvents } from './bosses.js';
 import { isTutorial } from './tutorial.js';
 
@@ -139,7 +139,7 @@ export function enemiesTurn() {
     // редкая реплика живого врага
     if (Math.random() < 0.08 && !isBossEntity(e)) {
       const act = actForFloor(S.floor);
-      const pool = (SCRIPT.enemyLines[e.type] && SCRIPT.enemyLines[e.type][act]) || [];
+      const pool = (getScript().enemyLines[e.type] && getScript().enemyLines[e.type][act]) || [];
       const line = pickLine(pool);
       if (line) addSpeech(e.x, e.y, line, 'enemy');
     }

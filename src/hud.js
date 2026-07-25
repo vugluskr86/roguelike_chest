@@ -12,6 +12,7 @@ import { S } from './state.js';
 import { dom } from './dom.js';
 import { CFG, GLYPH, KEY_GLYPH, NAME, TIER_META, relicTier } from './config.js';
 import { CURSES, RELICS } from './content.js';
+import { L, LContent } from './lang.js';
 import { threatenersAt, wheelSummary } from './preview.js';
 import { isBossFloor } from './util.js';
 
@@ -76,10 +77,10 @@ export function renderHunger() {
       dom.hungerRibs.parentNode.insertBefore(el, dom.hungerRibs.nextSibling);
   }
   el.className = frozen ? 'hcount frozen' : turns <= HUNGER_GROUP ? 'hcount warn' : 'hcount';
-  el.textContent = frozen ? `${val} · голод замер` : `${val} · ${turns} х. до деградации`;
+  el.textContent = frozen ? L('hud.hungerFrozen', val) : val + ' · ' + L('hud.turnsLeft', turns);
   el.title = frozen
-    ? 'Пока идёт бой с боссом, сытость не тратится.'
-    : `Сытость ${val}/${max}. Взятие +${CFG.HUNGER.capture}, кость +${CFG.HUNGER.food}, пас −${CFG.HUNGER.passExtra}.`;
+    ? L('hud.hungerFrozenTTL')
+    : L('hud.hungerTTL', val, max, CFG.HUNGER.capture, CFG.HUNGER.food, CFG.HUNGER.passExtra);
 }
 
 // ════════════════════════════════════════════════════════════════
@@ -105,7 +106,7 @@ export function renderRooms(host) {
   }
   el.style.display = '';
 
-  let html = '<span class="rm-label">комнаты</span>';
+  let html = '<span class="rm-label">' + L('hud.rooms') + '</span>';
   S.rooms.forEach((r, i) => {
     if (i) html += '<span class="rm-link"></span>';
     const cur = i === S.currentRoom;
@@ -119,8 +120,8 @@ export function renderRooms(host) {
       (lock && !cur ? ' rm-lock' : '');
     const face = r.cleared ? '✓' : lock && !cur ? KEY_GLYPH[lock] : left || '·';
     const tip = r.cleared
-      ? `Комната ${i + 1} — зачищена`
-      : `Комната ${i + 1} — врагов: ${left}${lock ? ` · нужен ${KEY_GLYPH[lock]} ключ` : ''}`;
+      ? L('hud.roomClear', i + 1)
+      : L('hud.roomEnemies', i + 1, left, lock ? ' · ' + KEY_GLYPH[lock] + ' key' : '');
     html += `<span class="${cls}" title="${tip}">${face}</span>`;
   });
   el.innerHTML = html;
@@ -156,22 +157,32 @@ export function renderMods() {
     card.insertBefore(head, box);
   }
   const open = !card.classList.contains('collapsed');
-  head.innerHTML = `<span class="mh-t">Модификаторы</span><span class="mh-n rel">✦${rids.length}</span><span class="mh-n cur">☠${cids.length}</span><span class="mh-x">${open ? '▾' : '▸'}</span>`;
+  head.innerHTML =
+    '<span class="mh-t">' +
+    L('hud.mods') +
+    '</span><span class="mh-n rel">✦' +
+    rids.length +
+    '</span><span class="mh-n cur">☠' +
+    cids.length +
+    '</span><span class="mh-x">' +
+    (open ? '▾' : '▸') +
+    '</span>';
 
   box.innerHTML = '';
   rids.forEach((id) => {
     const tm = TIER_META[relicTier(id)];
     const c = document.createElement('span');
     c.className = 'chip chip-' + tm.cls;
-    c.textContent = RELICS[id].name;
-    c.title = `${RELICS[id].desc} (${tm.name})`;
+    c.textContent = LContent(RELICS[id], 'name');
+    c.title =
+      LContent(RELICS[id], 'desc') + ' (' + LContent(TIER_META[relicTier(id)], 'name') + ')';
     box.appendChild(c);
   });
   cids.forEach((id) => {
     const c = document.createElement('span');
     c.className = 'chip curse';
-    c.textContent = '☠ ' + CURSES[id].name;
-    c.title = CURSES[id].desc;
+    c.textContent = '☠ ' + LContent(CURSES[id], 'name');
+    c.title = LContent(CURSES[id], 'desc');
     box.appendChild(c);
   });
 }
@@ -200,7 +211,7 @@ export function decorateWheel() {
     const b = document.createElement('span');
     b.className = 'slot-opts' + (total === 0 ? ' none' : s.captures ? ' cap' : '');
     b.textContent = s.captures ? `${s.moves}·${s.captures}⚔` : `${s.moves}`;
-    b.title = total === 0 ? 'Отсюда эта форма не ходит' : `Ходов ${s.moves}, взятий ${s.captures}`;
+    b.title = total === 0 ? L('wheel.noMoves') : L('wheel.moves', s.moves, s.captures);
     el.appendChild(b);
   });
 }
@@ -225,7 +236,7 @@ export function renderCheck(host) {
   const counts = new Map();
   by.forEach((e) => counts.set(e.type, (counts.get(e.type) || 0) + 1));
   const list = [...counts].map(([t, n]) => `${GLYPH[t] || '?'}${n > 1 ? '×' + n : ''}`).join(' ');
-  el.innerHTML = `<span class="ck-t">под ударом</span> ${list}`;
+  el.innerHTML = '<span class="ck-t">' + L('hud.underThreat') + '</span> ' + list;
   el.title = [...counts].map(([t, n]) => `${NAME[t]}${n > 1 ? ` ×${n}` : ''}`).join(', ');
 }
 

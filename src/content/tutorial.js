@@ -1,25 +1,24 @@
 /**
- * src/content/tutorial.js — контент обучения.
+ * src/content/tutorial.js — tutorial content.
  *
- * Две части:
- *   SCENES — шесть заскриптованных сцен «Рва». Карты рисуются ASCII, компилятор
- *            превращает их в формат loadLevel(). Править можно текстом, не JSON.
- *   HINTS  — подсказки для обычного забега, каждая срабатывает один раз за всё
- *            время (флаг в META.hints).
+ * Two parts:
+ *   SCENES — six scripted scenes of the "Ditch". Maps drawn in ASCII; the compiler
+ *            turns them into loadLevel() format. You can edit them as text, not JSON.
+ *   HINTS  — hints for normal runs, each triggers once ever (flag in META.hints).
  *
- * Голос: строка lore — от мира, строка task — от интерфейса. Смешивать нельзя,
- * иначе игрок не понимает, где инструкция.
+ * Voice: lore line = from the world, task line = from the interface. Must not mix,
+ * otherwise the player cannot tell what is instruction.
  */
 
 // ════════════════════════════════════════════════════════════════
-//  Словарь символов карты
+//  Map character dictionary
 // ════════════════════════════════════════════════════════════════
 
 export const CHARS = {
   '#': { wall: true },
   '.': {},
   P: { start: true },
-  '*': { target: true }, // цель шага, не спец-клетка — её ведёт движок
+  '*': { target: true }, // step goal, not a special cell — the engine handles it
   p: { enemy: 'pawn' },
   n: { enemy: 'knight' },
   b: { enemy: 'bishop' },
@@ -30,24 +29,24 @@ export const CHARS = {
 };
 
 // ════════════════════════════════════════════════════════════════
-//  Сцены
+//  Scenes (Russian)
 // ════════════════════════════════════════════════════════════════
 
 /**
- * Поля сцены:
- *   map      — ASCII, первая строка = y 0 (верх доски, линия восхождения)
- *   facing   — начальный фасинг пешки
- *   wheel    — стартовое колесо форм
- *   lore     — реплика мира, курсивом
- *   task     — что делать, обычным текстом
- *   allow    — что разрешено: move ('targets'|'all'), switch, pass, rotate
- *   done     — условие завершения
- *   freeze   — враги не ходят (по умолчанию true)
- *   hunger   — шкала голода активна (по умолчанию false)
- *   onFail   — что сказать, если игрок сделал не то
+ * Scene fields:
+ *   map      — ASCII, first line = y 0 (top of board, promotion line)
+ *   facing   — starting pawn facing
+ *   wheel    — starting form wheel
+ *   lore     — world line, in italic
+ *   task     — what to do, normal text
+ *   allow    — what is allowed: move ('targets'|'all'), switch, pass, rotate
+ *   done     — completion condition
+ *   freeze   — enemies do not move (default true)
+ *   hunger   — hunger bar active (default false)
+ *   onFail   — what to say if the player does the wrong thing
  */
 export const SCENES = [
-  // ── 1. Шаг ────────────────────────────────────────────────────
+  // ── 1. Step ────────────────────────────────────────────────────
   {
     id: 'step',
     title: 'Шаг',
@@ -60,7 +59,7 @@ export const SCENES = [
     done: { reachTarget: true },
   },
 
-  // ── 2. Взгляд ─────────────────────────────────────────────────
+  // ── 2. Facing ─────────────────────────────────────────────────
   {
     id: 'facing',
     title: 'Взгляд',
@@ -82,7 +81,7 @@ export const SCENES = [
     onFail: 'Стена. Поверни взгляд в другую сторону.',
   },
 
-  // ── 3. Взятие ─────────────────────────────────────────────────
+  // ── 3. Capture ─────────────────────────────────────────────────
   {
     id: 'capture',
     title: 'Взятие',
@@ -96,7 +95,7 @@ export const SCENES = [
     speech: { text: 'Добей.', kind: 'enemy' },
   },
 
-  // ── 4. Битые поля ─────────────────────────────────────────────
+  // ── 4. Threatened cells ─────────────────────────────────────────────
   {
     id: 'threat',
     title: 'Битые поля',
@@ -117,10 +116,10 @@ export const SCENES = [
     allow: { move: 'all', switch: false, pass: false, rotate: true },
     done: { reachTarget: true },
     onFail: 'Ты встал на битую клетку. Здесь тебя возьмут.',
-    strict: true, // вход на битую клетку откатывает шаг
+    strict: true, // stepping onto a threatened cell reverts the move
   },
 
-  // ── 5. Чужая кость ────────────────────────────────────────────
+  // ── 5. A stranger's bone ────────────────────────────────────────────
   {
     id: 'form',
     title: 'Чужая кость',
@@ -143,7 +142,7 @@ export const SCENES = [
     done: { reachTarget: true },
   },
 
-  // ── 6. Голод ──────────────────────────────────────────────────
+  // ── 6. Hunger ──────────────────────────────────────────────────
   {
     id: 'hunger',
     title: 'Голод',
@@ -164,12 +163,127 @@ export const SCENES = [
     allow: { move: 'all', switch: true, pass: true, rotate: true },
     done: { ate: true, reachTarget: true },
     hunger: true,
-    hungerStart: 9, // мало, чтобы шкала читалась как угроза, но хватит с запасом
+    hungerStart: 9, // low enough to read as a threat, but enough to spare
   },
 ];
 
 // ════════════════════════════════════════════════════════════════
-//  Финальная модалка обучения
+//  Scenes (English)
+// ════════════════════════════════════════════════════════════════
+
+export const SCENES_EN = [
+  {
+    id: 'step',
+    title: 'Step',
+    map: ['#######', '#.....#', '#.....#', '#..*..#', '#..P..#', '#######'],
+    facing: [0, -1],
+    wheel: ['pawn'],
+    lore: 'You stirred — and the Darkness shrank back. The first thing a pawn remembers: it can move forward.',
+    task: 'Tap the teal dot. That is your move.',
+    allow: { move: 'all', switch: false, pass: false, rotate: false },
+    done: { reachTarget: true },
+  },
+  {
+    id: 'facing',
+    title: 'Facing',
+    map: [
+      '#########',
+      '#...*...#',
+      '#.......#',
+      '#.###.#.#',
+      '#.#P..#.#',
+      '#.......#',
+      '#########',
+    ],
+    facing: [0, -1],
+    wheel: ['pawn'],
+    lore: 'Forward is where you look. The pawn knows no other way. From behind, it is blind.',
+    task: 'Turn your facing — ⟲ and ⟳ on the panel, or Q and E. Rotation is free, it does not cost a turn. Reach the marker.',
+    allow: { move: 'all', switch: false, pass: false, rotate: true },
+    done: { reachTarget: true },
+    onFail: 'A wall. Turn your facing the other way.',
+  },
+  {
+    id: 'capture',
+    title: 'Capture',
+    map: ['#######', '#.....#', '#..p..#', '#.P...#', '#.....#', '#######'],
+    facing: [0, -1],
+    wheel: ['pawn'],
+    lore: 'She died after you and still remembers her name. She asks to finish it.',
+    task: 'The pawn moves straight, but captures on the forward diagonals. The red ring is a capture: you step onto her cell. Take her.',
+    allow: { move: 'all', switch: false, pass: false, rotate: true },
+    done: { clear: true },
+    speech: { text: 'Finish it.', kind: 'enemy' },
+  },
+  {
+    id: 'threat',
+    title: 'Threatened Cells',
+    map: [
+      '#########',
+      '#.......#',
+      '#...*...#',
+      '#.......#',
+      '#r.......',
+      '#.......#',
+      '#...P...#',
+      '#########',
+    ],
+    facing: [0, -1],
+    wheel: ['pawn'],
+    lore: 'The Rook strikes along straight lines. Only straight lines. You can know this in advance.',
+    task: 'Red hatching = threatened cells. Hover or tap a move cell: amber shows what will be threatened after it. Reach the marker without stepping into danger.',
+    allow: { move: 'all', switch: false, pass: false, rotate: true },
+    done: { reachTarget: true },
+    onFail: 'You stepped onto a threatened cell. You will be taken here.',
+    strict: true,
+  },
+  {
+    id: 'form',
+    title: "A Stranger's Bone",
+    map: [
+      '#########',
+      '#.......#',
+      '#.#####.#',
+      '#.#...#*#',
+      '#.#.#.#.#',
+      '#..n#...#',
+      '#...#...#',
+      '#..P#...#',
+      '#########',
+    ],
+    facing: [0, -1],
+    wheel: ['pawn'],
+    lore: "You can take others' bones and graft them onto yourself. It hurts, but you are already dead.",
+    task: 'Capture the Knight — its form enters the wheel. Switch to it (tap the slot) and leap to the marker. Switching costs a turn, and the form becomes fatigued for a few turns after capture.',
+    allow: { move: 'all', switch: true, pass: false, rotate: true },
+    done: { reachTarget: true },
+  },
+  {
+    id: 'hunger',
+    title: 'Hunger',
+    map: [
+      '#########',
+      '#.......#',
+      '#..f....#',
+      '#.......#',
+      '#....*..#',
+      '#.......#',
+      '#...P...#',
+      '#########',
+    ],
+    facing: [0, -1],
+    wheel: ['pawn', 'knight'],
+    lore: 'If you stop, the Dark beneath the board starts eating. It is not a metaphor — you feel it in your bones.',
+    task: 'The hunger bar drains every turn. Eat the bone (🍖), then reach the marker. Captures and Veins also feed.',
+    allow: { move: 'all', switch: true, pass: true, rotate: true },
+    done: { ate: true, reachTarget: true },
+    hunger: true,
+    hungerStart: 9,
+  },
+];
+
+// ════════════════════════════════════════════════════════════════
+//  Tutorial outro modal (RU)
 // ════════════════════════════════════════════════════════════════
 
 export const OUTRO = {
@@ -188,13 +302,32 @@ export const OUTRO = {
 };
 
 // ════════════════════════════════════════════════════════════════
-//  Подсказки обычного забега
+//  Tutorial outro modal (EN)
+// ════════════════════════════════════════════════════════════════
+
+export const OUTRO_EN = {
+  title: 'You Are a Shapeshifter',
+  lines: [
+    'You are no longer a piece.',
+    '',
+    'From here, there are no more rules — only consequences.',
+    'You will be taken: you will not die, you will become smaller.',
+    'Queen, rook, bishop, knight, pawn.',
+    '',
+    'Capture as a pawn — the end.',
+    'The pawn is what you were. There is nowhere lower to fall.',
+  ],
+  button: 'Descend',
+};
+
+// ════════════════════════════════════════════════════════════════
+//  Hints for normal runs (RU)
 // ════════════════════════════════════════════════════════════════
 
 /**
- * kind: 'toast' — не прерывает ход, для мелочей
- *       'lesson' — модалка, только для того, что меняет решения игрока
- * Каждая срабатывает один раз за всё время (META.hints[id]).
+ * kind: 'toast' — does not interrupt the turn, for small things
+ *       'lesson' — a modal, only for things that change the player's decisions
+ * Each triggers once ever (META.hints[id]).
  */
 export const HINTS = {
   degraded: {
@@ -283,3 +416,113 @@ export const HINTS = {
     text: 'Пепел остаётся после смерти. Трать его в меню на то, с чем начнёшь следующий забег.',
   },
 };
+
+// ════════════════════════════════════════════════════════════════
+//  Hints for normal runs (EN)
+// ════════════════════════════════════════════════════════════════
+
+export const HINTS_EN = {
+  degraded: {
+    kind: 'lesson',
+    title: 'Smaller',
+    lines: [
+      'You were taken. The form fell off — you remained.',
+      '',
+      'That is the ladder: queen → rook → bishop / knight → pawn.',
+      'Each capture moves you one rung down.',
+      '',
+      'As a pawn there is nowhere lower to fall.',
+    ],
+    button: 'Got it',
+  },
+  check: {
+    kind: 'toast',
+    text: 'Check: you stand under threat. You will be taken next turn.',
+  },
+  promotion: {
+    kind: 'lesson',
+    title: 'Ascension',
+    lines: [
+      'The top row is a golden line.',
+      'End your turn on it as a pawn and the grafted bone becomes truly yours.',
+      '',
+      'The form enters the wheel as improved. Once per floor.',
+    ],
+    button: 'Continue',
+  },
+  fatigue: {
+    kind: 'toast',
+    text: 'The form is fatigued after capture — you cannot switch back for a few turns.',
+  },
+  bishopColor: {
+    kind: 'toast',
+    text: 'A bishop on its own color hits one cell farther. Watch the ◽/◾ mark in the slot.',
+  },
+  door: {
+    kind: 'toast',
+    text: 'A door to the next room. The floor ends when you clear all rooms.',
+  },
+  lockedDoor: {
+    kind: 'toast',
+    text: 'The door is locked. A key of the same color lies in this very room.',
+  },
+  loot: {
+    kind: 'lesson',
+    title: 'Bones and Seams',
+    lines: [
+      'After clearing a floor, pick a reward.',
+      '',
+      'Bones are permanent bonuses — they last until the end of the run.',
+      'Seams are permanent drawbacks. Also until the end.',
+      '',
+      'Cursed deals give more bones but stitch a seam.',
+      'You can only remove a seam later at the Bonesetter.',
+    ],
+    button: 'Choose',
+  },
+  hungerLow: {
+    kind: 'toast',
+    text: 'Hunger is low. Seek a bone (🍖) or capture a piece — captures also feed.',
+  },
+  mate: {
+    kind: 'lesson',
+    title: 'Checkmate',
+    lines: [
+      'You stood under threat, and no moves remained — not one, in any form.',
+      '',
+      'You were taken on the spot.',
+      'Watch not only where you can go, but also whether there will be anywhere left to go from.',
+    ],
+    button: 'Got it',
+  },
+  boss: {
+    kind: 'toast',
+    text: 'A boss. While the fight lasts, hunger does not drain — there is no rush.',
+  },
+  wheelFull: {
+    kind: 'toast',
+    text: 'The wheel is full. New types accumulate in the pool and are available at Ascension.',
+  },
+  ashes: {
+    kind: 'toast',
+    text: 'Ash remains after death. Spend it in the menu on what you will start the next run with.',
+  },
+};
+
+// ════════════════════════════════════════════════════════════════
+//  Language selector
+// ════════════════════════════════════════════════════════════════
+
+import { isEnglish } from '../lang.js';
+
+export function getScenes() {
+  return isEnglish() ? SCENES_EN : SCENES;
+}
+
+export function getOutro() {
+  return isEnglish() ? OUTRO_EN : OUTRO;
+}
+
+export function getHints() {
+  return isEnglish() ? HINTS_EN : HINTS;
+}

@@ -13,10 +13,11 @@ import { META, codexSeeEnemy, unlockAch } from './meta.js';
 import { necroInterval, threatCellsFrom } from './moves.js';
 import { addSpeech, clearSpeech, render, screenFade } from './render.js';
 import { startTutorial } from './tutorial.js';
-import { SCRIPT } from './content/script.js';
+import { getScript } from './content/script.js';
 import { curse, enemyAt, has } from './state.js';
 import { applyStatus, cleanse } from './status.js';
 import { clearRunLog, clearToastQueue, log, openInterlude, openTitle, syncUI } from './ui.js';
+import { L } from './lang.js';
 import { updateMusic, preload } from './music.js';
 import { clearPending } from './preview.js';
 import {
@@ -653,7 +654,7 @@ export function newFloor() {
         millstone: 'Жернов',
         redKing: 'Красный Король',
       };
-      const bossScript = SCRIPT.bosses[bossId];
+      const bossScript = getScript().bosses[bossId];
       const appear = bossScript && bossScript.appear;
       if (appear) {
         dispatchBossEvents(appear, {
@@ -863,7 +864,7 @@ export function newFloor() {
   const totalEnemies = S.rooms.reduce((sum, r) => sum + r.enemies.length, 0);
   log(`── Ярус ${S.floor} · ${S.biome.name} · ${nRooms} комн. ── врагов: ${totalEnemies}`, 'e');
   // нарративный вход на ярус
-  if (SCRIPT.floorIntro[S.floor]) log(SCRIPT.floorIntro[S.floor], '');
+  if (getScript().floorIntro[S.floor]) log(getScript().floorIntro[S.floor], '');
   render();
   syncUI();
 }
@@ -1029,7 +1030,7 @@ export function reset() {
   S.walls = new Set(); // чтобы render() не падал во время пролога
   S.special = new Map();
   if (dom.logEl) dom.logEl.innerHTML = '';
-  log('Двигайся или будь съеден.', '');
+  log(L('log.default'), '');
   clearRunLog();
   clearToastQueue();
   // мета-апгрейды: стартовые слоты и реликвии
@@ -1049,12 +1050,12 @@ export function reset() {
     });
     return;
   }
-  if (S.runMode === 'campaign' && META.runs === 0 && SCRIPT.interludes.prologue) {
-    openInterlude({ ...SCRIPT.interludes.prologue, art: ART.prologue }, () => newFloor());
+  if (S.runMode === 'campaign' && META.runs === 0 && getScript().interludes.prologue) {
+    openInterlude({ ...getScript().interludes.prologue, art: ART.prologue }, () => newFloor());
     return;
   }
-  if (S.runMode === 'campaign' && META.runs >= 1 && SCRIPT.repeat && SCRIPT.repeat.prologue) {
-    openInterlude({ ...SCRIPT.repeat.prologue, art: ART.prologue, button: 'Встать' }, () =>
+  if (S.runMode === 'campaign' && META.runs >= 1 && getScript().repeat && getScript().repeat.prologue) {
+    openInterlude({ ...getScript().repeat.prologue, art: ART.prologue, button: 'Встать' }, () =>
       newFloor(),
     );
     return;

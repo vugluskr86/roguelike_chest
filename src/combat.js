@@ -37,6 +37,7 @@ import {
 import { ART } from './assets.js';
 import { closeModal, log, openInterlude, openModal, openRunSummary, syncUI } from './ui.js';
 import { setHungerLayer, sting, playTrack } from './music.js';
+import { isEnglish, L } from './lang.js';
 import { isEditorRunning, stopEditorRun } from './editor.js';
 import {
   tutorialAllowsMove,
@@ -71,7 +72,7 @@ export function tryMoveTo(x, y) {
   if (!isCap && !isMove) {
     // тап мимо легальных клеток — показываем, куда можно
     if (moves.length || captures.length) {
-      log('Нет хода на эту клетку.', '');
+      log(isEnglish() ? 'No valid move to that cell.' : 'Нет хода на эту клетку.', '');
     }
     return;
   }
@@ -196,7 +197,10 @@ export function triggerSpecialForPlayer() {
   if (!s) return;
   if (s.type === 'trap') {
     S.special.delete(k);
-    log('Паутина рвёт тебя. Форма разрушена.', 'r');
+    log(
+      isEnglish() ? 'The web tears at you. Form destroyed.' : 'Паутина рвёт тебя. Форма разрушена.',
+      'r',
+    );
     playTrap();
     degradePlayer(null);
   } else if (s.type === 'rune') {
@@ -208,16 +212,24 @@ export function triggerSpecialForPlayer() {
     cleanse(S.player);
     S.player.hunger = CFG.HUNGER.start;
     S.player.hungerMark = 1;
-    log('Жила насыщает — усталость форм и статусы сняты.', 'g');
+    log(
+      isEnglish()
+        ? 'The Vein satiates — form fatigue and statuses cleansed.'
+        : 'Жила насыщает — усталость форм и статусы сняты.',
+      'g',
+    );
   } else if (s.type === 'ice') {
     applyStatus(S.player, 'stun', 1);
-    log('Ты поскользнулся на льду — оглушение.', 'r'); // клетка остаётся
+    log(
+      isEnglish() ? 'You slipped on ice — stunned.' : 'Ты поскользнулся на льду — оглушение.',
+      'r',
+    ); // клетка остаётся
   } else if (s.type === 'portal') {
     const p = s.pair;
     if (p && !S.walls.has(key(p.x, p.y)) && !enemyAt(p.x, p.y)) {
       S.player.x = p.x;
       S.player.y = p.y;
-      log('Портал переносит тебя.', 'p');
+      log(isEnglish() ? 'The portal teleports you.' : 'Портал переносит тебя.', 'p');
       playPortal();
     }
   } else if (s.type === 'conveyor') {
@@ -243,7 +255,7 @@ export function triggerSpecialForPlayer() {
         S.player.x = nx;
         S.player.y = ny;
       }
-      log('Конвейер сдвигает тебя.', 'p');
+      log(isEnglish() ? 'The conveyor pushes you.' : 'Конвейер сдвигает тебя.', 'p');
       // Проверить особую клетку на финальной позиции (ловушка, лава, лед, портал и т.д.)
       const finalSpecial = S.special.get(key(S.player.x, S.player.y));
       if (finalSpecial && finalSpecial.type !== 'conveyor') {
@@ -255,7 +267,12 @@ export function triggerSpecialForPlayer() {
       if (s.broken) return; // цепь уже разорвана — плита отработала
       s.broken = true;
       S.chainsBroken = (S.chainsBroken || 0) + 1;
-      log(`Цепь разорвана (${S.chainsBroken}/${BOSS_CFG.redKing.chains}).`, 'g');
+      log(
+        isEnglish()
+          ? 'Chain broken (${S.chainsBroken}/${BOSS_CFG.redKing.chains}).'
+          : 'Цепь разорвана (${S.chainsBroken}/${BOSS_CFG.redKing.chains}).',
+        'g',
+      );
       const king = S.enemies.find((e) => e.king);
       if (king && SCRIPT.bosses.redKing) {
         const line = SCRIPT.bosses.redKing.chainBreak[S.chainsBroken];
@@ -266,10 +283,10 @@ export function triggerSpecialForPlayer() {
       }
     } else if (s.opens && S.walls.has(key(s.opens.x, s.opens.y))) {
       S.walls.delete(key(s.opens.x, s.opens.y));
-      log('Плита открывает проход.', 'g');
+      log(isEnglish() ? 'The plate opens a passage.' : 'Плита открывает проход.', 'g');
     }
   } else if (s.type === 'lava') {
-    log('Ты в лаве! Форма разрушена.', 'r');
+    log(isEnglish() ? 'You are in lava! Form destroyed.' : 'Ты в лаве! Форма разрушена.', 'r');
     degradePlayer(null);
   } else if (s.type === 'door') {
     snapshotRoom();
@@ -287,14 +304,22 @@ export function triggerSpecialForPlayer() {
       }
     }
     if (s.color && !S.keys.has(s.color)) {
-      log(`Дверь заперта — нужен ${KEY_GLYPH[s.color]} ключ.`, 'r');
+      log(
+        isEnglish()
+          ? 'Door is locked — need a ${KEY_GLYPH[s.color]} ключ.'
+          : 'Дверь заперта — нужен ${KEY_GLYPH[s.color]} ключ.',
+        'r',
+      );
       return;
     }
     loadRoom(s.targetRoom);
     S.player.x = s.targetPos.x;
     S.player.y = s.targetPos.y;
     screenFade('#000', 250);
-    log(`Переход в комнату ${s.targetRoom + 1}.`, 'p');
+    log(
+      isEnglish() ? 'Entering room ${s.targetRoom + 1}.' : 'Переход в комнату ${s.targetRoom + 1}.',
+      'p',
+    );
     playPortal();
     render();
     syncUI();
@@ -302,7 +327,12 @@ export function triggerSpecialForPlayer() {
   } else if (s.type === 'key') {
     S.keys.add(s.color);
     S.special.delete(k);
-    log(`Ты нашёл ${KEY_GLYPH[s.color]} ключ.`, 'g');
+    log(
+      isEnglish()
+        ? 'You found a ${KEY_GLYPH[s.color]} ключ.'
+        : 'Ты нашёл ${KEY_GLYPH[s.color]} ключ.',
+      'g',
+    );
     playLoot();
   } else if (s.type === 'food') {
     S.special.delete(k);
@@ -353,7 +383,11 @@ export function triggerBossPhase(bossId, phase) {
 
 export function unlockType(t, colorAt) {
   if (!STD_TYPES.has(t)) {
-    log(`Форма «${NAME[t] || t}» недоступна игроку.`);
+    log(
+      isEnglish()
+        ? 'Form "${NAME[t] || t}» недоступна игроку.'
+        : 'Форма «${NAME[t] || t}» недоступна игроку.',
+    );
     return;
   }
   if (S.unlocked.has(t)) {
@@ -372,17 +406,22 @@ export function unlockType(t, colorAt) {
 export function switchForm(i) {
   if (S.gameOver || S.modalOpen) return;
   if (S.challenge === 'lone_figure') {
-    log('Одинокая фигура: смена формы запрещена.', 'r');
+    log(
+      isEnglish()
+        ? 'Lone Figure: form switching disabled.'
+        : 'Одинокая фигура: смена формы запрещена.',
+      'r',
+    );
     return;
   }
   if (!tutorialAllowsSwitch()) return tutorialNudge('switch');
   const f = S.player.wheel[i];
   if (!f) {
-    log('Этот слот колеса пуст.', '');
+    log(isEnglish() ? 'This wheel slot is empty.' : 'Этот слот колеса пуст.', '');
     return;
   }
   if (i === S.player.active) {
-    log('Эта форма уже активна.', '');
+    log(isEnglish() ? 'This form is already active.' : 'Эта форма уже активна.', '');
     return;
   }
   if (f.cooldown > 0) {
@@ -405,12 +444,22 @@ export function switchForm(i) {
   if (has('free_swap') && !S.player.freeSwapUsed) {
     // Быстрые руки: первая смена за этаж бесплатна
     S.player.freeSwapUsed = true;
-    log(`Смена формы → <b>${NAME[f.type]}</b> (бесплатно).`, 'p');
+    log(
+      isEnglish()
+        ? 'Switch form → <b>${NAME[f.type]}</b> (бесплатно).'
+        : 'Смена формы → <b>${NAME[f.type]}</b> (бесплатно).',
+      'p',
+    );
     render();
     syncUI();
     return;
   }
-  log(`Смена формы → <b>${NAME[f.type]}</b> (потрачен ход).`, 'p');
+  log(
+    isEnglish()
+      ? 'Switch form → <b>${NAME[f.type]}</b> (потрачен ход).'
+      : 'Смена формы → <b>${NAME[f.type]}</b> (потрачен ход).',
+    'p',
+  );
   endPlayerTurn();
 }
 
@@ -430,12 +479,21 @@ export function pass() {
     const { moves, captures } = playerOptions();
     const canSwitch = S.player.wheel.some((f, i) => f && i !== S.player.active && f.cooldown === 0);
     if (moves.length || captures.length || canSwitch) {
-      log('Одержимость: пасовать нельзя, пока есть ход.', 'r');
+      log(
+        isEnglish()
+          ? 'Compulsion: cannot pass while moves exist.'
+          : 'Одержимость: пасовать нельзя, пока есть ход.',
+        'r',
+      );
       return;
     }
   }
   S.player.hunger -= CFG.HUNGER.passExtra;
-  log(`Пас. Голод крепчает (−${CFG.HUNGER.passExtra}).`);
+  log(
+    isEnglish()
+      ? 'Pass. Hunger deepens (−${CFG.HUNGER.passExtra}).'
+      : 'Пас. Голод крепчает (−${CFG.HUNGER.passExtra}).',
+  );
   endPlayerTurn();
 }
 
@@ -460,7 +518,12 @@ export function endPlayerTurn() {
     }
     if (S.player.hunger <= 0) {
       S.player.hunger = 0;
-      log('Голод пожирает тебя. Форма разрушена.', 'r');
+      log(
+        isEnglish()
+          ? 'Hunger devours you. Form destroyed.'
+          : 'Голод пожирает тебя. Форма разрушена.',
+        'r',
+      );
       degradePlayer(null);
       if (S.gameOver) {
         render();
@@ -479,7 +542,12 @@ export function endPlayerTurn() {
     return; // враги сходят после выбора
   }
   if (!S.promotionUsed && bloodBlocked && activeForm().type === 'pawn' && S.player.y === 0)
-    log('Кровавая линия: промоушен закрыт — на этаже уже было взятие.', 'r');
+    log(
+      isEnglish()
+        ? 'Bloodline: ascension blocked — a capture occurred this floor.'
+        : 'Кровавая линия: промоушен закрыт — на этаже уже было взятие.',
+      'r',
+    );
   // челлендж «Хаотичное колесо»: каждые 3 хода случайная смена
   if (S.challenge === 'chaos_wheel' && S.turn > 0 && S.turn % 3 === 0) {
     const alive = S.player.wheel
@@ -488,7 +556,12 @@ export function endPlayerTurn() {
     if (alive.length > 0) {
       const pick = alive[Math.floor(Math.random() * alive.length)];
       S.player.active = pick;
-      log(`🌀 Хаос: форма сменена на <b>${NAME[activeForm().type]}</b>.`, 'p');
+      log(
+        isEnglish()
+          ? '🌀 Chaos: form switched to <b>${NAME[activeForm().type]}</b>.'
+          : '🌀 Хаос: форма сменена на <b>${NAME[activeForm().type]}</b>.',
+        'p',
+      );
     }
   }
   tutorialCheck();
@@ -509,14 +582,14 @@ export function startPlayerTurn() {
   if (statusVal(S.player, 'poison') > 0) {
     S.player.status.poison--;
     if (S.player.status.poison <= 0) {
-      log('Яд разрушает твою форму.', 'r');
+      log(isEnglish() ? 'Poison destroys your form.' : 'Яд разрушает твою форму.', 'r');
       degradePlayer(null);
       if (S.gameOver) return true;
     }
   }
   if (statusVal(S.player, 'stun') > 0) {
     S.player.status.stun--;
-    log('Ты оглушён — ход пропущен.', 'r');
+    log(isEnglish() ? 'You are stunned — turn skipped.' : 'Ты оглушён — ход пропущен.', 'r');
     enemiesTurn(); // враги ходят снова, пока ты оглушён
     return true;
   }
@@ -555,7 +628,10 @@ export function afterEnemies() {
       room.cleared = true;
       room.enemies = [];
     }
-    log('Ярус зачищен! Жернов встал.', 'g');
+    log(
+      isEnglish() ? 'Floor cleared! The millstone is jammed.' : 'Ярус зачищен! Жернов встал.',
+      'g',
+    );
     if (!S.player.lostFormThisFloor) unlockAch('flawless');
     render();
     syncUI();
@@ -570,7 +646,12 @@ export function afterEnemies() {
     // в редакторе — победа при зачистке всех врагов
     if (isEditorRunning()) {
       closeModal();
-      log('Все враги уничтожены — симуляция завершена.', 'g');
+      log(
+        isEnglish()
+          ? 'All enemies destroyed — simulation complete.'
+          : 'Все враги уничтожены — симуляция завершена.',
+        'g',
+      );
       stopEditorRun();
       return;
     }
@@ -583,17 +664,27 @@ export function afterEnemies() {
     // проверить все комнаты
     const allCleared = S.rooms.every((r) => r.cleared);
     if (!allCleared) {
-      log('Комната зачищена — пройди через дверь к оставшимся врагам.', 'g');
+      log(
+        isEnglish()
+          ? 'Room cleared — find a door to the remaining enemies.'
+          : 'Комната зачищена — пройди через дверь к оставшимся врагам.',
+        'g',
+      );
       render();
       syncUI();
       return;
     }
     if (S.runMode === 'campaign' && isFinalFloor(S.floor)) {
-      log('Король пал. Подземелье затихло.', 'g');
+      log(
+        isEnglish()
+          ? 'The King has fallen. The Dungeon went silent.'
+          : 'Король пал. Подземелье затихло.',
+        'g',
+      );
       openVictory();
       return;
     }
-    log('Ярус зачищен!', 'g');
+    log(isEnglish() ? 'Floor cleared!' : 'Ярус зачищен!', 'g');
     if (!S.player.lostFormThisFloor) unlockAch('flawless');
     render();
     syncUI();
@@ -659,7 +750,7 @@ export function degradePlayer(byEnemy) {
   if (statusVal(S.player, 'shield') > 0 && !curse('glass')) {
     // щит гасит взятие (проклятие «Хрупкое тело» отменяет)
     S.player.status.shield--;
-    log('Щит поглощает взятие!', 'g');
+    log(isEnglish() ? 'Shield absorbs the capture!' : 'Щит поглощает взятие!', 'g');
     if (byEnemy) {
       byEnemy.cd = CFG.ENEMY_CAPTURE_CD;
       if (has('bulwark')) applyStatus(byEnemy, 'stun', 1);
@@ -668,7 +759,12 @@ export function degradePlayer(byEnemy) {
   }
   if (f.type === 'pawn' && has('pawn_shield') && !S.player.pawnShieldUsed) {
     S.player.pawnShieldUsed = true;
-    log('Талисман пешки вспыхивает — взятие отражено! (одноразово)', 'g');
+    log(
+      isEnglish()
+        ? 'Pawn Talisman flares — capture deflected! (one-use)'
+        : 'Талисман пешки вспыхивает — взятие отражено! (одноразово)',
+      'g',
+    );
     if (byEnemy) byEnemy.cd = CFG.ENEMY_CAPTURE_CD; // враг всё равно переводит дух
     return;
   }
@@ -677,7 +773,11 @@ export function degradePlayer(byEnemy) {
       `${GLYPH[byEnemy.type]} ${NAME[byEnemy.type]} берёт тебя! Форма «${NAME[f.type]}» уничтожена.`,
       'r',
     );
-  else log(`Форма «${NAME[f.type]}» уничтожена.`, 'r');
+  else
+    log(
+      isEnglish() ? 'Form "${NAME[f.type]}» уничтожена.' : 'Форма «${NAME[f.type]}» уничтожена.',
+      'r',
+    );
   if (byEnemy && curse('hex')) applyStatus(S.player, 'poison', 2); // «Порча» — яд при взятии
   if (f.type === 'pawn' && S.challenge !== 'lone_figure') {
     death();
@@ -700,7 +800,7 @@ export function degradePlayer(byEnemy) {
 export function death() {
   if (isEditorRunning()) {
     closeModal();
-    log('Смерть в тестовой симуляции.', 'r');
+    log(isEnglish() ? 'Death in test simulation.' : 'Смерть в тестовой симуляции.', 'r');
     stopEditorRun();
     return;
   }
@@ -720,7 +820,10 @@ export function checkMate() {
   const canSwitch = S.player.wheel.some((f, i) => f && i !== S.player.active && f.cooldown === 0);
   if (moves.length || captures.length || canSwitch) return;
   // мат: авто-деградация на месте + отброс соседей
-  log('Ходов нет. Тебя вскрывают на месте.', 'r');
+  log(
+    isEnglish() ? 'No moves. You are taken on the spot.' : 'Ходов нет. Тебя вскрывают на месте.',
+    'r',
+  );
   degradePlayer(null);
   if (S.gameOver) return;
   for (const e of S.enemies) {
@@ -738,7 +841,7 @@ export function checkMate() {
 export function openVictory() {
   if (isEditorRunning()) {
     closeModal();
-    log('Победа в тестовой симуляции.', 'g');
+    log(isEnglish() ? 'Victory in test simulation.' : 'Победа в тестовой симуляции.', 'g');
     stopEditorRun();
     return;
   }
@@ -790,7 +893,12 @@ export function openPromotion() {
         if (slot === -1) slot = S.player.wheel.length - 1; // замещаем последний
         S.player.wheel[slot] = f;
         S.player.active = slot; // превращение: становимся выбранной фигурой
-        log(`Восхождение: превращаешься в <b>${NAME[t]} ★</b> (слот ${slot}).`, 'g');
+        log(
+          isEnglish()
+            ? 'Ascension: you become <b>${NAME[t]} ★</b> (слот ${slot}).'
+            : 'Восхождение: превращаешься в <b>${NAME[t]} ★</b> (слот ${slot}).',
+          'g',
+        );
         playPromotion();
         closeModal();
         enemiesTurn();

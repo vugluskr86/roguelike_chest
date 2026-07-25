@@ -28,30 +28,22 @@ import { editorActive, handleEditorClick, isBrushActive, openEditor } from './ed
 import { feedDebugChar } from './debug.js';
 import { getAudioContext, initAudio } from './audio.js';
 import { initMusic, playTrack } from './music.js';
+import { isEnglish, L } from './lang.js';
 import { setPreviewCell } from './preview.js';
 import { attachKeyNav } from './keynav.js';
 import { ART } from './assets.js';
 
 // ===== экран загрузки =====
-const LORE = [
-  'Глубоко под землёй, где законы шахмат обрели физическую форму, пробудился древний лабиринт.',
-  'Мастера Колеса выковали фигуры, способные менять свою суть — но плата за это велика.',
-  'Каждый спуск в Подземелье — новая партия против самой судьбы. Правила едины для всех.',
-  'Говорят, на дне лабиринта покоится Корона Превращения — артефакт абсолютной власти над формой.',
-  'Пешка, прошедшая весь путь, становится легендой. Но пока ты — лишь искра в темноте.',
-];
-const TIPS = [
-  'Поворот пешки (Q/E) бесплатен — разворачивайся к угрозе каждым ходом.',
-  'Стой на клетке своего цвета слоном — получишь +1 к дальности.',
-  'Туман скрывает угрозу: заманивай врагов в ловушки вслепую.',
-  'Шипы убивают врагов мгновенно — используй их как оружие.',
-  'Портал переносит мгновенно — отличный способ сбежать из окружения.',
-  'Меняй форму только когда нужно: каждая смена тратит ход.',
-  'Некромант призывает пешек — убей его первым.',
-  'Страж носит броню: первый удар только снимает щит.',
-  'Золото тратится у Костоправа между этажами — копи на редкие кости.',
-  'Деградация спасает от смерти: теряешь форму, но продолжаешь забег.',
-];
+function loreArray() {
+  return [0, 1, 2, 3, 4].map(function (i) {
+    return L('loading.lore.' + i);
+  });
+}
+function tipArray() {
+  return [0, 1, 2, 3, 4, 5, 6, 7, 8, 9].map(function (i) {
+    return L('loading.tip.' + i);
+  });
+}
 
 function showLoadingScreen() {
   const el = document.getElementById('loadingScreen');
@@ -64,8 +56,16 @@ function showLoadingScreen() {
   document.body.style.overflow = 'hidden';
   const logoEl = el.querySelector('.loading-logo');
   if (logoEl && ART.loading) logoEl.src = ART.loading;
-  loreEl.textContent = LORE[Math.floor(Math.random() * LORE.length)];
-  tipEl.textContent = '💡 ' + TIPS[Math.floor(Math.random() * TIPS.length)];
+  // язык должен быть известен до экрана загрузки
+  loadSettings();
+  var lores = loreArray();
+  var tips = tipArray();
+  var hintEl = el.querySelector('.loading-hint');
+  if (hintEl) hintEl.textContent = L('loading.hint');
+  var titleEl = el.querySelector('.loading-title');
+  if (titleEl) titleEl.textContent = L('app.title');
+  loreEl.textContent = lores[Math.floor(Math.random() * lores.length)];
+  tipEl.textContent = '💡 ' + tips[Math.floor(Math.random() * tips.length)];
 
   const dismiss = () => {
     cleanup();
@@ -100,9 +100,82 @@ function showLoadingScreen() {
   }
 }
 
+function applyPageTitle() {
+  var t = document.getElementById('gameTitle');
+  if (t) t.innerHTML = L('app.title') + ' <span class="v">v1.0</span>';
+  var s = document.getElementById('gameSub');
+  if (s) s.textContent = L('app.sub');
+  scanI18n();
+}
+
+function scanI18n() {
+  var els = document.querySelectorAll('.i18n');
+  for (var i = 0; i < els.length; i++) {
+    var el = els[i];
+    var key = el.getAttribute('data-key');
+    if (key) el.textContent = L(key);
+  }
+}
+
+function renderLegend() {
+  var el = document.getElementById('legendBody');
+  if (!el) return;
+  var isEn = isEnglish();
+  var html = '';
+  if (isEn) {
+    html +=
+      '<span class="sw" style="background: var(--threat)"></span><b>threatened cells</b> — tap an enemy to see its zone<br>';
+    html +=
+      '<span class="sw" style="background: #e0a03a"></span><b>will appear after move</b> — threat preview<br>';
+    html +=
+      '<span class="sw" style="background: var(--promo)"></span><b>ascension line</b> — end your turn as a pawn here<br>';
+    html +=
+      '<span style="color: #c23b30">▼</span> <b>web</b>: step on it — lose a form; enemy dies (one-use)<br>';
+    html +=
+      '<span style="color: #9b6dd0">◎</span> <b>portal</b> · <span style="color: #58b3a4">◈</span> <b>vein</b> (feeds, removes fatigue) · <span style="color: #8fd0e6">❄</span> <b>ice</b> (stuns)<br>';
+    html +=
+      '<span style="color: #96a0b0">☁</span> <b>fog</b> hides threats · <span style="color: #7aa0c0">→</span> <b>conveyor</b> pushes · <span style="color: #c9a227">→</span> <b>gate</b> (arrow-only)<br>';
+    html +=
+      '<span style="color: #b0a8f0">♝</span> <b>color zone</b> (bishop only) · <span style="color: #8fae7a">▣</span> <b>plate</b> opens a wall · <span style="color: #d65a28">≈</span> <b>lava</b> spreads and burns<br>';
+    html +=
+      '🍖 <b>bone</b> — food, restores hunger · <span style="color: #8a8070">▮</span> <b>pillar</b> impassable<br>';
+    html +=
+      '<span class="sw" style="background: var(--teal)"></span>safe · <span class="sw" style="background: #e0a03a"></span>under threat · <span class="sw" style="background: var(--threat)"></span>fatal<br>';
+    html += 'Tap a cell — move or capture. Tap a slot — switch form (costs a turn).<br>';
+    html += 'Hunger drains each turn. Captures, veins and bones feed.<br>';
+    html +=
+      'Keys: <kbd>1</kbd>–<kbd>5</kbd> forms, <kbd>Q</kbd>/<kbd>E</kbd> rotate, <kbd>Space</kbd> pass, <kbd>Tab</kbd> cycle enemies, <kbd>Esc</kbd> reset, <kbd>Enter</kbd> confirm.';
+  } else {
+    html +=
+      '<span class="sw" style="background: var(--threat)"></span><b>битые поля</b> врагов (тапни по врагу — его зона)<br>';
+    html +=
+      '<span class="sw" style="background: #e0a03a"></span><b>появится после хода</b> — предпросмотр угроз<br>';
+    html +=
+      '<span class="sw" style="background: var(--promo)"></span><b>линия восхождения</b> — закончи ход пешкой<br>';
+    html +=
+      '<span style="color: #c23b30">▼</span> <b>паутина</b>: наступишь — теряешь форму; враг гибнет (одноразово)<br>';
+    html +=
+      '<span style="color: #9b6dd0">◎</span> <b>портал</b> · <span style="color: #58b3a4">◈</span> <b>жила</b> (насыщает, снимает усталость) · <span style="color: #8fd0e6">❄</span> <b>лёд</b> (оглушает)<br>';
+    html +=
+      '<span style="color: #96a0b0">☁</span> <b>туман</b> скрывает угрозу · <span style="color: #7aa0c0">→</span> <b>конвейер</b> сдвигает · <span style="color: #c9a227">→</span> <b>ворота</b> (только по стрелке)<br>';
+    html +=
+      '<span style="color: #b0a8f0">♝</span> <b>цветовая зона</b> (только слон) · <span style="color: #8fae7a">▣</span> <b>плита</b> открывает стену · <span style="color: #d65a28">≈</span> <b>лава</b> растекается и жжёт<br>';
+    html +=
+      '🍖 <b>кость</b> — еда, восполняет сытость · <span style="color: #8a8070">▮</span> <b>пилон</b> непроходим<br>';
+    html +=
+      '<span class="sw" style="background: var(--teal)"></span>ход безопасен · <span class="sw" style="background: #e0a03a"></span>под удар · <span class="sw" style="background: var(--threat)"></span>конец забега<br>';
+    html += 'Тап по клетке — ход или взятие; тап по слоту — смена формы (тратит ход).<br>';
+    html += 'Голод тает каждый ход. Взятия, жилы и кости насыщают.<br>';
+    html +=
+      'Клавиши: <kbd>1</kbd>–<kbd>5</kbd> формы, <kbd>Q</kbd>/<kbd>E</kbd> поворот, <kbd>Space</kbd> пас, <kbd>Tab</kbd> перебор врагов, <kbd>Esc</kbd> сброс, <kbd>Enter</kbd> подтвердить ход.';
+  }
+  el.innerHTML = html;
+}
+
 function startGame() {
   seedRNG(Math.floor(Date.now()));
-  loadSettings();
+  applyPageTitle();
+  renderLegend();
   metaLoad();
   reset();
   resizeBoard();

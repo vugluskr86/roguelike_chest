@@ -6,6 +6,7 @@
 import { S } from './state.js';
 import { dom } from './dom.js';
 import { CFG, GLYPH, KEY_COLOR_HEX, NAME, STATUS_META } from './config.js';
+import { L } from './lang.js';
 import { activeForm, allThreats, cachedThreats, playerOptions } from './moves.js';
 import { tutorialTargets } from './tutorial.js';
 import { RISK, pendingMove, previewCell, riskOf, threatsAfterMove } from './preview.js';
@@ -1777,23 +1778,27 @@ export function renderNow(ts) {
     }
   }
   // тултипы: клетка + враг (стек, если вместе)
-  const TOOLTIPS = {
-    trap: 'Паутина',
-    portal: 'Портал',
-    rune: 'Жила',
-    ice: 'Лёд',
-    lava: 'Лава',
-    fog: 'Туман',
-    conveyor: 'Конвейер',
-    gate: 'Ворота',
-    millstone: 'Жернов',
-    plate: 'Плита',
-    colorzone: 'Цветовая зона',
-    door: 'Дверь',
-    key: 'Ключ',
-    food: 'Кость',
-    scroll: 'Свиток',
-  };
+  var _tt = {};
+  [
+    'trap',
+    'portal',
+    'rune',
+    'ice',
+    'lava',
+    'fog',
+    'conveyor',
+    'gate',
+    'millstone',
+    'plate',
+    'colorzone',
+    'door',
+    'key',
+    'food',
+    'scroll',
+  ].forEach(function (t) {
+    _tt[t] = L('tooltip.' + t);
+  });
+  const TOOLTIPS = _tt;
   const cellTooltipLabel = (sp) => {
     const base = TOOLTIPS[sp.type] || sp.type;
     if (sp.type === 'door' && sp.doorId != null) return `Дверь #${sp.doorId}`;
