@@ -14,13 +14,205 @@ import { applyOption } from './loot.js';
 import { META, achProgress, buyUpgrade, codexProgress, upgradeCost } from './meta.js';
 import { activeForm } from './moves.js';
 import { syncHud } from './hud.js';
+import { ART } from './assets.js';
+import { duck, syncMusicSettings } from './music.js';
 
-export function openRunSummary(title, subtitle, earned) {
+// ════════════════════════════════════════════════════════════════
+//  Оболочка модалки
+// ════════════════════════════════════════════════════════════════
+
+/** Узел по id: сначала из dom.js, иначе напрямую. */
+const el = (id) => dom[id] || document.getElementById(id);
+
+/**
+ * Подготовить окно: размер, картинка, сброс прошлого содержимого.
+ * Вызывать первой строкой каждого open*.
+ *
+ * Картинки 512×768 — карточки с собственной рамкой и центрированной
+ * композицией. Обрезать их нельзя, только масштабировать целиком, поэтому
+ * режима два и оба показывают кадр полностью:
+ *
+ *   'hero'  — картинка и есть событие (интерлюдии, эпилоги, боссы):
+ *             во всю доступную высоту, заголовок под ней.
+ *   'aside' — картинка как контекст (меню, справка, лут, события):
+ *             маленькая карточка слева, заголовок и текст справа.
+ *
+ * Текст никогда не ложится поверх картинки: у этих кадров то светлый пергамент
+ * по центру, то тёмный камень с красным свечением — одного читаемого сочетания
+ * цвета и тени под них не существует.
+ *
+ * @param {'sm'|'md'|'lg'} size
+ * @param {string|null} art — URL из ART
+ * @param {'hero'|'aside'} mode
+ */
+/** Можно ли закрыть текущее окно через Esc/оверлей/назад. */
+let _modalDismissible = true;
+
+/** Элемент, с которого ушёл фокус при открытии окна — чтобы вернуть при закрытии. */
+let _lastFocused = null;
+
+/** Повесить/снять inert на игровом интерфейсе — чтобы Tab не уходил под оверлей. */
+function setInertBehind(v) {
+  const layout = document.querySelector('.layout');
+  const topbar = document.getElementById('topbar');
+  const status = document.querySelector('.sub');
+  if (layout) layout.inert = v;
+  if (topbar) topbar.inert = v;
+  if (status) status.inert = v;
+}
+
+/** Запереть Tab внутри модалки: первый и последний фокусируемые элементы. */
+function trapFocus() {
+  const box = dom.modalBox;
+  const focusable = box.querySelectorAll(
+    'button:not([disabled]):not([hidden]), [tabindex]:not([tabindex="-1"]), input, select, textarea',
+  );
+  if (!focusable.length) return;
+  const first = focusable[0];
+  const last = focusable[focusable.length - 1];
+  first.focus();
+  box.addEventListener(
+    'keydown',
+    (ev) => {
+      if (ev.key !== 'Tab') return;
+      if (ev.shiftKey) {
+        if (document.activeElement === first) {
+          ev.preventDefault();
+          last.focus();
+        }
+      } else {
+        if (document.activeElement === last) {
+          ev.preventDefault();
+          first.focus();
+        }
+      }
+    },
+    { once: true },
+  );
+}
+
+/**
+ * Подготовить окно: размер, картинка, сброс прошлого содержимого.
+ * Вызывать первой строкой каждого open*.
+ *
+ * Картинки 512×768 — карточки с собственной рамкой и центрированной
+ * композицией. Обрезать их нельзя, только масштабировать целиком, поэтому
+ * режима два и оба показывают кадр полностью:
+ *
+ *   'hero'  — картинка и есть событие (интерлюдии, эпилоги, боссы):
+ *             во всю доступную высоту, заголовок под ней.
+ *   'aside' — картинка как контекст (меню, справка, лут, события):
+ *             маленькая карточка слева, заголовок и текст справа.
+ *
+ * Текст никогда не ложится поверх картинки: у этих кадров то светлый пергамент
+ * по центру, то тёмный камень с красным свечением — одного читаемого сочетания
+ * цвета и тени под них не существует.
+ *
+ * @param {'sm'|'md'|'lg'} size
+ * @param {string|null} art — URL из ART
+ * @param {'hero'|'aside'} mode
+ * @param {object} [opts]
+ * @param {boolean} [opts.dismissible] — можно ли закрыть окно Esc/кликом по фону/назад (default true)
+ */
+export function shell(size = 'md', art = null, mode = 'aside', opts = {}) {
   S.modalOpen = true;
-  dom.modalBox.classList.add('death');
-  dom.mTitle.textContent = 'Забег окончен';
-  dom.mText.textContent = `${title} — ${subtitle}`;
+  _modalDismissible = opts.dismissible !== false;
+  dom.modalBox.classList.remove('m-sm', 'm-md', 'm-lg', 'death');
+  dom.modalBox.classList.add('m-' + size);
+
   dom.mChoices.innerHTML = '';
+  dom.mChoices.className = 'choices';
+  const actions = el('mActions');
+  if (actions) {
+    actions.innerHTML = '';
+    actions.className = 'm-actions' + (opts.footerStack ? ' stack' : '');
+  }
+
+  const img = el('mArt');
+  if (img) {
+    if (art) {
+      img.loading = 'lazy';
+      img.src = art;
+      img.className = 'm-art m-art--' + mode;
+      img.hidden = false;
+      // если картинка не загрузилась — скрыть и убрать класс шапки,
+      // чтобы окно не прыгало и не висело с битым <img>
+      img.onerror = () => {
+        img.hidden = true;
+        img.removeAttribute('src');
+        img.className = 'm-art';
+        const head = el('mHead');
+        if (head) head.className = 'm-head';
+      };
+    } else {
+      img.hidden = true;
+      img.removeAttribute('src');
+    }
+  }
+  const head = el('mHead');
+  if (head) head.className = 'm-head' + (art ? ' m-head--' + mode : '');
+
+  const body = el('mBody');
+  if (body) body.scrollTop = 0; // иначе новое окно открывается прокрученным
+
+  // inert + focus trap — Tab не уходит за пределы окна
+  _lastFocused = document.activeElement;
+  setInertBehind(true);
+  requestAnimationFrame(() => trapFocus());
+
+  // history — чтобы аппаратная кнопка «назад» закрывала окно, а не вкладку
+  try {
+    history.pushState({ modal: true }, '', location.href);
+  } catch {
+    /* */
+  }
+}
+
+/** Закрыть окно если оно закрываемо. Вызывается из Esc, клика по оверлею, popstate. */
+export function dismissModal() {
+  if (!_modalDismissible || !S.modalOpen) return;
+  // ищем обработчик закрытия по наличию кнопки с классом again (главное действие)
+  // или любой кнопки в футере — эвристика: если есть кнопка, нажимаем её
+  const again = el('mActions')?.querySelector('button.again');
+  if (again) {
+    again.click();
+    return;
+  }
+  const anyBtn = el('mActions')?.querySelector('button');
+  if (anyBtn) {
+    anyBtn.click();
+    return;
+  }
+  // если футер пуст — окно без действий, просто закрываем
+  closeModal();
+}
+
+/** Положить кнопку в закреплённый футер. Падает в mChoices, если футера нет. */
+export function action(button) {
+  const actions = el('mActions');
+  (actions || dom.mChoices).appendChild(button);
+  return button;
+}
+
+export function mkButton(label, onClick, cls) {
+  const b = document.createElement('button');
+  if (cls) b.className = cls;
+  b.textContent = label;
+  b.onclick = onClick;
+  return b;
+}
+
+// ════════════════════════════════════════════════════════════════
+//  Итоги забега
+// ════════════════════════════════════════════════════════════════
+
+/** @param {object} [opts] — { win, art } */
+export function openRunSummary(title, subtitle, earned, opts = {}) {
+  const win = !!opts.win;
+  shell('lg', opts.art || (win ? ART.victory : ART.runOver), 'aside');
+  if (!win) dom.modalBox.classList.add('death');
+  dom.mTitle.textContent = win ? title : 'Забег окончен';
+  dom.mText.textContent = win ? subtitle : `${title} — ${subtitle}`;
   dom.mChoices.classList.add('loot-list');
 
   const rids = [...S.player.relics],
@@ -58,47 +250,80 @@ export function openRunSummary(title, subtitle, earned) {
      <div class="ssec"><div class="sh">Журнал</div><div class="run-log">${runLog.slice(-300).join('')}</div></div>`;
   dom.mChoices.appendChild(wrap);
 
-  const row = document.createElement('div');
-  row.className = 'btnrow2';
-  const again = document.createElement('button');
-  again.className = 'again';
-  again.textContent = 'Ещё забег (R)';
-  again.style.cssText = 'font-size:13px;padding:6px 12px;min-height:unset;';
-  again.onclick = () => {
-    closeModal();
-    reset();
-  };
-  const menu = document.createElement('button');
-  menu.textContent = 'В меню';
-  menu.style.cssText = 'font-size:13px;padding:6px 12px;min-height:unset;';
-  menu.onclick = () => {
-    closeModal();
-    openTitle();
-  };
-  row.appendChild(again);
-  row.appendChild(menu);
-  dom.mChoices.appendChild(row);
+  action(
+    mkButton(
+      'Ещё забег (R)',
+      () => {
+        closeModal();
+        reset();
+      },
+      'again',
+    ),
+  );
+  action(
+    mkButton('В меню', () => {
+      closeModal();
+      openTitle();
+    }),
+  );
   dom.overlay.classList.add('on');
 }
 
+// ════════════════════════════════════════════════════════════════
+//  Главное меню
+// ════════════════════════════════════════════════════════════════
+
 export function openTitle() {
-  S.modalOpen = true;
-  dom.modalBox.classList.remove('death');
-  dom.mTitle.textContent = '\u265f \u042d\u043d\u0434\u0448\u043f\u0438\u043b\u044c';
-  dom.mText.textContent =
-    '\u041c\u0435\u0442\u0430-\u043f\u0440\u043e\u0433\u0440\u0435\u0441\u0441 \u0441\u043e\u0445\u0440\u0430\u043d\u044f\u0435\u0442\u0441\u044f \u043c\u0435\u0436\u0434\u0443 \u0437\u0430\u0431\u0435\u0433\u0430\u043c\u0438. \u0422\u0440\u0430\u0442\u044c \u043f\u0435\u043f\u0435\u043b \u043d\u0430 \u043f\u0435\u0440\u043c\u0430\u043d\u0435\u043d\u0442\u043d\u044b\u0435 \u0430\u043f\u0433\u0440\u0435\u0439\u0434\u044b.';
-  dom.mChoices.innerHTML = '';
+  shell('lg', ART.title, 'aside');
+  dom.mTitle.textContent = '♟ Эндшпиль';
+  dom.mText.innerHTML =
+    `<span class="searn">Пепел: <b>${META.shards}</b></span><br>` +
+    `рекорд: ярус ${META.bestFloor} · забегов ${META.runs} · всего взятий ${META.totalCaptures}`;
   dom.mChoices.classList.add('loot-list');
 
-  const head = document.createElement('div');
-  head.className = 'summary';
-  head.innerHTML = `<div class="sstats">
-       <div class="searn">Пепел: <b>${META.shards}</b></div>
-       <div class="srec">рекорд: ярус ${META.bestFloor} · забегов ${META.runs} · всего взятий ${META.totalCaptures}</div>
-     </div>`;
-  dom.mChoices.appendChild(head);
+  // ── ФУТЕР: режим и старт. Не скроллится, виден сразу ──
+  // Раньше первым, что видел игрок, был список мета-апгрейдов, а кнопка старта
+  // лежала под ним. Теперь наоборот: магазин надо пролистать, чтобы найти.
+  const actions = el('mActions');
+  if (actions) actions.classList.add('stack');
 
-  // табы
+  const hint = document.createElement('div');
+  hint.className = 'menu-hint';
+
+  const seg = document.createElement('div');
+  seg.className = 'mode-seg';
+  const setMode = (m) => {
+    S.runMode = m;
+    bCamp.classList.toggle('on', m === 'campaign');
+    bInf.classList.toggle('on', m === 'infinite');
+    hint.textContent =
+      m === 'campaign'
+        ? '18 ярусов, четыре босса, три финала'
+        : 'Ярусы без конца, боссов нет — только рекорд';
+  };
+  const bCamp = mkButton('⚔ Кампания', () => setMode('campaign'));
+  const bInf = mkButton('∞ Бесконечная', () => setMode('infinite'));
+  seg.appendChild(bCamp);
+  seg.appendChild(bInf);
+
+  if (actions) {
+    actions.appendChild(seg);
+    actions.appendChild(hint);
+  }
+  setMode(S.runMode || 'campaign');
+
+  action(
+    mkButton(
+      'Начать забег (R)',
+      () => {
+        closeModal();
+        reset();
+      },
+      'start',
+    ),
+  );
+
+  // ── ТЕЛО: магазин и челленджи ──
   const tabs = document.createElement('div');
   tabs.className = 'tab-row';
   const tabMeta = document.createElement('button');
@@ -111,7 +336,6 @@ export function openTitle() {
   tabs.appendChild(tabChall);
   dom.mChoices.appendChild(tabs);
 
-  // панель мета-прогресса
   const metaPanel = document.createElement('div');
   metaPanel.className = 'tab-panel';
   const shopScroll = document.createElement('div');
@@ -131,7 +355,7 @@ export function openTitle() {
       buy.textContent = 'макс';
       buy.disabled = true;
     } else {
-      buy.textContent = `${cost} \u2726`;
+      buy.textContent = `${cost} ✦`;
       buy.disabled = META.shards < cost;
       buy.onclick = () => {
         if (buyUpgrade(id)) openTitle();
@@ -142,28 +366,8 @@ export function openTitle() {
   });
   shopScroll.appendChild(shop);
   metaPanel.appendChild(shopScroll);
-  const codexN = codexProgress(),
-    achN = achProgress();
-  const nav = document.createElement('div');
-  nav.className = 'btnrow2';
-  const bc = document.createElement('button');
-  bc.textContent = `Бестиарий ${codexN.have}/${codexN.total}`;
-  bc.onclick = () => {
-    closeModal();
-    openCodex();
-  };
-  const ba = document.createElement('button');
-  ba.textContent = `Достижения ${achN.have}/${achN.total}`;
-  ba.onclick = () => {
-    closeModal();
-    openAchievements();
-  };
-  nav.appendChild(bc);
-  nav.appendChild(ba);
-  metaPanel.appendChild(nav);
   dom.mChoices.appendChild(metaPanel);
 
-  // панель челленджей (скрыта по умолчанию)
   const challPanel = document.createElement('div');
   challPanel.className = 'tab-panel';
   challPanel.style.display = 'none';
@@ -181,9 +385,11 @@ export function openTitle() {
     btn.textContent = S.challenge === id ? 'выбран' : 'выбрать';
     btn.style.borderColor = S.challenge === id ? '#e08a3f' : '';
     btn.onclick = () => {
+      // выбор челленджа больше не запускает забег сам: игрок мог просто читать,
+      // что такое «Слепой спуск», и оказаться в нём
       S.challenge = S.challenge === id ? null : id;
-      closeModal();
-      reset();
+      openTitle();
+      tabChall.onclick();
     };
     row.appendChild(btn);
     challSection.appendChild(row);
@@ -192,7 +398,6 @@ export function openTitle() {
   challPanel.appendChild(challScroll);
   dom.mChoices.appendChild(challPanel);
 
-  // переключение табов
   tabMeta.onclick = () => {
     tabMeta.classList.add('active');
     tabChall.classList.remove('active');
@@ -206,49 +411,59 @@ export function openTitle() {
     metaPanel.style.display = 'none';
   };
 
-  // переключатель режима
-  const modeRow = document.createElement('div');
-  modeRow.className = 'btnrow2';
-  const btnCampaign = document.createElement('button');
-  btnCampaign.textContent = '⚔ Кампания';
-  btnCampaign.style.borderColor = S.runMode === 'campaign' ? '#c9a227' : '';
-  btnCampaign.onclick = () => {
-    S.runMode = 'campaign';
-    btnCampaign.style.borderColor = '#c9a227';
-    btnInfinite.style.borderColor = '';
-  };
-  const btnInfinite = document.createElement('button');
-  btnInfinite.textContent = '∞ Бесконечная';
-  btnInfinite.style.borderColor = S.runMode === 'infinite' ? '#c9a227' : '';
-  btnInfinite.onclick = () => {
-    S.runMode = 'infinite';
-    btnInfinite.style.borderColor = '#c9a227';
-    btnCampaign.style.borderColor = '';
-  };
-  modeRow.appendChild(btnCampaign);
-  modeRow.appendChild(btnInfinite);
-  dom.mChoices.appendChild(modeRow);
+  // мелкая навигация — не конкурирует с кнопкой старта
+  const codexN = codexProgress(),
+    achN = achProgress();
+  const nav = document.createElement('div');
+  nav.className = 'menu-nav';
+  nav.appendChild(
+    mkButton(`Бестиарий ${codexN.have}/${codexN.total}`, () => {
+      closeModal();
+      openCodex();
+    }),
+  );
+  nav.appendChild(
+    mkButton(`Достижения ${achN.have}/${achN.total}`, () => {
+      closeModal();
+      openAchievements();
+    }),
+  );
+  nav.appendChild(
+    mkButton('Как играть', () => {
+      closeModal();
+      openHelp('title');
+    }),
+  );
+  dom.mChoices.appendChild(nav);
 
-  const start = document.createElement('button');
-  start.className = 'again';
-  start.textContent = 'Начать забег (R)';
-  start.onclick = () => {
-    closeModal();
-    reset();
-  };
-  dom.mChoices.appendChild(start);
-  const help = document.createElement('button');
-  help.textContent = 'Как играть';
-  help.onclick = () => {
-    closeModal();
-    openHelp('title');
-  };
-  dom.mChoices.appendChild(help);
   dom.overlay.classList.add('on');
 }
 
-// прогресс кодекса и достижений
-export function toast(text) {
+// ════════════════════════════════════════════════════════════════
+//  Тост
+// ════════════════════════════════════════════════════════════════
+
+/** Экранировать строку для вставки в HTML (против XSS через импорт уровней). */
+export function sanitize(str) {
+  const A = String.fromCharCode(38); // & — избегаем проблем с XML-экранированием в исходниках
+  return String(str)
+    .replace(/&/g, A + 'amp;')
+    .replace(/</g, A + 'lt;')
+    .replace(/>/g, A + 'gt;')
+    .replace(/"/g, A + 'quot;')
+    .replace(/'/g, A + '#39;');
+}
+
+let _toastActive = false;
+const _toastQueue = [];
+
+function _dequeueToast() {
+  if (!_toastQueue.length) {
+    _toastActive = false;
+    return;
+  }
+  _toastActive = true;
+  const text = _toastQueue.shift();
   try {
     const d = document.createElement('div');
     d.className = 'toast';
@@ -259,18 +474,32 @@ export function toast(text) {
     }, 2200);
     setTimeout(() => {
       if (d.parentNode) d.parentNode.removeChild(d);
+      _dequeueToast();
     }, 2800);
   } catch (e) {
     console.error(e);
+    _dequeueToast();
   }
 }
 
+export function toast(text) {
+  _toastQueue.push(text);
+  if (!_toastActive) _dequeueToast();
+}
+
+/** Очистить очередь тостов — вызывать при новом забеге/ярусе. */
+export function clearToastQueue() {
+  _toastQueue.length = 0;
+}
+
+// ════════════════════════════════════════════════════════════════
+//  Бестиарий и достижения
+// ════════════════════════════════════════════════════════════════
+
 export function openCodex() {
-  S.modalOpen = true;
-  dom.modalBox.classList.remove('death');
+  shell('lg', ART.codex, 'aside');
   dom.mTitle.textContent = 'Бестиарий';
   dom.mText.textContent = 'Записи открываются по мере встреч в забегах.';
-  dom.mChoices.innerHTML = '';
   dom.mChoices.classList.add('loot-list');
   const box = document.createElement('div');
   box.className = 'help';
@@ -327,24 +556,24 @@ export function openCodex() {
   html += '</div>';
   box.innerHTML = html;
   dom.mChoices.appendChild(box);
-  const back = document.createElement('button');
-  back.className = 'again';
-  back.textContent = 'Назад в меню';
-  back.onclick = () => {
-    closeModal();
-    openTitle();
-  };
-  dom.mChoices.appendChild(back);
+  action(
+    mkButton(
+      'Назад в меню',
+      () => {
+        closeModal();
+        openTitle();
+      },
+      'again',
+    ),
+  );
   dom.overlay.classList.add('on');
 }
 
 export function openAchievements() {
-  S.modalOpen = true;
-  dom.modalBox.classList.remove('death');
+  shell('lg', ART.codex, 'aside');
   const p = achProgress();
   dom.mTitle.textContent = 'Достижения';
   dom.mText.textContent = `Открыто ${p.have} из ${p.total}.`;
-  dom.mChoices.innerHTML = '';
   dom.mChoices.classList.add('loot-list');
   const box = document.createElement('div');
   box.className = 'help';
@@ -352,28 +581,32 @@ export function openAchievements() {
   Object.keys(ACHIEVEMENTS).forEach((id) => {
     const a = ACHIEVEMENTS[id],
       got = META.achievements[id];
-    html += `<div class="cdx${got ? '' : ' locked'}"><b>${got ? '\u{1f3c6}' : '\u{1f512}'} ${a.name}</b><span>${a.desc}</span></div>`;
+    html += `<div class="cdx${got ? '' : ' locked'}"><b>${got ? '🏆' : '🔒'} ${a.name}</b><span>${a.desc}</span></div>`;
   });
   html += '</div>';
   box.innerHTML = html;
   dom.mChoices.appendChild(box);
-  const back = document.createElement('button');
-  back.className = 'again';
-  back.textContent = 'Назад в меню';
-  back.onclick = () => {
-    closeModal();
-    openTitle();
-  };
-  dom.mChoices.appendChild(back);
+  action(
+    mkButton(
+      'Назад в меню',
+      () => {
+        closeModal();
+        openTitle();
+      },
+      'again',
+    ),
+  );
   dom.overlay.classList.add('on');
 }
 
+// ════════════════════════════════════════════════════════════════
+//  Справка
+// ════════════════════════════════════════════════════════════════
+
 export function openHelp(from) {
-  S.modalOpen = true;
-  dom.modalBox.classList.remove('death');
+  shell('lg', ART.help, 'aside');
   dom.mTitle.textContent = 'Как играть';
-  dom.mText.textContent = 'Шахматный roguelike: ты — фигура, что меняет свой тип по ходу спуска.';
-  dom.mChoices.innerHTML = '';
+  dom.mText.textContent = 'Шахматный рогалик: ты — фигура, что меняет свой тип по ходу спуска.';
   dom.mChoices.classList.add('loot-list');
 
   const H = document.createElement('div');
@@ -386,10 +619,17 @@ export function openHelp(from) {
     <div class="hsec"><div class="hh">Ход и управление</div>
       Игра пошаговая: сначала твой ход, затем ходят все враги. За ход — одно действие:
       переместиться, взять фигуру, сменить форму или спасовать.<br>
-      • <b>Тап по клетке</b> — ход или взятие (бирюзовые точки — ходы, красные кольца — взятия).<br>
+      • <b>Тап по клетке</b> — ход или взятие. Бирюзовая точка — безопасно, янтарная — встанешь
+        под удар, багровая с крестом — там забег кончится.<br>
       • <b>Тап по врагу</b> — показать/скрыть его зону боя (красная штриховка).<br>
       • <b>Тап по слоту формы</b> — сменить форму (тратит ход).<br>
-      • На ПК: <b>1–3</b> формы, <b>Q/E</b> поворот пешки (бесплатно), <b>Space</b> пас.</div>
+      • На ПК: <b>1–5</b> формы, <b>Q/E</b> поворот пешки (бесплатно), <b>Space</b> пас,
+        <b>Tab</b> перебор врагов, <b>Esc</b> сброс, <b>Enter</b> подтвердить ход.</div>
+
+    <div class="hsec"><div class="hh">Предпросмотр</div>
+      Наведи или тапни по клетке хода — янтарная штриховка покажет, какие клетки станут битыми
+      <b>после</b> этого хода. Красная штриховка — то, что бито уже сейчас.
+      В настройках можно включить подтверждение опасных ходов вторым тапом.</div>
 
     <div class="hsec"><div class="hh">Формы фигур</div>
       Ты играешь одной из шахматных форм; взятие — это перемещение на клетку врага.<br>
@@ -404,7 +644,8 @@ export function openHelp(from) {
     <div class="hsec"><div class="hh">Колесо форм и усталость</div>
       Формы лежат в колесе (слот 0 — неудаляемая пешка). Смена формы <b>тратит ход</b>.
       Форма, совершившая взятие, <b>устаёт</b> на пару ходов — в неё нельзя переключиться.
-      Новые формы открываются, когда ты берёшь обычную вражескую фигуру её типа.</div>
+      Новые формы открываются, когда ты берёшь обычную вражескую фигуру её типа.
+      Число в углу слота — сколько ходов даст эта форма из текущей клетки.</div>
 
     <div class="hsec"><div class="hh">Взятия и деградация</div>
       HP нет: взятие мгновенно. Когда враг берёт тебя — ты не гибнешь сразу, а <b>деградируешь</b>
@@ -417,8 +658,8 @@ export function openHelp(from) {
 
     <div class="hsec"><div class="hh">Шах и мат</div>
       Все битые поля врагов подсвечены. Закончил ход на битой клетке — <b>шах</b>: враг обязан
-      атаковать тебя следующим ходом. Нет ни одного легального хода на битой клетке — <b>мат</b>
-      (аварийная деградация).</div>
+      атаковать тебя следующим ходом. Нет ни одного легального хода на битой клетке — <b>мат</b>:
+      тебя вскрывают на месте.</div>
 
     <div class="hsec"><div class="hh">Биомы</div>
       Ярусы идут наборами со своей генерацией, палитрой и пулами (сменяются каждые 2 яруса):<br>
@@ -472,13 +713,12 @@ export function openHelp(from) {
       Ярус может состоять из нескольких комнат (1–5). Комнаты соединены дверями —
       кольцом, всегда проходимым. Часть дверей заперта на цветной ключ; ключ
       всегда лежит в той же комнате, где запертая дверь. Чтобы завершить ярус,
-      нужно зачистить <b>все</b> комнаты. Счётчик «комнаты 2/3» показывает прогресс.
-      Если дверь открыта — проходи, враги ждут.</div>
+      нужно зачистить <b>все</b> комнаты. Строка «комнаты ✓—●—🔑» вверху показывает прогресс.</div>
 
     <div class="hsec"><div class="hh">Кости (еда)</div>
-      На ярусе встречаются клетки с 🍖. Наступив, съедаешь кость и восполняешь
-      <b>12 сытости</b>. Шкала голода — 24 деления в HUD: зелёные рёбра —
-      сытость, красные — голод. При 0 начинается деградация каждый ход.</div>
+      На ярусе встречаются клетки с 🍖. Наступив, съедаешь кость и восполняешь сытость.
+      Шкала голода вверху: рядом с ней — сколько ходов осталось до деградации.
+      Взятия и Жилы тоже кормят, пас — наоборот, дороже обычного хода.</div>
 
     <div class="hsec"><div class="hh">Пилоны и жернова</div>
       • <b>Пилон</b> — массивный каменный блок. Непроходим для всех. Враги
@@ -487,7 +727,7 @@ export function openHelp(from) {
         и игрока. Забитый жернов останавливается навсегда.</div>
 
     <div class="hsec"><div class="hh">Редактор уровней</div>
-      Кнопка «🗺 Редактор» на боковой панели. Позволяет расставлять стены,
+      Кнопка «🗺 Редактор» в меню. Позволяет расставлять стены,
       врагов (включая всех боссов одной кнопкой), спец-клетки и двери с ключами.
       Поддерживает несколько комнат. Можно запустить симуляцию и вернуться
       к редактированию.</div>
@@ -511,8 +751,8 @@ export function openHelp(from) {
     <div class="hsec"><div class="hh">Добыча: кости и швы</div>
       После зачистки яруса выбираешь награду. Есть безопасные <b>кости</b> (перманентные плюсы)
       и проклятые сделки: <b>⚠ фаустова</b> (2 кости + шов) и <b>☠ алтарь</b>
-      (3 кости + 2 шва). <b>Швы</b> — перманентные дебаффы. Кости копятся
-      в синергии; всё видно в панели «Модификаторы».</div>
+      (3 кости + 2 шва). <b>Швы</b> — перманентные дебаффы. Всё надетое видно в панели
+      «Модификаторы» и кольцами вокруг твоей фигуры.</div>
 
      <div class="hsec"><div class="hh">Челленджи</div>
        Режимы с особыми правилами — выбираются перед забегом в меню:<br>
@@ -528,15 +768,6 @@ export function openHelp(from) {
        • <b>♜ Канцлер</b> — ладья + конь: ортогонали и прыжки буквой «Г».<br>
        • <b>☣ Изверг</b> — прыжки ровно на 2 клетки в любую сторону (12 ходов).</div>
 
-     <div class="hsec"><div class="hh">Прокрутка карты</div>
-       Карта может быть больше экрана. Камера плавно следует за игроком.
-       Золотая линия восхождения всегда видна как бордюр вверху экрана.
-       При наведении на особую клетку всплывает подсказка с её названием.</div>
-
-     <div class="hsec"><div class="hh">Настройки и звук</div>
-       Кнопка «⚙ Настройки» — отключение звука и анимаций тайлов. Настройки сохраняются.
-       Все звуки синтезируются через Web Audio (без загрузки файлов).</div>
-
      <div class="hsec"><div class="hh">Мета-прогрессия</div>
       За каждый забег начисляется <b>пепел</b> (ярус×3 + взятия). Трать его в меню на перманентные
       апгрейды: стартовые слоты, стартовые кости, облегчённый первый ярус. Прогресс и рекорд
@@ -544,45 +775,54 @@ export function openHelp(from) {
   `;
   dom.mChoices.appendChild(H);
 
-  const back = document.createElement('button');
-  back.className = 'again';
-  back.textContent = from === 'title' ? 'Назад в меню' : 'Понятно';
-  back.onclick = () => {
-    closeModal();
-    if (from === 'title') openTitle();
-  };
-  dom.mChoices.appendChild(back);
+  action(
+    mkButton(
+      from === 'title' ? 'Назад в меню' : 'Понятно',
+      () => {
+        closeModal();
+        if (from === 'title') openTitle();
+      },
+      'again',
+    ),
+  );
   dom.overlay.classList.add('on');
 }
 
-export function openModal(title, text, btns, isDeath) {
-  S.modalOpen = true;
+// ════════════════════════════════════════════════════════════════
+//  Общие модалки
+// ════════════════════════════════════════════════════════════════
+
+/**
+ * @param {object} [opts] — { art, mode, size, glyphs }
+ * glyphs: true — кнопки это фигуры (промоушен), им нужен крупный кегль.
+ */
+export function openModal(title, text, btns, isDeath, opts = {}) {
+  shell(opts.size || (btns.length > 2 ? 'md' : 'sm'), opts.art || null, opts.mode || 'hero');
+  dom.modalBox.classList.toggle('death', !!isDeath);
   dom.mTitle.textContent = title;
   dom.mText.textContent = text;
-  dom.mChoices.innerHTML = '';
-  dom.mChoices.classList.remove('loot-list');
-  dom.modalBox.classList.toggle('death', !!isDeath);
-  btns.forEach((b) => {
-    const el = document.createElement('button');
-    el.textContent = b.label;
-    el.onclick = b.fn;
-    dom.mChoices.appendChild(el);
-  });
+  // до трёх — в закреплённый футер; больше (промоушен) — в тело, иначе футер
+  // съедает половину окна
+  if (btns.length > 3) {
+    if (opts.glyphs) dom.mChoices.classList.add('glyphs');
+    btns.forEach((b) => dom.mChoices.appendChild(mkButton(b.label, b.fn)));
+  } else {
+    btns.forEach((b) => action(mkButton(b.label, b.fn)));
+  }
   dom.overlay.classList.add('on');
 }
+
 export function openLoot(options) {
-  S.modalOpen = true;
-  dom.modalBox.classList.remove('death');
+  shell('md', ART.loot, 'aside');
   dom.mTitle.textContent = 'Добыча яруса';
   dom.mText.textContent =
-    'Выбери одно. Проклятые сделки дают больше силы, но вешают перманентный дебафф.';
-  dom.mChoices.innerHTML = '';
+    'Выбери одно. Проклятые сделки дают больше силы, но вешают перманентный шов.';
   dom.mChoices.classList.add('loot-list');
   const KIND = { relic: '', faust: '⚠ Фаустова сделка', altar: '☠ Алтарь жертвы' };
   options.forEach((opt) => {
-    const el = document.createElement('button');
+    const b = document.createElement('button');
     const cursed = opt.curses.length > 0;
-    el.className = 'loot' + (cursed ? ' cursed' : '');
+    b.className = 'loot' + (cursed ? ' cursed' : '');
     let html = '';
     if (KIND[opt.kind]) html += `<span class="lk">${KIND[opt.kind]}</span>`;
     opt.relics.forEach((id) => {
@@ -592,119 +832,154 @@ export function openLoot(options) {
     opt.curses.forEach((id) => {
       html += `<span class="cn">☠ ${CURSES[id].name}</span><span class="cd">${CURSES[id].desc}</span>`;
     });
-    el.innerHTML = html;
-    el.onclick = () => {
+    b.innerHTML = html;
+    b.onclick = () => {
       applyOption(opt);
       closeModal();
       maybeEvent();
     };
-    dom.mChoices.appendChild(el);
+    dom.mChoices.appendChild(b);
   });
   dom.overlay.classList.add('on');
 }
-/** Интерлюдия/эпилог из SCRIPT. */
+
+/** Интерлюдия/эпилог из SCRIPT. data.art — URL из ART. */
 export function openInterlude(data, onClose) {
-  S.modalOpen = true;
-  dom.modalBox.classList.remove('death');
+  shell(data.size || 'md', data.art || null, data.mode || 'hero');
+  duck(true); // приглушить музыку на время чтения
   dom.mTitle.textContent = data.title || '';
   if (data.lines && data.lines.length) {
     dom.mText.innerHTML = data.lines.map((l) => (l ? `<p>${l}</p>` : '<br>')).join('');
   } else {
     dom.mText.textContent = '';
   }
-  dom.mChoices.innerHTML = '';
   dom.mChoices.classList.add('loot-list');
 
   if (data.choices) {
     data.choices.forEach((ch) => {
-      const el = document.createElement('button');
-      el.className = 'loot';
-      el.innerHTML = `<span class="ln">${ch.label}</span><span class="ld">${ch.desc || ''}</span>`;
-      el.onclick = () => {
+      const b = document.createElement('button');
+      b.className = 'loot';
+      b.innerHTML = `<span class="ln">${ch.label}</span><span class="ld">${ch.desc || ''}</span>`;
+      b.onclick = () => {
         closeModal();
         if (ch.mercy !== undefined) S.mercy = (S.mercy || 0) + ch.mercy;
         if (onClose) onClose(ch);
       };
-      dom.mChoices.appendChild(el);
+      dom.mChoices.appendChild(b);
     });
   } else if (data.button) {
-    const el = document.createElement('button');
-    el.className = 'again';
-    el.textContent = data.button;
-    el.onclick = () => {
-      closeModal();
-      if (onClose) onClose();
-    };
-    dom.mChoices.appendChild(el);
+    action(
+      mkButton(
+        data.button,
+        () => {
+          closeModal();
+          if (onClose) onClose();
+        },
+        'again',
+      ),
+    );
   }
   dom.overlay.classList.add('on');
 }
 
 export function closeModal() {
   S.modalOpen = false;
+  _modalDismissible = true;
+  setInertBehind(false);
   dom.overlay.classList.remove('on');
-  dom.mChoices.classList.remove('loot-list');
+  dom.mChoices.className = 'choices';
+  duck(false); // вернуть громкость музыки после закрытия текстовой модалки
+  // вернуть фокус элементу, который открыл окно
+  const focused = _lastFocused;
+  _lastFocused = null;
+  if (focused && typeof focused.focus === 'function') {
+    requestAnimationFrame(() => focused.focus());
+  }
+  const img = el('mArt');
+  if (img) {
+    img.hidden = true;
+    img.removeAttribute('src');
+  }
+  const head = el('mHead');
+  if (head) head.className = 'm-head';
+  const actions = el('mActions');
+  if (actions) actions.className = 'm-actions';
 }
 
+// ════════════════════════════════════════════════════════════════
+//  Настройки
+// ════════════════════════════════════════════════════════════════
+
 export function openSettings() {
-  S.modalOpen = true;
-  dom.modalBox.classList.remove('death');
+  shell('sm');
   dom.mTitle.textContent = '⚙ Настройки';
   dom.mText.textContent = '';
-  dom.mChoices.innerHTML = '';
   dom.mChoices.classList.add('loot-list');
 
-  const mkToggle = (label, key) => {
+  const mkRow = (label, desc) => {
     const row = document.createElement('div');
     row.className = 'shoprow';
-    const info = document.createElement('div');
-    info.className = 'si';
-    info.innerHTML = `<span class="ln">${label}</span>`;
+    row.innerHTML =
+      `<div class="si"><span class="ln">${label}</span>` +
+      (desc ? `<span class="ld">${desc}</span>` : '') +
+      '</div>';
+    return row;
+  };
+
+  const mkToggle = (label, key) => {
+    const row = mkRow(label);
     const btn = document.createElement('button');
     btn.className = 'buy';
     btn.textContent = CFG[key] ? 'вкл' : 'выкл';
     btn.onclick = () => {
       CFG[key] = !CFG[key];
       saveSettings();
+      if (key.startsWith('MUSIC')) syncMusicSettings();
       btn.textContent = CFG[key] ? 'вкл' : 'выкл';
     };
-    row.appendChild(info);
     row.appendChild(btn);
     return row;
   };
 
   dom.mChoices.appendChild(mkToggle('Звук', 'SFX_ENABLED'));
   dom.mChoices.appendChild(mkToggle('Анимации', 'ANIM_ENABLED'));
-
-  // предпросмотр — обычный булев тумблер
+  dom.mChoices.appendChild(mkToggle('Музыка', 'MUSIC_ENABLED'));
   dom.mChoices.appendChild(mkToggle('Показывать последствия хода', 'SHOW_PREVIEW'));
 
   // подтверждение хода — три состояния
   const modes = ['off', 'risky', 'all'];
   const modeName = { off: 'выкл', risky: 'только опасные', all: 'все ходы' };
-  const row = document.createElement('div');
-  row.className = 'shoprow';
-  row.innerHTML = '<div class="si"><span class="ln">Подтверждать ход</span></div>';
-  const btn = document.createElement('button');
-  btn.className = 'buy';
-  btn.textContent = modeName[CFG.CONFIRM_MOVES] || 'выкл';
-  btn.onclick = () => {
+  const cRow = mkRow('Подтверждать ход', 'Второй тап по клетке выполняет ход');
+  const cBtn = document.createElement('button');
+  cBtn.className = 'buy';
+  cBtn.textContent = modeName[CFG.CONFIRM_MOVES] || 'выкл';
+  cBtn.onclick = () => {
     const i = modes.indexOf(CFG.CONFIRM_MOVES);
     CFG.CONFIRM_MOVES = modes[(i + 1) % modes.length];
     saveSettings();
-    btn.textContent = modeName[CFG.CONFIRM_MOVES];
+    cBtn.textContent = modeName[CFG.CONFIRM_MOVES];
   };
-  row.appendChild(btn);
-  dom.mChoices.appendChild(row);
+  cRow.appendChild(cBtn);
+  dom.mChoices.appendChild(cRow);
 
-  const back = document.createElement('button');
-  back.className = 'again';
-  back.textContent = 'Закрыть';
-  back.onclick = closeModal;
-  dom.mChoices.appendChild(back);
+  // сброс обучения — динамический импорт, чтобы не заводить цикл ui ⇄ tutorial
+  const tRow = mkRow('Обучение', 'Показать сцены и подсказки заново');
+  const tBtn = document.createElement('button');
+  tBtn.className = 'buy';
+  tBtn.textContent = 'сбросить';
+  tBtn.onclick = () => {
+    import('./tutorial.js').then((m) => m.resetHints && m.resetHints());
+  };
+  tRow.appendChild(tBtn);
+  dom.mChoices.appendChild(tRow);
 
+  action(mkButton('Закрыть', closeModal, 'again'));
   dom.overlay.classList.add('on');
 }
+
+// ════════════════════════════════════════════════════════════════
+//  Журнал
+// ════════════════════════════════════════════════════════════════
 
 const LOG_DOM_LIMIT = 200;
 /** Полный журнал забега — для итогового экрана. DOM обрезается, этот массив нет. */
@@ -721,23 +996,19 @@ export function log(msg, cls) {
   dom.logEl.appendChild(d);
   while (dom.logEl.childNodes.length > LOG_DOM_LIMIT) dom.logEl.removeChild(dom.logEl.firstChild);
   dom.logEl.scrollTop = dom.logEl.scrollHeight;
+
+  // последняя строка важных сообщений — тост над доской (игрок не смотрит в лог)
+  if (cls === 'r' || cls === 'g') {
+    const plain = d.textContent || '';
+    if (plain.length > 2 && plain.length < 100) toast(plain);
+  }
 }
 
-export function syncUI() {
-  // шкала голода
-  if (dom.hungerRibs && S.player && S.player.hunger !== undefined) {
-    const max = CFG.HUNGER.start;
-    const val = Math.max(0, S.player.hunger);
-    const ratio = val / max;
-    const filled = Math.ceil(ratio * max);
-    let ribs = '';
-    for (let i = 0; i < max; i++) {
-      const cls = i < filled ? (val <= 6 ? 'rib rib-starve' : 'rib rib-on') : 'rib';
-      ribs += `<span class="${cls}"></span>`;
-    }
-    dom.hungerRibs.innerHTML = ribs;
-  }
+// ════════════════════════════════════════════════════════════════
+//  Синхронизация HUD
+// ════════════════════════════════════════════════════════════════
 
+export function syncUI() {
   const clearedRooms = S.rooms.filter((r) => r.cleared).length;
   document.getElementById('turnNo').innerHTML =
     `<span class="hb">ярус ${S.floor}</span>` +
@@ -746,37 +1017,70 @@ export function syncUI() {
       ? `<span class="hb">комнаты ${clearedRooms}/${S.rooms.length}</span>`
       : '') +
     `<span class="hb">ход ${S.turn}</span>` +
-    `<span class="hb gold">${S.player.gold || 0}\u{1fa99}</span>` +
-    `<span class="hb shards">${META.shards || 0}\u2726</span>` +
+    `<span class="hb gold">${S.player.gold || 0}🪙</span>` +
+    `<span class="hb shards">${META.shards || 0}✦</span>` +
     (S.keys.size > 0
       ? `<span class="hb keys">${[...S.keys].map((k) => KEY_GLYPH[k]).join('')}</span>`
       : '');
-  dom.wheelEl.innerHTML = '';
+
+  // Обновляем слоты точечно, не пересоздавая DOM — иначе фокус и hover слетают каждый ход.
+  const nSlots = S.player.wheel.length;
+  while (dom.wheelEl.children.length < nSlots) {
+    const slot = document.createElement('div');
+    slot.dataset.idx = dom.wheelEl.children.length;
+    dom.wheelEl.appendChild(slot);
+  }
+  while (dom.wheelEl.children.length > nSlots) {
+    dom.wheelEl.removeChild(dom.wheelEl.lastChild);
+  }
   S.player.wheel.forEach((f, i) => {
-    const el = document.createElement('div');
+    const slot = dom.wheelEl.children[i];
     if (!f) {
-      el.className = 'slot empty';
-      el.innerHTML = '<div class="glyph">·</div><div class="nm">пусто</div>';
+      slot.className = 'slot empty';
+      slot.innerHTML = '<div class="glyph">·</div><div class="nm">пусто</div>';
+      slot.onclick = null;
+      slot.removeAttribute('title');
     } else {
-      el.className =
-        'slot' + (i === S.player.active ? ' active' : '') + (f.cooldown > 0 ? ' cd' : '');
-      el.innerHTML =
-        `<div class="glyph">${GLYPH[f.type]}</div><div class="nm">${NAME[f.type]}${f.type === 'bishop' ? (f.homeColor === 0 ? ' \u25fd' : ' \u25fe') : ''}</div>` +
-        (f.improved ? '<span class="star">★</span>' : '') +
-        (f.cooldown > 0 ? `<span class="cdn">${f.cooldown}</span>` : '');
-      el.onclick = () => switchForm(i);
-      el.title =
+      const cls = 'slot' + (i === S.player.active ? ' active' : '') + (f.cooldown > 0 ? ' cd' : '');
+      if (slot.className !== cls) slot.className = cls;
+      const elGlyph = slot.querySelector('.glyph');
+      const elNm = slot.querySelector('.nm');
+      if (elGlyph) elGlyph.textContent = GLYPH[f.type];
+      if (elNm) {
+        elNm.textContent =
+          NAME[f.type] + (f.type === 'bishop' ? (f.homeColor === 0 ? ' ◽' : ' ◾') : '');
+      } else {
+        slot.innerHTML = `<div class="glyph">${GLYPH[f.type]}</div><div class="nm">${NAME[f.type]}${f.type === 'bishop' ? (f.homeColor === 0 ? ' ◽' : ' ◾') : ''}</div>`;
+      }
+      // star + cooldown badge: добавляем если появились, убираем если пропали
+      let elStar = slot.querySelector('.star');
+      let elCd = slot.querySelector('.cdn');
+      if (f.improved && !elStar) {
+        slot.appendChild(
+          Object.assign(document.createElement('span'), { className: 'star', textContent: '★' }),
+        );
+      } else if (!f.improved && elStar) elStar.remove();
+      if (f.cooldown > 0) {
+        if (!elCd) {
+          slot.appendChild(Object.assign(document.createElement('span'), { className: 'cdn' }));
+          elCd = slot.querySelector('.cdn');
+        }
+        if (elCd) elCd.textContent = f.cooldown;
+      } else if (elCd) elCd.remove();
+      slot.onclick = () => switchForm(i);
+      slot.title =
         i === S.player.active
           ? 'Активная форма'
           : f.cooldown > 0
             ? 'Форма устала'
             : 'Сменить (тратит ход)';
     }
-    dom.wheelEl.appendChild(el);
   });
+
   const dirNames = { '0,-1': 'север', '1,0': 'восток', '0,1': 'юг', '-1,0': 'запад' };
   dom.faceInfo.textContent =
     activeForm().type === 'pawn' ? 'фасинг: ' + dirNames[S.player.facing.join(',')] : '';
 
+  // шкалу голода, миникарту комнат и модификаторы рисует hud.js
   syncHud();
 }

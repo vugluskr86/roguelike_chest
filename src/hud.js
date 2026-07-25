@@ -23,8 +23,8 @@ function ensureHost() {
   if (host) return host;
   host = document.createElement('div');
   host.id = 'hudExtra';
-  const anchor = document.getElementById('turnNo');
-  if (anchor && anchor.parentNode) anchor.parentNode.insertBefore(host, anchor.nextSibling);
+  const anchor = document.getElementById('subbar');
+  if (anchor) anchor.appendChild(host);
   else document.body.appendChild(host);
   return host;
 }
@@ -224,9 +224,7 @@ export function renderCheck(host) {
   el.style.display = '';
   const counts = new Map();
   by.forEach((e) => counts.set(e.type, (counts.get(e.type) || 0) + 1));
-  const list = [...counts]
-    .map(([t, n]) => `${GLYPH[t] || '?'}${n > 1 ? '×' + n : ''}`)
-    .join(' ');
+  const list = [...counts].map(([t, n]) => `${GLYPH[t] || '?'}${n > 1 ? '×' + n : ''}`).join(' ');
   el.innerHTML = `<span class="ck-t">под ударом</span> ${list}`;
   el.title = [...counts].map(([t, n]) => `${NAME[t]}${n > 1 ? ` ×${n}` : ''}`).join(', ');
 }

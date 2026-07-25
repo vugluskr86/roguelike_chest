@@ -19,7 +19,7 @@ import { META, saveMeta } from './meta.js';
 import { allThreats } from './moves.js';
 import { addSpeech, render } from './render.js';
 import { key, makeForm } from './util.js';
-import { closeModal, log, openInterlude, syncUI, toast } from './ui.js';
+import { action, closeModal, log, mkButton, openInterlude, syncUI, toast } from './ui.js';
 
 // ════════════════════════════════════════════════════════════════
 //  Состояние
@@ -168,6 +168,8 @@ function nextScene() {
       syncUI();
     },
   );
+  // кнопка «Пропустить» — вторая в футере, серая, не перетягивает внимание
+  action(mkButton('Пропустить', () => skipTutorial()));
 }
 
 // ════════════════════════════════════════════════════════════════

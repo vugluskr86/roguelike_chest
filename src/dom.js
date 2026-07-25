@@ -15,6 +15,13 @@ export function initDom() {
   dom.mTitle = document.getElementById('mTitle');
   dom.mText = document.getElementById('mText');
   dom.mChoices = document.getElementById('mChoices');
+  // трёхчастная оболочка модалки: шапка с картинкой, тело со скроллом, футер
+  dom.mArt = document.getElementById('mArt');
+  dom.mBody = document.getElementById('mBody');
+  dom.mActions = document.getElementById('mActions');
   dom.hungerBar = document.getElementById('hungerBar');
   dom.hungerRibs = document.querySelector('.hunger-ribs');
+  // контейнеры раскладки — нужны resizeBoard(), чтобы отмерить высоту доски
+  dom.topbar = document.getElementById('topbar');
+  dom.controlCard = document.getElementById('controlCard');
 }

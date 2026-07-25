@@ -40,6 +40,11 @@ function buildGraph() {
   for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
 }
 
+/** Вернуть общий AudioContext — для передачи в music.js (один контекст на всё). */
+export function getAudioContext() {
+  return ctx;
+}
+
 function ensureCtx() {
   if (!CFG.SFX_ENABLED) return null;
   if (ctx) return ctx;

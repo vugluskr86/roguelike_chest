@@ -12,16 +12,25 @@ import { pass, rotate, switchForm, tryMoveTo } from './combat.js';
 import { CFG, loadSettings } from './config.js';
 import { metaLoad } from './meta.js';
 import { playerOptions } from './moves.js';
-import { camera, render, resizeBoard, startRenderLoop } from './render.js';
+import {
+  camera,
+  render,
+  resizeBoard,
+  setCameraDrag,
+  snapBackCamera,
+  startRenderLoop,
+} from './render.js';
 import { enemyAt } from './state.js';
-import { closeModal, openHelp, openSettings, openTitle } from './ui.js';
+import { closeModal, dismissModal, openHelp, openSettings, openTitle } from './ui.js';
 import { isTutorial } from './tutorial.js';
 import { inB, key, seedRNG } from './util.js';
 import { editorActive, handleEditorClick, isBrushActive, openEditor } from './editor.js';
 import { feedDebugChar } from './debug.js';
-import { initAudio } from './audio.js';
+import { getAudioContext, initAudio } from './audio.js';
+import { initMusic, playTrack } from './music.js';
 import { setPreviewCell } from './preview.js';
 import { attachKeyNav } from './keynav.js';
+import { ART } from './assets.js';
 
 // ===== экран загрузки =====
 const LORE = [
@@ -53,11 +62,16 @@ function showLoadingScreen() {
   const loreEl = el.querySelector('.loading-lore');
   const tipEl = el.querySelector('.loading-tip');
   document.body.style.overflow = 'hidden';
+  const logoEl = el.querySelector('.loading-logo');
+  if (logoEl && ART.loading) logoEl.src = ART.loading;
   loreEl.textContent = LORE[Math.floor(Math.random() * LORE.length)];
   tipEl.textContent = '💡 ' + TIPS[Math.floor(Math.random() * TIPS.length)];
 
   const dismiss = () => {
     cleanup();
+    initAudio();
+    initMusic(getAudioContext());
+    playTrack('title');
     el.classList.add('hidden');
     setTimeout(() => {
       el.style.display = 'none';
@@ -93,6 +107,17 @@ function startGame() {
   reset();
   resizeBoard();
   startRenderLoop();
+
+  // Esc и клик по оверлею закрывают модалку (если она закрываема)
+  document.addEventListener('keydown', (ev) => {
+    if (ev.key === 'Escape') dismissModal();
+  });
+  dom.overlay.addEventListener('click', (ev) => {
+    if (ev.target === dom.overlay) dismissModal();
+  });
+  // аппаратная кнопка «назад» на Android
+  window.addEventListener('popstate', () => dismissModal());
+
   if (!isTutorial()) openTitle();
 }
 
@@ -147,23 +172,29 @@ document.addEventListener('keydown', (ev) => {
   switch (ev.key.toLowerCase()) {
     case 'q':
     case 'й':
+      snapBackCamera();
       rotate(-1);
       break;
     case 'e':
     case 'у':
+      snapBackCamera();
       rotate(1);
       break;
     case ' ':
       ev.preventDefault();
+      snapBackCamera();
       pass();
       break;
     case '1':
+      snapBackCamera();
       switchForm(0);
       break;
     case '2':
+      snapBackCamera();
       switchForm(1);
       break;
     case '3':
+      snapBackCamera();
       switchForm(2);
       break;
     case 'h':
@@ -180,9 +211,18 @@ document.addEventListener('keydown', (ev) => {
   }
 });
 
-document.getElementById('btnCCW').onclick = () => rotate(-1);
-document.getElementById('btnCW').onclick = () => rotate(1);
-document.getElementById('btnPass').onclick = pass;
+document.getElementById('btnCCW').onclick = () => {
+  snapBackCamera();
+  rotate(-1);
+};
+document.getElementById('btnCW').onclick = () => {
+  snapBackCamera();
+  rotate(1);
+};
+document.getElementById('btnPass').onclick = () => {
+  snapBackCamera();
+  pass();
+};
 document.getElementById('btnSettings').onclick = () => openSettings();
 document.getElementById('btnHelp').onclick = () => openHelp();
 document.getElementById('btnEditor').onclick = () => {
@@ -201,38 +241,194 @@ document.body.addEventListener('keydown', (ev) => {
   if (ev.key.length === 1) feedDebugChar(ev.key);
 });
 
-dom.cv.addEventListener('click', handleTap);
+// ═══════════════════════════════════════════════════════════
+//  Панорама карты + тап
+//  pointerdown/move/up заменяет click: различает тап и драг,
+//  поддерживает инерцию на тач-устройствах.
+//  Редакторская кисть встроена сюда же — editorActive ветка.
+// ═══════════════════════════════════════════════════════════
 
-// Кисть редактора: рисование при зажатой кнопке мыши
-let brushPointerDown = false;
-let brushLastCell = null;
+const DRAG_THRESH = 5; // px — меньше считается тапом
+const INERTIA_DECAY = 0.94; // коэффициент затухания инерции (0..1)
+const INERTIA_STOP = 0.5; // px/кадр — ниже этого инерция выключается
+
+let dragState = null; // null | { startX, startY, startCamX, startCamY, moved, editorBrush: bool, editorLastCell }
+let inertiaVX = 0;
+let inertiaVY = 0;
+let inertiaRAF = null;
+
+function startInertia() {
+  if (inertiaRAF) return;
+  function step() {
+    inertiaVX *= INERTIA_DECAY;
+    inertiaVY *= INERTIA_DECAY;
+    if (Math.abs(inertiaVX) < INERTIA_STOP && Math.abs(inertiaVY) < INERTIA_STOP) {
+      inertiaVX = 0;
+      inertiaVY = 0;
+      inertiaRAF = null;
+      snapBackCamera();
+      return;
+    }
+    const Tpix = dom.cv.clientWidth / CFG.VIEW_W;
+    camera.x -= inertiaVX / Tpix;
+    camera.y -= inertiaVY / Tpix;
+    const minXi = Math.min(0, CFG.W - CFG.VIEW_W);
+    const maxXi = Math.max(0, CFG.W - CFG.VIEW_W);
+    const minYi = Math.min(0, CFG.H - CFG.VIEW_H);
+    const maxYi = Math.max(0, CFG.H - CFG.VIEW_H);
+    camera.x = Math.max(minXi, Math.min(camera.x, maxXi));
+    camera.y = Math.max(minYi, Math.min(camera.y, maxYi));
+    render();
+    inertiaRAF = requestAnimationFrame(step);
+  }
+  inertiaRAF = requestAnimationFrame(step);
+}
+
 dom.cv.addEventListener('pointerdown', (ev) => {
-  if (!editorActive || !isBrushActive()) return;
-  brushPointerDown = true;
-  brushLastCell = null;
-  const { x, y } = cellFromEvent(ev);
-  handleEditorClick(x, y);
-  brushLastCell = key(x, y);
-  render();
+  if (S.gameOver || S.modalOpen) return;
+  initAudio();
+  const r = dom.cv.getBoundingClientRect();
+  const cx = ev.clientX - r.left;
+  const cy = ev.clientY - r.top;
+
+  if (editorActive) {
+    dragState = {
+      startX: cx,
+      startY: cy,
+      startCamX: camera.x,
+      startCamY: camera.y,
+      moved: false,
+      editorBrush: isBrushActive(),
+      editorLastCell: null,
+    };
+    const { x, y } = cellFromEvent(ev);
+    handleEditorClick(x, y);
+    dragState.editorLastCell = key(x, y);
+    render();
+    ev.preventDefault();
+    return;
+  }
+
+  // игровой режим
+  dragState = { startX: cx, startY: cy, startCamX: camera.x, startCamY: camera.y, moved: false };
+  snapBackCamera();
+  inertiaVX = 0;
+  inertiaVY = 0;
+  if (inertiaRAF) {
+    cancelAnimationFrame(inertiaRAF);
+    inertiaRAF = null;
+  }
   ev.preventDefault();
 });
+
 dom.cv.addEventListener('pointermove', (ev) => {
-  if (!editorActive || !isBrushActive() || !brushPointerDown) return;
-  const { x, y } = cellFromEvent(ev);
-  const k = key(x, y);
-  if (k !== brushLastCell && inB(x, y)) {
-    brushLastCell = k;
-    handleEditorClick(x, y);
-    render();
+  if (!dragState || S.gameOver || S.modalOpen) return;
+  const r = dom.cv.getBoundingClientRect();
+  const cx = ev.clientX - r.left;
+  const cy = ev.clientY - r.top;
+  const dx = cx - dragState.startX;
+  const dy = cy - dragState.startY;
+
+  if (editorActive) {
+    if (!dragState.editorBrush) return;
+    const { x, y } = cellFromEvent(ev);
+    const k = key(x, y);
+    if (k !== dragState.editorLastCell && inB(x, y)) {
+      dragState.editorLastCell = k;
+      handleEditorClick(x, y);
+      render();
+    }
+    return;
+  }
+
+  // игровой режим
+  if (!dragState.moved && Math.abs(dx) + Math.abs(dy) < DRAG_THRESH) return;
+  if (!dragState.moved) {
+    dragState.moved = true;
+    setCameraDrag(true);
+  }
+  const Tpix = dom.cv.clientWidth / CFG.VIEW_W;
+  camera.x = dragState.startCamX - dx / Tpix;
+  camera.y = dragState.startCamY - dy / Tpix;
+  const minXp = Math.min(0, CFG.W - CFG.VIEW_W);
+  const maxXp = Math.max(0, CFG.W - CFG.VIEW_W);
+  const minYp = Math.min(0, CFG.H - CFG.VIEW_H);
+  const maxYp = Math.max(0, CFG.H - CFG.VIEW_H);
+  camera.x = Math.max(minXp, Math.min(camera.x, maxXp));
+  camera.y = Math.max(minYp, Math.min(camera.y, maxYp));
+  render();
+});
+
+dom.cv.addEventListener('pointerup', (ev) => {
+  if (!dragState) return;
+  const wasEditor = editorActive;
+
+  if (!wasEditor && !dragState.moved) {
+    // тап — обрабатываем как клик
+    handleTap(ev);
+  }
+
+  // инерция (только в игровом режиме, не в редакторе)
+  if (!wasEditor && dragState.moved && ev.pointerType === 'touch') {
+    const r = dom.cv.getBoundingClientRect();
+    const cx = ev.clientX - r.left;
+    const cy = ev.clientY - r.top;
+    const dx = cx - dragState.startX;
+    const dy = cy - dragState.startY;
+    // сохраняем последний вектор движения как начальную скорость инерции
+    if (dragState._lastX !== undefined) {
+      const ldx = cx - dragState._lastX;
+      const ldy = cy - dragState._lastY;
+      inertiaVX = ldx;
+      inertiaVY = ldy;
+    } else {
+      inertiaVX = dx * 0.15;
+      inertiaVY = dy * 0.15;
+    }
+    startInertia();
+  }
+
+  // dragState не сбрасываем — инерция продолжит работать после pointerup
+  // (dragState используется только pointermove, который проверяет !dragState)
+  if (!wasEditor && !dragState.moved) dragState = null;
+  else if (!wasEditor && !inertiaRAF) {
+    // без инерции (мышь) — сразу возвращаем камеру
+    dragState = null;
+    snapBackCamera();
   }
 });
-dom.cv.addEventListener('pointerup', () => {
-  brushPointerDown = false;
-  brushLastCell = null;
-});
-dom.cv.addEventListener('pointerleave', () => {
-  brushPointerDown = false;
-  brushLastCell = null;
+
+// pointerleave не убивает инерцию — когда палец/мышь уходит за canvas,
+// инерция уже запущена в pointerup и должна доиграть самостоятельно.
+// dragState = null здесь больше не делаем — следующий pointerdown его перезапишет.
+
+// Shift+колёсико мыши — зум на ПК (опционально, пока не реализован — просто панорама стрелками)
+// Стрелки клавиатуры для панорамы
+document.addEventListener('keydown', (ev) => {
+  if (S.gameOver || S.modalOpen || editorActive) return;
+  const step = 1;
+  switch (ev.key) {
+    case 'ArrowUp':
+      camera.y = Math.max(0, camera.y - step);
+      setCameraDrag(true);
+      render();
+      break;
+    case 'ArrowDown':
+      camera.y = Math.min(CFG.H - CFG.VIEW_H, camera.y + step);
+      setCameraDrag(true);
+      render();
+      break;
+    case 'ArrowLeft':
+      camera.x = Math.max(0, camera.x - step);
+      setCameraDrag(true);
+      render();
+      break;
+    case 'ArrowRight':
+      camera.x = Math.min(CFG.W - CFG.VIEW_W, camera.x + step);
+      setCameraDrag(true);
+      render();
+      break;
+  }
 });
 // Наведение мышью — только на устройствах с настоящим курсором, чтобы не конфликтовать с тачем
 if (window.matchMedia && window.matchMedia('(hover:hover) and (pointer:fine)').matches) {

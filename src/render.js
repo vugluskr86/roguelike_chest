@@ -20,15 +20,32 @@ export let camera = { x: 0, y: 0 }; // смещение viewport в клетка
 
 // ========== камера ==========
 
+/** true, пока пользователь панорамирует карту — камера не возвращается к игроку. */
+export let cameraDrag = false;
+
 export function centerCamera() {
-  if (!S.player) return;
+  if (!S.player || cameraDrag) return;
   const tx = S.player.x - CFG.VIEW_W / 2 + 0.5;
   const ty = S.player.y - CFG.VIEW_H / 2 + 0.5;
   camera.x += (tx - camera.x) * 0.15;
   camera.y += (ty - camera.y) * 0.15;
-  // clamp к границам карты
-  camera.x = Math.max(0, Math.min(camera.x, CFG.W - CFG.VIEW_W));
-  camera.y = Math.max(0, Math.min(camera.y, CFG.H - CFG.VIEW_H));
+  // clamp: карты меньше вьюпорта центрируются (отрицательные значения)
+  const minX = Math.min(0, CFG.W - CFG.VIEW_W);
+  const maxX = Math.max(0, CFG.W - CFG.VIEW_W);
+  const minY = Math.min(0, CFG.H - CFG.VIEW_H);
+  const maxY = Math.max(0, CFG.H - CFG.VIEW_H);
+  camera.x = Math.max(minX, Math.min(camera.x, maxX));
+  camera.y = Math.max(minY, Math.min(camera.y, maxY));
+}
+
+/** Установить флаг панорамы (true — камера не следует за игроком). */
+export function setCameraDrag(v) {
+  cameraDrag = v;
+}
+
+/** Сбросить флаг панорамы — камера снова начнёт следовать за игроком. */
+export function snapBackCamera() {
+  cameraDrag = false;
 }
 
 // ========== анимация перемещения ==========
@@ -333,6 +350,12 @@ function hasActiveAnim() {
   if (CFG.ANIM_ENABLED && S.player && modCount() > 0) return true;
   if (speech.length > 0) return true;
   if (tutorialTargets().length) return true;
+  // камера всё ещё догоняет игрока после панорамы — rAF не должен засыпать
+  if (!cameraDrag && S.player) {
+    const tx = S.player.x - CFG.VIEW_W / 2 + 0.5;
+    const ty = S.player.y - CFG.VIEW_H / 2 + 0.5;
+    if (Math.abs(camera.x - tx) > 0.01 || Math.abs(camera.y - ty) > 0.01) return true;
+  }
   return false;
 }
 
@@ -393,7 +416,7 @@ export function resizeBoard() {
 
 // ========== вспомогательные рисовалки ==========
 
-export function hatch(x, y, color, _ts) {
+export function hatch(x, y, color, _ts, tilt) {
   dom.ctx.save();
   dom.ctx.beginPath();
   dom.ctx.rect(x * T, y * T, T, T);
@@ -404,10 +427,12 @@ export function hatch(x, y, color, _ts) {
   dom.ctx.globalAlpha = 0.5;
   dom.ctx.strokeStyle = color;
   dom.ctx.lineWidth = 2;
+  // tilt: +1 = штриховка / под +45°, -1 = под -45° (различается даже без цвета)
+  const sign = (tilt || 1) > 0 ? 1 : -1;
   for (let i = -T; i < T * 2; i += 9) {
     dom.ctx.beginPath();
     dom.ctx.moveTo(x * T + i, y * T);
-    dom.ctx.lineTo(x * T + i + T, y * T + T);
+    dom.ctx.lineTo(x * T + i + T, y * T + sign * T);
     dom.ctx.stroke();
   }
   dom.ctx.restore();
@@ -1480,9 +1505,62 @@ export function drawPiece(x, y, type, isPlayer, facing, improved, opts) {
  * Немедленный полный перерендер.
  * @param {number} ts — timestamp от rAF (для будущих анимаций)
  */
+/** Анимация бездны: чёрный фон и мерцающие пиксельные звёзды за пределами карты. */
+function drawAbyss(ts) {
+  const c = dom.ctx;
+  c.save();
+  c.translate(-camera.x * T, -camera.y * T);
+  // чёрный фон
+  c.fillStyle = '#050608';
+  c.fillRect(
+    camera.x * T - 4,
+    camera.y * T - 4,
+    (CFG.VIEW_W + 2) * T + 8,
+    (CFG.VIEW_H + 2) * T + 8,
+  );
+
+  const t = (ts || 0) / 1000;
+  // звёзды: три цвета из палитры игры
+  const starColors = ['#c9a227', '#58b3a4', '#f2e9d8'];
+  // покрываем область видимости + запас
+  const sx0 = Math.floor(camera.x) - 1;
+  const sy0 = Math.floor(camera.y) - 1;
+  const sx1 = Math.ceil(camera.x + CFG.VIEW_W) + 1;
+  const sy1 = Math.ceil(camera.y + CFG.VIEW_H) + 1;
+
+  for (let gy = sy0; gy <= sy1; gy++) {
+    for (let gx = sx0; gx <= sx1; gx++) {
+      if (gx >= 0 && gx < CFG.W && gy >= 0 && gy < CFG.H) continue;
+      const seed = nz(gx * 13 + gy * 7);
+      const seed2 = nz(gx * gy * 31);
+      for (let si = 0; si < 3; si++) {
+        const phase = nz(gx * 47 + gy * 19 + si * 83);
+        const flicker = 0.5 + 0.5 * Math.sin(t * (1.4 + seed * 3.2) + phase * 12.6);
+        const baseAlpha = 0.18 + seed2 * 0.42;
+        const a = Math.max(0, Math.min(0.78, baseAlpha * (0.3 + flicker * 0.7)));
+        const starSize = 1 + Math.floor(phase * 2.5);
+        if (a > 0.02) {
+          c.fillStyle = starColors[Math.floor(phase * 3)];
+          c.globalAlpha = a;
+          c.fillRect(
+            gx * T + seed * T * 0.85 + si * T * 0.25,
+            gy * T + seed2 * T * 0.85 + si * T * 0.18,
+            starSize,
+            starSize,
+          );
+        }
+      }
+    }
+  }
+  c.globalAlpha = 1;
+  c.restore();
+}
+
 export function renderNow(ts) {
   centerCamera();
   dom.ctx.save();
+  // фон бездны со звёздами — до тайлов, за пределами карты
+  drawAbyss(ts);
   dom.ctx.translate(-camera.x * T, -camera.y * T);
   dom.ctx.clearRect(0, 0, CFG.W * T, CFG.H * T);
   const insp = S.hoverEnemy || S.selectedEnemy;
@@ -1528,7 +1606,7 @@ export function renderNow(ts) {
   for (const k of threats) {
     if (S.special && S.special.get(k) && S.special.get(k).type === 'fog') continue;
     const [x, y] = k.split(',').map(Number);
-    hatch(x, y, '#b3423a', ts);
+    hatch(x, y, '#b3423a', ts, 1);
   }
   // предпросмотр: какие клетки СТАНУТ битыми после выбранного хода.
   // Показываем только разницу — иначе поле превращается в сплошную штриховку.
@@ -1539,7 +1617,7 @@ export function renderNow(ts) {
       if (base.has(k)) continue;
       if (S.special && S.special.get(k) && S.special.get(k).type === 'fog') continue;
       const [x, y] = k.split(',').map(Number);
-      hatch(x, y, '#e0a03a', ts); // янтарь = «появится после хода»
+      hatch(x, y, '#e0a03a', ts, -1); // янтарь под другим углом — читается даже без цвета
     }
   }
   // особые клетки (под фигурами, над угрозами)

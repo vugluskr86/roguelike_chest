@@ -9,7 +9,7 @@ import { S } from './state.js';
 import { CFG, GLYPH, NAME } from './config.js';
 import { loadLevel } from './board.js';
 import { render } from './render.js';
-import { closeModal, log } from './ui.js';
+import { closeModal, log, sanitize } from './ui.js';
 import { dom } from './dom.js';
 import { key, inB, makeForm, ORTHO } from './util.js';
 import { invalidateThreats } from './moves.js';
@@ -46,6 +46,7 @@ let state = {
   activeTab: 'enemies', // активная вкладка объектов
 };
 let editorBackup = null;
+let manifestData = null;
 let undoStack = [];
 const UNDO_MAX = 50;
 let _editorKeyHandler = null;
@@ -106,7 +107,7 @@ async function openLevelSelector() {
   m.levels.forEach((l) => {
     const row = document.createElement('div');
     row.className = 'shoprow';
-    row.innerHTML = `<div class="si"><span class="ln">${l.name}</span><span class="ld">${l.file}</span></div>`;
+    row.innerHTML = `<div class="si"><span class="ln">${sanitize(l.name)}</span><span class="ld">${sanitize(l.file)}</span></div>`;
     const btn = document.createElement('button');
     btn.className = 'buy';
     btn.textContent = 'Открыть';

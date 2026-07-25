@@ -1,7 +1,10 @@
 /**
  * src/events.js — комнаты-события: Костоправ (лавка), Распайка (алтарь очищения),
  * Жертвенник (святилище), Кости судьбы (азартный алтарь), Благословение.
- * Основные экспорты: triggerEvent(), openShop(), openPurify(), openSanctuary(), openGamble(), openBlessing().
+ * Основные экспорты: maybeEvent(), openShop(), openPurify(), openSanctuary(), openGamble(), openBlessing().
+ *
+ * Все окна переведены на shell() — иначе от предыдущей модалки остаётся её
+ * размерный класс и картинка в шапке, а завершающие кнопки уезжают в скролл.
  */
 import { S } from './state.js';
 import { dom } from './dom.js';
@@ -16,17 +19,19 @@ import {
 } from './config.js';
 import { CURSES, RELICS } from './content.js';
 import { SCRIPT } from './content/script.js';
+import { ART } from './assets.js';
 import { applyCurse, applyRelic, cursePool, relicPool, rollWeighted } from './loot.js';
 import { META, unlockAch } from './meta.js';
-import { closeModal, log, toast } from './ui.js';
+import { action, closeModal, log, mkButton, shell, toast } from './ui.js';
+import { playTrack } from './music.js';
 import { pick, randInt } from './util.js';
 
 export function proceed() {
   closeModal();
   newFloor();
-} // выйти из события → следующий боевой этаж
+} // выйти из события → следующий боевой ярус
+
 export function pickRareRelic() {
-  // редкая/эпическая, иначе любая
   const pool = relicPool();
   const high = pool.filter((id) => relicTier(id) >= 2);
   const src = high.length ? high : pool;
@@ -38,6 +43,7 @@ export function maybeEvent() {
   if (S.player.wheel.some((f, i) => i > 0 && f)) events.push('sanctuary');
   if (S.player.gold >= GAMBLE_COST) events.push('gamble');
   if (events.length && Math.random() < 0.5) {
+    playTrack('event');
     ({
       shop: openShop,
       purify: openPurify,
@@ -50,66 +56,72 @@ export function maybeEvent() {
   newFloor();
 }
 
-// Алтарь благословения: выбор статуса на следующий этаж
+/** Кнопка «уйти» одинакова во всех событиях — всегда в закреплённом футере. */
+function leaveButton(label = 'Уйти (дальше)') {
+  return action(mkButton(label, proceed, 'again'));
+}
+
+// ════════════════════════════════════════════════════════════════
+//  Алтарь благословения
+// ════════════════════════════════════════════════════════════════
+
 export function openBlessing() {
-  S.modalOpen = true;
-  dom.modalBox.classList.remove('death');
+  shell('md', ART.event.blessing, 'aside');
   dom.mTitle.textContent = 'Алтарь благословения';
-  dom.mText.textContent = 'Выбери дар на следующий этаж.';
-  dom.mChoices.innerHTML = '';
+  dom.mText.textContent = 'Выбери дар на следующий ярус.';
   dom.mChoices.classList.add('loot-list');
   const opts = [
     {
       label: '🛡 Щит (2)',
-      fn: () => {
-        S.player.nextFloorStatus.push({ k: 'shield', n: 2 });
-      },
+      desc: 'Поглотит одно взятие',
+      fn: () => S.player.nextFloorStatus.push({ k: 'shield', n: 2 }),
     },
     {
       label: '⚡ Ускорение (3)',
-      fn: () => {
-        S.player.nextFloorStatus.push({ k: 'haste', n: 3 });
-      },
+      desc: '+1 дальность слайдерам, доп. шаг коню',
+      fn: () => S.player.nextFloorStatus.push({ k: 'haste', n: 3 }),
     },
     {
       label: '🪙 Золото (+8)',
+      desc: 'Пригодится у Костоправа',
       fn: () => {
         S.player.gold = (S.player.gold || 0) + 8;
       },
     },
   ];
   opts.forEach((o) => {
-    const el = document.createElement('button');
-    el.className = 'loot';
-    el.innerHTML = `<span class="ln">${o.label}</span>`;
-    el.onclick = () => {
+    const b = document.createElement('button');
+    b.className = 'loot';
+    b.innerHTML = `<span class="ln">${o.label}</span><span class="ld">${o.desc}</span>`;
+    b.onclick = () => {
       o.fn();
       proceed();
     };
-    dom.mChoices.appendChild(el);
+    dom.mChoices.appendChild(b);
   });
   dom.overlay.classList.add('on');
 }
 
-// Костоправ
+// ════════════════════════════════════════════════════════════════
+//  Костоправ
+// ════════════════════════════════════════════════════════════════
+
 export let shopStock = null;
+
 export function openShop() {
-  S.modalOpen = true;
-  dom.modalBox.classList.remove('death');
   // реплика Костоправа по состоянию билда
-  {
-    const seamCount = S.player.curses.size;
-    const boneCount = S.player.relics.size;
-    const bs = SCRIPT.bonesetterLines;
-    const rep = bs.repeat[META.runs];
-    if (rep) log(rep);
-    else if (seamCount >= 3) log(bs.bySeams.high);
-    else if (seamCount >= 2) log(bs.bySeams.mid);
-    else if (seamCount >= 1) log(bs.bySeams.low);
-    else if (seamCount === 0) log(bs.bySeams[0]);
-    if (boneCount > 4) log(bs.byBones.many);
-    else if (boneCount <= 1) log(bs.byBones.few);
-  }
+  const seamCount = S.player.curses.size;
+  const boneCount = S.player.relics.size;
+  const bs = SCRIPT.bonesetterLines;
+  const rep = bs.repeat[META.runs];
+  if (rep) log(rep);
+  else if (seamCount >= 3) log(bs.bySeams.high);
+  else if (seamCount >= 2) log(bs.bySeams.mid);
+  else if (seamCount >= 1) log(bs.bySeams.low);
+  else log(bs.bySeams[0]);
+  if (boneCount > 4) log(bs.byBones.many);
+  else if (boneCount <= 1) log(bs.byBones.few);
+
   const usedR = new Set();
   const relics = rollWeighted(relicPool, 2, usedR, false).map((id) => ({
     kind: 'relic',
@@ -123,29 +135,31 @@ export function openShop() {
   renderShop();
   dom.overlay.classList.add('on');
 }
+
 export function renderShop() {
+  shell('md', ART.event.bonesetter, 'aside');
   dom.mTitle.textContent = 'Костоправ';
   dom.mText.textContent = `Золото: ${S.player.gold || 0}🪙. Покупки применяются сразу.`;
-  dom.mChoices.innerHTML = '';
   dom.mChoices.classList.add('loot-list');
+
   shopStock.forEach((item) => {
-    const el = document.createElement('button');
-    el.className = 'loot';
+    const b = document.createElement('button');
+    b.className = 'loot';
     const afford = (S.player.gold || 0) >= item.price && !item.sold;
     if (item.kind === 'relic') {
       const tm = TIER_META[relicTier(item.id)];
-      el.innerHTML = `<span class="ln ${tm.cls}">✦ ${RELICS[item.id].name} <em class="tag">${item.price}🪙</em></span><span class="ld">${RELICS[item.id].desc}</span>`;
+      b.innerHTML = `<span class="ln ${tm.cls}">✦ ${RELICS[item.id].name} <em class="tag">${item.price}🪙</em></span><span class="ld">${RELICS[item.id].desc}</span>`;
     } else {
-      el.innerHTML = `<span class="ln">✚ Снять проклятие <em class="tag">${item.price}🪙</em></span><span class="ld">Убирает одно случайное проклятие.</span>`;
+      b.innerHTML = `<span class="ln">✚ Снять шов <em class="tag">${item.price}🪙</em></span><span class="ld">Убирает один случайный шов.</span>`;
     }
     if (item.sold) {
-      el.disabled = true;
-      el.style.opacity = 0.4;
+      b.disabled = true;
+      b.style.opacity = 0.4;
     } else if (!afford) {
-      el.disabled = true;
-      el.style.opacity = 0.55;
-    } else
-      el.onclick = () => {
+      b.disabled = true;
+      b.style.opacity = 0.55;
+    } else {
+      b.onclick = () => {
         S.player.gold -= item.price;
         item.sold = true;
         unlockAch('merchant');
@@ -158,103 +172,101 @@ export function renderShop() {
         }
         renderShop();
       };
-    dom.mChoices.appendChild(el);
+    }
+    dom.mChoices.appendChild(b);
   });
-  const leave = document.createElement('button');
-  leave.className = 'again';
-  leave.textContent = 'Уйти (дальше)';
-  leave.onclick = proceed;
-  dom.mChoices.appendChild(leave);
+
+  leaveButton();
 }
 
-// Распайка
+// ════════════════════════════════════════════════════════════════
+//  Распайка
+// ════════════════════════════════════════════════════════════════
+
 export function openPurify() {
-  S.modalOpen = true;
-  dom.modalBox.classList.remove('death');
+  shell('md', ART.event.unstitch, 'aside');
   dom.mTitle.textContent = 'Распайка';
-  dom.mChoices.innerHTML = '';
   dom.mChoices.classList.add('loot-list');
   const curses = [...S.player.curses];
+
   if (curses.length) {
-    dom.mText.textContent = 'Сними одно проклятие.';
+    dom.mText.textContent = 'Сними один шов.';
     curses.forEach((id) => {
-      const el = document.createElement('button');
-      el.className = 'loot';
-      el.innerHTML = `<span class="cn">☠ ${CURSES[id].name}</span><span class="cd">${CURSES[id].desc}</span>`;
-      el.onclick = () => {
+      const b = document.createElement('button');
+      b.className = 'loot';
+      b.innerHTML = `<span class="cn">☠ ${CURSES[id].name}</span><span class="cd">${CURSES[id].desc}</span>`;
+      b.onclick = () => {
         S.player.curses.delete(id);
-        log(`Очищение: снято «${CURSES[id].name}».`, 'g');
+        log(`Распайка: снят «${CURSES[id].name}».`, 'g');
         proceed();
       };
-      dom.mChoices.appendChild(el);
+      dom.mChoices.appendChild(b);
     });
-    const skip = document.createElement('button');
-    skip.textContent = 'Уйти';
-    skip.onclick = proceed;
-    dom.mChoices.appendChild(skip);
+    leaveButton('Уйти');
   } else {
     const g = 5;
     S.player.gold = (S.player.gold || 0) + g;
-    dom.mText.textContent = 'Проклятий нет — алтарь дарует золото.';
-    const el = document.createElement('button');
-    el.className = 'again';
-    el.textContent = `Взять +${g}🪙 (дальше)`;
-    el.onclick = proceed;
-    dom.mChoices.appendChild(el);
+    dom.mText.textContent = 'Швов нет — алтарь расплачивается золотом.';
+    leaveButton(`Взять +${g}🪙 (дальше)`);
   }
   dom.overlay.classList.add('on');
 }
 
-// Жертвенник: форма ↔ редкая кость
+// ════════════════════════════════════════════════════════════════
+//  Жертвенник
+// ════════════════════════════════════════════════════════════════
+
 export function openSanctuary() {
-  S.modalOpen = true;
-  dom.modalBox.classList.remove('death');
+  shell('md', ART.event.sacrifice, 'aside');
   dom.mTitle.textContent = 'Жертвенник';
-  dom.mText.textContent = 'Пожертвуй форму — взамен получишь редкую реликвию.';
-  dom.mChoices.innerHTML = '';
+  dom.mText.textContent = 'Пожертвуй форму — взамен получишь редкую кость.';
   dom.mChoices.classList.add('loot-list');
+
   const reward = pickRareRelic();
   S.player.wheel.forEach((f, i) => {
-    if (i > 0 && f) {
-      const el = document.createElement('button');
-      el.className = 'loot';
-      el.innerHTML = `<span class="ln">Отдать: ${NAME[f.type]}${f.improved ? ' ★' : ''}</span><span class="ld">${reward ? 'получишь: ' + RELICS[reward].name : 'наград нет'}</span>`;
-      el.onclick = () => {
-        S.player.wheel[i] = null;
-        if (S.player.active === i) S.player.active = 0;
-        log(`Жертвенник принял ${NAME[f.type]}.`, 'r');
-        if (reward) applyRelic(reward);
-        proceed();
-      };
-      if (!reward) {
-        el.disabled = true;
-        el.style.opacity = 0.5;
-      }
-      dom.mChoices.appendChild(el);
+    if (i === 0 || !f) return;
+    const b = document.createElement('button');
+    b.className = 'loot';
+    b.innerHTML =
+      `<span class="ln">Отдать: ${NAME[f.type]}${f.improved ? ' ★' : ''}</span>` +
+      `<span class="ld">${reward ? 'получишь: ' + RELICS[reward].name : 'наград нет'}</span>`;
+    b.onclick = () => {
+      S.player.wheel[i] = null;
+      if (S.player.active === i) S.player.active = 0;
+      log(`Жертвенник принял ${NAME[f.type]}.`, 'r');
+      if (reward) applyRelic(reward);
+      proceed();
+    };
+    if (!reward) {
+      b.disabled = true;
+      b.style.opacity = 0.5;
     }
+    dom.mChoices.appendChild(b);
   });
-  const skip = document.createElement('button');
-  skip.textContent = 'Отказаться';
-  skip.onclick = proceed;
-  dom.mChoices.appendChild(skip);
+
+  leaveButton('Отказаться');
   dom.overlay.classList.add('on');
 }
 
-// Кости судьбы
+// ════════════════════════════════════════════════════════════════
+//  Кости судьбы
+// ════════════════════════════════════════════════════════════════
+
 export function openGamble() {
-  S.modalOpen = true;
-  dom.modalBox.classList.remove('death');
+  shell('md', ART.event.dice, 'aside');
   dom.mTitle.textContent = 'Кости судьбы';
-  dom.mText.textContent = `Ставка ${GAMBLE_COST}🪙: удача — реликвия, провал — проклятие.`;
-  dom.mChoices.innerHTML = '';
+  dom.mText.textContent = `Ставка ${GAMBLE_COST}🪙: удача — кость, провал — шов.`;
   dom.mChoices.classList.add('loot-list');
+
   const bet = document.createElement('button');
   bet.className = 'loot';
-  bet.innerHTML = `<span class="ln">Испытать судьбу <em class="tag">${GAMBLE_COST}🪙</em></span><span class="ld">55% — случайная реликвия · 45% — случайное проклятие</span>`;
+  bet.innerHTML =
+    `<span class="ln">Испытать судьбу <em class="tag">${GAMBLE_COST}🪙</em></span>` +
+    '<span class="ld">55% — случайная кость · 45% — случайный шов</span>';
   if ((S.player.gold || 0) < GAMBLE_COST) {
     bet.disabled = true;
     bet.style.opacity = 0.5;
-  } else
+  } else {
     bet.onclick = () => {
       S.player.gold -= GAMBLE_COST;
       if (Math.random() < 0.55) {
@@ -274,11 +286,9 @@ export function openGamble() {
       }
       proceed();
     };
+  }
   dom.mChoices.appendChild(bet);
-  const skip = document.createElement('button');
-  skip.className = 'again';
-  skip.textContent = 'Уйти (дальше)';
-  skip.onclick = proceed;
-  dom.mChoices.appendChild(skip);
+
+  leaveButton();
   dom.overlay.classList.add('on');
 }

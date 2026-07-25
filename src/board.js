@@ -6,6 +6,7 @@ import { S } from './state.js';
 import { dom } from './dom.js';
 import { CFG, BIOMES, biomeFor, KEY_COLORS } from './config.js';
 import { RELICS } from './content.js';
+import { ART } from './assets.js';
 import { BOSS_CFG, dispatchBossEvents } from './bosses.js';
 import { applyRelic } from './loot.js';
 import { META, codexSeeEnemy, unlockAch } from './meta.js';
@@ -15,7 +16,8 @@ import { startTutorial } from './tutorial.js';
 import { SCRIPT } from './content/script.js';
 import { curse, enemyAt, has } from './state.js';
 import { applyStatus, cleanse } from './status.js';
-import { clearRunLog, log, openInterlude, openTitle, syncUI } from './ui.js';
+import { clearRunLog, clearToastQueue, log, openInterlude, openTitle, syncUI } from './ui.js';
+import { updateMusic, preload } from './music.js';
 import { clearPending } from './preview.js';
 import {
   ORTHO,
@@ -834,8 +836,13 @@ export function newFloor() {
   S.player.hunger = CFG.HUNGER.start;
   clearSpeech();
   clearPending();
+  clearToastQueue();
   cleanse(S.player);
   S.player.lostFormThisFloor = false;
+  updateMusic(S, bossOnFloor);
+  if (S.runMode === 'campaign' && bossOnFloor(S.floor + 1)) {
+    preload(bossOnFloor(S.floor + 1) === 'redKing' ? 'redking' : 'boss');
+  }
   if (S.floor >= 5) unlockAch('deep');
   if (S.floor >= 10) unlockAch('abyss');
   if (has('smoke')) applyStatus(S.player, 'shield', 1);
@@ -1024,6 +1031,7 @@ export function reset() {
   if (dom.logEl) dom.logEl.innerHTML = '';
   log('Двигайся или будь съеден.', '');
   clearRunLog();
+  clearToastQueue();
   // мета-апгрейды: стартовые слоты и реликвии
   const extraSlots = META.upgrades.startSlots || 0;
   for (let i = 0; i < extraSlots; i++) if (S.player.wheel.length < 5) S.player.wheel.push(null);
@@ -1042,11 +1050,13 @@ export function reset() {
     return;
   }
   if (S.runMode === 'campaign' && META.runs === 0 && SCRIPT.interludes.prologue) {
-    openInterlude(SCRIPT.interludes.prologue, () => newFloor());
+    openInterlude({ ...SCRIPT.interludes.prologue, art: ART.prologue }, () => newFloor());
     return;
   }
   if (S.runMode === 'campaign' && META.runs >= 1 && SCRIPT.repeat && SCRIPT.repeat.prologue) {
-    openInterlude({ ...SCRIPT.repeat.prologue, button: 'Встать' }, () => newFloor());
+    openInterlude({ ...SCRIPT.repeat.prologue, art: ART.prologue, button: 'Встать' }, () =>
+      newFloor(),
+    );
     return;
   }
   newFloor();

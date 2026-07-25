@@ -41,30 +41,20 @@
          чистым CSS, без переноса узлов скриптом. -->
     <div id="topbar">
       <div id="turnNo" class="hudbar"></div>
+      <span class="badge shah" id="shah">Шах</span>
+    </div>
+    <!-- Голод и миникарта — своя строка, иначе на 5 комнатах не влезает
+         в одну строчку с «ярус 7 · Лабиринт · комнаты 3/5 · ход 12». -->
+    <div id="subbar">
       <div id="hungerBar" class="hudbar hunger-bar">
         <span class="hunger-label">Голод</span>
         <span class="hunger-ribs"></span>
       </div>
-      <span class="badge shah" id="shah">Шах</span>
     </div>
 
     <div class="layout">
       <div class="board-wrap">
         <canvas id="board" width="616" height="504" aria-label="Игровое поле"></canvas>
-
-        <!-- Журнал под доской: на десктопе ~200px высоты, по ширине совпадает с доской.
-              На мобилке остаётся под доской, боковая колонка уезжает под него — это ок. -->
-        <div class="card" style="max-height: 200px; overflow-y: auto">
-          <h2>Журнал</h2>
-          <div
-            id="log"
-            role="log"
-            aria-live="polite"
-            aria-relevant="additions"
-            style="max-height: none; overflow-y: visible"
-          ></div>
-        </div>
-
         <div id="editorBar" style="display: none">
           <div id="editorActions" class="editor-tools"></div>
           <div id="editorTools" class="editor-tools"></div>
@@ -73,6 +63,14 @@
           <div id="editorStatus" class="editor-status">
             🖌 Редактор · Выбери элемент и кликай по полю
           </div>
+        </div>
+
+        <!-- Журнал под доской: здесь на десктопе пустовала треть экрана, а боковая
+             колонка не помещалась. По ширине совпадает с доской, и сообщения боя
+             оказываются рядом с местом действия — в том числе на телефоне. -->
+        <div class="card">
+          <h2>Журнал</h2>
+          <div id="log" role="log" aria-live="polite" aria-relevant="additions"></div>
         </div>
       </div>
 
@@ -108,44 +106,52 @@
           <div class="relics" id="relics"></div>
         </div>
 
+        <!-- Легенда свёрнута: её текст дублирует «Как играть», а развёрнутой она
+             занимала больше места, чем колесо, меню и модификаторы вместе.
+             Добавь open к <details>, если нужно видеть её сразу. -->
         <div class="card">
-          <h2>Легенда</h2>
-          <div class="legend">
-            <span class="sw" style="background: var(--threat)"></span><b>битые поля</b> врагов
-            (тапни по врагу — его зона)<br />
-            <span class="sw" style="background: #e0a03a"></span><b>появится после хода</b> —
-            предпросмотр угроз<br />
-            <span class="sw" style="background: var(--promo)"></span><b>линия восхождения</b> —
-            закончи ход пешкой<br />
-            <span style="color: #c23b30">▼</span> <b>паутина</b>: наступишь — теряешь форму; враг
-            гибнет (одноразово)<br />
-            <span style="color: #9b6dd0">◎</span> <b>портал</b> ·
-            <span style="color: #58b3a4">◈</span> <b>жила</b> (насыщает, снимает усталость) ·
-            <span style="color: #8fd0e6">❄</span> <b>лёд</b> (оглушает)<br />
-            <span style="color: #96a0b0">☁</span> <b>туман</b> скрывает угрозу ·
-            <span style="color: #7aa0c0">→</span> <b>конвейер</b> сдвигает ·
-            <span style="color: #c9a227">→</span> <b>ворота</b> (только по стрелке)<br />
-            <span style="color: #b0a8f0">♝</span> <b>цветовая зона</b> (только слон) ·
-            <span style="color: #8fae7a">▣</span> <b>плита</b> открывает стену ·
-            <span style="color: #d65a28">≈</span> <b>лава</b> растекается и жжёт<br />
-            🍖 <b>кость</b> — еда, восполняет сытость · <span style="color: #8a8070">▮</span>
-            <b>пилон</b> непроходим<br />
-            <span class="sw" style="background: var(--teal)"></span>ход безопасен ·
-            <span class="sw" style="background: #e0a03a"></span>под удар ·
-            <span class="sw" style="background: var(--threat)"></span>конец забега<br />
-            Тап по клетке — ход или взятие; тап по слоту — смена формы (тратит ход).<br />
-            Голод тает каждый ход. Взятия, жилы и кости насыщают.<br />
-            Клавиши: <kbd>1</kbd>–<kbd>5</kbd> формы, <kbd>Q</kbd>/<kbd>E</kbd> поворот,
-            <kbd>Space</kbd> пас, <kbd>Tab</kbd> перебор врагов, <kbd>Esc</kbd> сброс,
-            <kbd>Enter</kbd> подтвердить ход.
-          </div>
+          <details class="legend-details">
+            <summary>Легенда</summary>
+            <div class="legend">
+              <span class="sw" style="background: var(--threat)"></span><b>битые поля</b> врагов
+              (тапни по врагу — его зона)<br />
+              <span class="sw" style="background: #e0a03a"></span><b>появится после хода</b> —
+              предпросмотр угроз<br />
+              <span class="sw" style="background: var(--promo)"></span><b>линия восхождения</b> —
+              закончи ход пешкой<br />
+              <span style="color: #c23b30">▼</span> <b>паутина</b>: наступишь — теряешь форму; враг
+              гибнет (одноразово)<br />
+              <span style="color: #9b6dd0">◎</span> <b>портал</b> ·
+              <span style="color: #58b3a4">◈</span> <b>жила</b> (насыщает, снимает усталость) ·
+              <span style="color: #8fd0e6">❄</span> <b>лёд</b> (оглушает)<br />
+              <span style="color: #96a0b0">☁</span> <b>туман</b> скрывает угрозу ·
+              <span style="color: #7aa0c0">→</span> <b>конвейер</b> сдвигает ·
+              <span style="color: #c9a227">→</span> <b>ворота</b> (только по стрелке)<br />
+              <span style="color: #b0a8f0">♝</span> <b>цветовая зона</b> (только слон) ·
+              <span style="color: #8fae7a">▣</span> <b>плита</b> открывает стену ·
+              <span style="color: #d65a28">≈</span> <b>лава</b> растекается и жжёт<br />
+              🍖 <b>кость</b> — еда, восполняет сытость · <span style="color: #8a8070">▮</span>
+              <b>пилон</b> непроходим<br />
+              <span class="sw" style="background: var(--teal)"></span>ход безопасен ·
+              <span class="sw" style="background: #e0a03a"></span>под удар ·
+              <span class="sw" style="background: var(--threat)"></span>конец забега<br />
+              Тап по клетке — ход или взятие; тап по слоту — смена формы (тратит ход).<br />
+              Голод тает каждый ход. Взятия, жилы и кости насыщают.<br />
+              Клавиши: <kbd>1</kbd>–<kbd>5</kbd> формы, <kbd>Q</kbd>/<kbd>E</kbd> поворот,
+              <kbd>Space</kbd> пас, <kbd>Tab</kbd> перебор врагов, <kbd>Esc</kbd> сброс,
+              <kbd>Enter</kbd> подтвердить ход.
+            </div>
+          </details>
         </div>
       </div>
     </div>
 
     <!-- Модалка: шапка / прокручиваемое тело / прижатые действия.
          Раньше скроллилась целиком, из-за чего в справке заголовок уезжал,
-         а кнопка «Понятно» лежала в конце 25 секций текста. -->
+         а кнопка «Понятно» лежала в конце 25 секций текста.
+         #mText — div, а не p: интерлюдии кладут внутрь <p> строки, а вложенный
+         <p> невалиден, браузер закрывает внешний тег и текст вываливается
+         из .m-head. -->
     <div class="overlay" id="overlay">
       <div
         class="modal m-md"
@@ -157,7 +163,7 @@
         <div class="m-head" id="mHead">
           <img class="m-art" id="mArt" alt="" hidden />
           <h3 id="mTitle"></h3>
-          <p id="mText"></p>
+          <div id="mText"></div>
         </div>
         <div class="m-body" id="mBody">
           <div class="choices" id="mChoices"></div>

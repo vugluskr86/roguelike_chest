@@ -34,7 +34,9 @@ import {
   playRune,
   playLoot,
 } from './audio.js';
+import { ART } from './assets.js';
 import { closeModal, log, openInterlude, openModal, openRunSummary, syncUI } from './ui.js';
+import { setHungerLayer, sting, playTrack } from './music.js';
 import { isEditorRunning, stopEditorRun } from './editor.js';
 import {
   tutorialAllowsMove,
@@ -66,7 +68,13 @@ export function tryMoveTo(x, y) {
   const { moves, captures } = playerOptions();
   const isCap = captures.some((c) => c.x === x && c.y === y);
   const isMove = moves.some((c) => c.x === x && c.y === y);
-  if (!isCap && !isMove) return;
+  if (!isCap && !isMove) {
+    // тап мимо легальных клеток — показываем, куда можно
+    if (moves.length || captures.length) {
+      log('Нет хода на эту клетку.', '');
+    }
+    return;
+  }
   if (!tutorialAllowsMove(x, y)) {
     tutorialNudge('move');
     return;
@@ -74,11 +82,7 @@ export function tryMoveTo(x, y) {
   tutorialSnapshot();
   // если ход (не взятие) — клетка должна быть свободна от врагов
   if (isMove && enemyAt(x, y)) {
-    console.warn('tryMoveTo BLOCKED: enemy occupies target cell', {
-      x,
-      y,
-      enemyType: enemyAt(x, y).type,
-    });
+    addSpeech(x, y, 'Занято.', 'enemy');
     return;
   }
   // двухступенчатое подтверждение: первый тап показывает последствия,
@@ -348,7 +352,10 @@ export function triggerBossPhase(bossId, phase) {
 }
 
 export function unlockType(t, colorAt) {
-  if (!STD_TYPES.has(t)) return; // спец-враги (страж/некромант/двойник) не дают форму
+  if (!STD_TYPES.has(t)) {
+    log(`Форма «${NAME[t] || t}» недоступна игроку.`);
+    return;
+  }
   if (S.unlocked.has(t)) {
     log(`«${NAME[t]}» у тебя уже есть. Кость лишняя.`);
     return;
@@ -364,10 +371,20 @@ export function unlockType(t, colorAt) {
 
 export function switchForm(i) {
   if (S.gameOver || S.modalOpen) return;
-  if (S.challenge === 'lone_figure') return; // челлендж: без смены формы
+  if (S.challenge === 'lone_figure') {
+    log('Одинокая фигура: смена формы запрещена.', 'r');
+    return;
+  }
   if (!tutorialAllowsSwitch()) return tutorialNudge('switch');
   const f = S.player.wheel[i];
-  if (!f || i === S.player.active) return;
+  if (!f) {
+    log('Этот слот колеса пуст.', '');
+    return;
+  }
+  if (i === S.player.active) {
+    log('Эта форма уже активна.', '');
+    return;
+  }
   if (f.cooldown > 0) {
     log(`«${NAME[f.type]}» устала — ещё ${f.cooldown} х.`, 'r');
     return;
@@ -451,6 +468,7 @@ export function endPlayerTurn() {
         return;
       }
     }
+    setHungerLayer(S.player.hunger < CFG.HUNGER.start * 0.25);
   }
   // промоушен §5: конец хода пешкой на линии y=0 (проклятие «Кровавая линия» закрывает его после взятия)
   const bloodBlocked = curse('bloodline') && S.player.capturedThisFloor > 0;
@@ -542,7 +560,7 @@ export function afterEnemies() {
     render();
     syncUI();
     if (S.runMode === 'campaign' && SCRIPT.interludes.act2to3) {
-      openInterlude(SCRIPT.interludes.act2to3, () => offerLoot());
+      openInterlude({ ...SCRIPT.interludes.act2to3, art: ART.act2to3 }, () => offerLoot());
       return;
     }
     offerLoot();
@@ -582,11 +600,13 @@ export function afterEnemies() {
     // интерлюдии после босс-ярусов
     if (S.runMode === 'campaign') {
       if (S.floor === 5 && SCRIPT.interludes.act1to2) {
-        openInterlude(SCRIPT.interludes.act1to2, () => offerLoot());
+        openInterlude({ ...SCRIPT.interludes.act1to2, art: ART.act1to2, mode: 'aside' }, () =>
+          offerLoot(),
+        );
         return;
       }
       if (S.floor === 11 && SCRIPT.interludes.act2to3) {
-        openInterlude(SCRIPT.interludes.act2to3, () => offerLoot());
+        openInterlude({ ...SCRIPT.interludes.act2to3, art: ART.act2to3 }, () => offerLoot());
         return;
       }
     }
@@ -685,6 +705,7 @@ export function death() {
     return;
   }
   S.gameOver = true;
+  sting('death');
   const earned = endRunMeta();
   openRunSummary('Пешка пала', 'Последняя кость сломана. Дальше нечем ходить.', earned);
 }
@@ -723,23 +744,26 @@ export function openVictory() {
   }
   S.gameOver = true;
   S.modalOpen = true;
+  playTrack('ending');
   const earned = endRunMeta();
-  const finish = (id) => {
+  const finish = (id, art) => {
     closeModal();
     const e = SCRIPT.endings[id];
     if (e) {
-      openInterlude({ ...e, button: 'Конец' }, () => openRunSummary(e.title, '', earned));
+      openInterlude({ ...e, art, button: 'Конец' }, () =>
+        openRunSummary(e.title, '', earned, { win: true }),
+      );
     } else {
-      openRunSummary('Победа', '', earned);
+      openRunSummary('Победа', '', earned, { win: true });
     }
   };
   openModal(
     'Король пал',
     `Ты прошёл Подземелье до конца.\nЯрусов: ${S.floor} · Взятий: ${S.player.totalCaptures} · Пепел: +${earned}`,
     [
-      { label: '⚔ Убить', fn: () => finish('kill') },
-      { label: '♚ Занять место', fn: () => finish('throne') },
-      { label: '💥 Сломать доску', fn: () => finish('breakBoard') },
+      { label: '⚔ Убить', fn: () => finish('kill', ART.endingKill) },
+      { label: '♚ Занять место', fn: () => finish('throne', ART.endingThrone) },
+      { label: '💥 Сломать доску', fn: () => finish('breakBoard', ART.endingBreak) },
     ],
     false,
   );
@@ -773,5 +797,6 @@ export function openPromotion() {
       },
     })),
     false,
+    { glyphs: true },
   );
 }

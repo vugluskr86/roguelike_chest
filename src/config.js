@@ -76,6 +76,8 @@ export const CFG = {
   TILE_ANIM_SPEED: 1.0, // множитель скорости анимации тайлов (1=норма, 2=×2 быстрее)
   SFX_ENABLED: true, // звуки включены
   ANIM_ENABLED: true, // анимации включены
+  MUSIC_ENABLED: true, // музыка включена
+  MUSIC_VOLUME: 0.35, // громкость музыки (поверх LUFS-нормализации)
   FATIGUE_K: 2, // кулдаун формы после взятия
   ENEMY_CAPTURE_CD: 1, // кулдаун врага после взятия игрока
   // ── интерфейс ──
@@ -336,14 +338,22 @@ export function tierWeight(tier, flr, biasHigh) {
 }
 export const SETTINGS_KEY = 'chessrogue_settings_v1';
 
-/** Загрузить настройки из localStorage. */
+const SETTINGS_KEYS = [
+  'SFX_ENABLED',
+  'ANIM_ENABLED',
+  'SHOW_PREVIEW',
+  'CONFIRM_MOVES',
+  'MUSIC_ENABLED',
+  'MUSIC_VOLUME',
+];
+
 export function loadSettings() {
   try {
     const raw = localStorage.getItem(SETTINGS_KEY);
-    if (raw) {
-      const data = JSON.parse(raw);
-      if (typeof data.SFX_ENABLED === 'boolean') CFG.SFX_ENABLED = data.SFX_ENABLED;
-      if (typeof data.ANIM_ENABLED === 'boolean') CFG.ANIM_ENABLED = data.ANIM_ENABLED;
+    if (!raw) return;
+    const data = JSON.parse(raw);
+    for (const k of SETTINGS_KEYS) {
+      if (data[k] !== undefined && typeof data[k] === typeof CFG[k]) CFG[k] = data[k];
     }
   } catch {
     /* localStorage недоступен */
@@ -353,10 +363,9 @@ export function loadSettings() {
 /** Сохранить настройки в localStorage. */
 export function saveSettings() {
   try {
-    localStorage.setItem(
-      SETTINGS_KEY,
-      JSON.stringify({ SFX_ENABLED: CFG.SFX_ENABLED, ANIM_ENABLED: CFG.ANIM_ENABLED }),
-    );
+    const out = {};
+    for (const k of SETTINGS_KEYS) out[k] = CFG[k];
+    localStorage.setItem(SETTINGS_KEY, JSON.stringify(out));
   } catch {
     /* localStorage недоступен */
   }
