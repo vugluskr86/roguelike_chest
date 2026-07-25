@@ -1041,11 +1041,11 @@ export function reset() {
     });
     return;
   }
-  if (META.runs === 0 && SCRIPT.interludes.prologue) {
+  if (S.runMode === 'campaign' && META.runs === 0 && SCRIPT.interludes.prologue) {
     openInterlude(SCRIPT.interludes.prologue, () => newFloor());
     return;
   }
-  if (META.runs >= 1 && SCRIPT.repeat && SCRIPT.repeat.prologue) {
+  if (S.runMode === 'campaign' && META.runs >= 1 && SCRIPT.repeat && SCRIPT.repeat.prologue) {
     openInterlude({ ...SCRIPT.repeat.prologue, button: 'Встать' }, () => newFloor());
     return;
   }
