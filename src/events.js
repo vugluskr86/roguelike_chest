@@ -14,6 +14,7 @@ import {
   CURSE_REMOVE_PRICE,
   GAMBLE_COST,
   NAME,
+  NAME_EN,
   SHOP_PRICE,
   TIER_META,
   relicTier,
@@ -253,8 +254,20 @@ export function openSanctuary() {
     const b = document.createElement('button');
     b.className = 'loot';
     b.innerHTML =
-      `isEnglish() ? '<span class="ln">Give: ${NAME[f.type]}${f.improved ? ' ★' : ''}</span>` +
-      `<span class="ld">${reward ? 'получишь: ' + RELICS[reward].name : 'наград нет'}</span>`;
+      (isEnglish()
+        ? '<span class="ln">Give: ' +
+          (NAME_EN[f.type] || NAME[f.type]) +
+          (f.improved ? ' ★' : '') +
+          '</span>'
+        : '<span class="ln">Отдать: ' + NAME[f.type] + (f.improved ? ' ★' : '') + '</span>') +
+      '<span class="ld">' +
+      (reward
+        ? (isEnglish() ? 'receive: ' : 'получишь: ') +
+          (isEnglish() ? RELICS[reward].enName || RELICS[reward].name : RELICS[reward].name)
+        : isEnglish()
+          ? 'no reward'
+          : 'наград нет') +
+      '</span>';
     b.onclick = () => {
       S.player.wheel[i] = null;
       if (S.player.active === i) S.player.active = 0;
@@ -291,10 +304,12 @@ export function openGamble() {
   const bet = document.createElement('button');
   bet.className = 'loot';
   bet.innerHTML =
-    `isEnglish() ? '<span class="ln">Try Your Luck <em class="tag">${GAMBLE_COST}🪙</em></span>` +
-    isEnglish()
+    (isEnglish()
+      ? '<span class="ln">Try Your Luck <em class="tag">' + GAMBLE_COST + '🪙</em></span>'
+      : '<span class="ln">Испытать судьбу <em class="tag">' + GAMBLE_COST + '🪙</em></span>') +
+    (isEnglish()
       ? '<span class="ld">55% — random bone · 45% — random seam</span>'
-      : '<span class="ld">55% — случайная кость · 45% — случайный шов</span>';
+      : '<span class="ld">55% — случайная кость · 45% — случайный шов</span>');
   if ((S.player.gold || 0) < GAMBLE_COST) {
     bet.disabled = true;
     bet.style.opacity = 0.5;

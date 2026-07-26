@@ -20,6 +20,7 @@ import { applyRelic, applyCurse } from '../src/loot.js';
 // META is a live binding; reset its contents each test
 function fresh() {
   Object.assign(META, defaultMeta());
+  META.tutorialDone = true;
   S.player.relics.clear();
   S.player.curses.clear();
 }

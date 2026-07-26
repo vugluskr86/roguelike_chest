@@ -8,7 +8,7 @@ import { makeForm } from '../src/util.js';
 
 // const K = (x, y) => x + ',' + y;
 const mkE = (o) =>
-  Object.assign({ facing: [0, 1], cd: 0, homeColor: 0, r: 3, rb: 0, status: {} }, o);
+  Object.assign({ facing: [0, 1], cd: 0, homeColor: 0, r: 1, rb: 0, status: {} }, o);
 beforeEach(() => {
   reset();
   S.walls = new Set();
