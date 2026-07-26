@@ -347,8 +347,8 @@ export function triggerSpecialForPlayer() {
     S.special.delete(k);
     log(
       isEnglish()
-        ? 'You found a ${KEY_GLYPH[s.color]} ключ.'
-        : 'Ты нашёл ${KEY_GLYPH[s.color]} ключ.',
+        ? `You found a ${KEY_GLYPH[s.color]} key.`
+        : `Ты нашёл ${KEY_GLYPH[s.color]} ключ.`,
       'g',
     );
     playLoot();
@@ -544,8 +544,8 @@ export function pass() {
   S.player.hunger -= CFG.HUNGER.passExtra;
   log(
     isEnglish()
-      ? 'Pass. Hunger deepens (−${CFG.HUNGER.passExtra}).'
-      : 'Пас. Голод крепчает (−${CFG.HUNGER.passExtra}).',
+      ? `Pass. Hunger deepens (−${CFG.HUNGER.passExtra}).`
+      : `Пас. Голод крепчает (−${CFG.HUNGER.passExtra}).`,
   );
   endPlayerTurn();
 }
