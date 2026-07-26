@@ -13,7 +13,7 @@
  */
 import { S } from './state.js';
 import { CFG } from './config.js';
-import { CHARS, HINTS, OUTRO, SCENES } from './content/tutorial.js';
+import { CHARS, HINTS, HINTS_EN, OUTRO, OUTRO_EN, SCENES, SCENES_EN } from './content/tutorial.js';
 import { loadLevel } from './board.js';
 import { META, saveMeta } from './meta.js';
 import { allThreats } from './moves.js';
@@ -120,7 +120,7 @@ function finish() {
   saveMeta();
   const cb = T.onDone;
   T.onDone = null;
-  openInterlude(OUTRO, () => {
+  openInterlude(isEnglish() ? OUTRO_EN : OUTRO, () => {
     if (cb) cb();
   });
 }
@@ -131,7 +131,7 @@ function nextScene() {
     finish();
     return;
   }
-  const scene = (T.scene = SCENES[T.idx]);
+  const scene = (T.scene = isEnglish() ? SCENES_EN[T.idx] : SCENES[T.idx]);
   const { level, targets } = compile(scene);
   T.targets = targets;
   T.reached = false;
@@ -305,7 +305,7 @@ export function hint(id, after) {
   if (T.active) return false; // в обучении свои тексты
   if (!META.hints) META.hints = {};
   if (META.hints[id]) return false;
-  const h = HINTS[id];
+  const h = isEnglish() ? HINTS_EN[id] : HINTS[id];
   if (!h) return false;
 
   META.hints[id] = true;

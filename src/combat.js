@@ -432,7 +432,7 @@ export function unlockType(t, colorAt) {
     S.player.wheel[slot] = makeForm(t, colorAt);
     log(
       isEnglish()
-        ? `Form <b>${NAME[t]}</b> added to wheel (slot ${slot}).`
+        ? `Form <b>${NAME_EN[t]}</b> added to wheel (slot ${slot}).`
         : `Форма <b>${NAME[t]}</b> добавлена в колесо (слот ${slot})`,
       'g',
     );
