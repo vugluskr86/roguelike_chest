@@ -119,6 +119,8 @@ h1 .v {
   width: 616px;
   max-width: 100%;
   flex: 0 0 auto;
+  overscroll-behavior: none;
+  touch-action: none;
 }
 canvas {
   background: var(--ink);
@@ -126,7 +128,7 @@ canvas {
   border-radius: 4px;
   display: block;
   width: 100%;
-  touch-action: manipulation;
+  touch-action: none;
   -webkit-tap-highlight-color: transparent;
 }
 .side {

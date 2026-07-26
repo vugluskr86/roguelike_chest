@@ -404,6 +404,7 @@ dom.cv.addEventListener('pointerdown', (ev) => {
 
 dom.cv.addEventListener('pointermove', (ev) => {
   if (!dragState || S.gameOver || S.modalOpen) return;
+  ev.preventDefault();
   const r = dom.cv.getBoundingClientRect();
   const cx = ev.clientX - r.left;
   const cy = ev.clientY - r.top;
