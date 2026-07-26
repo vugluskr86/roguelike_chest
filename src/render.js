@@ -14,6 +14,8 @@ import { statusVal } from './status.js';
 import { key, tileColor } from './util.js';
 import { drawWall, wallMask } from './autotile.js';
 import { drawSprite, onSpriteLoad } from './sprites.js';
+import { initAtlas, specialSprite, warmAtlas } from './atlas.js';
+import { floorTile } from './floor.js';
 
 export let T = CFG.TILE; // логический размер тайла (CSS-пиксели); пересчитывается в resizeBoard()
 
@@ -1604,8 +1606,8 @@ export function renderNow(ts) {
         const m = wallMask(x, y, (ax, ay) => S.walls.has(key(ax, ay)));
         drawWall(dom.ctx, x, y, T, m, { biome: S.biome && S.biome.id });
       } else {
-        dom.ctx.fillStyle = tileColor(x, y) === 0 ? bLight : bDark;
-        dom.ctx.fillRect(x * T, y * T, T, T);
+        const col = tileColor(x, y) === 0 ? bLight : bDark;
+        dom.ctx.drawImage(floorTile(col, x, y, T), x * T, y * T, T, T);
       }
       if (!blind || Math.max(Math.abs(x - S.player.x), Math.abs(y - S.player.y)) <= 2) {
         if (y === 0 && !S.walls.has(key(x, y))) {
@@ -1646,7 +1648,9 @@ export function renderNow(ts) {
         Math.max(Math.abs(x - S.player.x), Math.abs(y - S.player.y)) > 2
       )
         return;
-      drawSpecial(x, y, s, ts);
+      const sprite = specialSprite(s, x, y, T, ts);
+      if (sprite) dom.ctx.drawImage(sprite, x * T, y * T, T, T);
+      else drawSpecial(x, y, s, ts);
     });
   if (insp) {
     dom.ctx.strokeStyle = '#d07a3f';
@@ -1926,3 +1930,6 @@ export const render = requestRender;
 
 // спрайт догрузился — перерисовать кадр
 onSpriteLoad(requestRender);
+
+// атлас спец-клеток: получает рисователь и контекст явно
+initAtlas({ drawSpecial, dom });
