@@ -47,6 +47,7 @@ let state = {
   activeTab: 'enemies', // активная вкладка объектов
 };
 let editorBackup = null;
+// eslint-disable-next-line no-unused-vars
 let manifestData = null;
 let undoStack = [];
 const UNDO_MAX = 50;

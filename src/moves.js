@@ -7,7 +7,9 @@ import { DIAG, KNIGHT_J, ORTHO, inB, key, tileColor } from './util.js';
 // ===== кэш угроз и ходов игрока (сбрасывается после каждого хода) =====
 let threatCache = null;
 let threatCacheKey = '';
+// eslint-disable-next-line no-unused-vars
 let playerOptsCache = null;
+// eslint-disable-next-line no-unused-vars
 let playerOptsKey = '';
 
 /** Сбросить кэш угроз и ходов игрока — вызывать после хода игрока/врагов. */
@@ -24,14 +26,6 @@ export function cachedThreats(insp) {
   threatCacheKey = k;
   threatCache = insp ? enemyThreat(insp) : allThreats();
   return threatCache;
-}
-
-function cachedPlayerOptions() {
-  const k = `${S.player.x},${S.player.y},${S.player.facing[0]},${S.player.facing[1]},${S.player.active},t${S.turn}`;
-  if (playerOptsCache && playerOptsKey === k) return playerOptsCache;
-  playerOptsKey = k;
-  playerOptsCache = playerOptions();
-  return playerOptsCache;
 }
 
 export function genMoves(piece, form, isEnemyCell, isBlocked) {

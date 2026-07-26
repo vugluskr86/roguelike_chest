@@ -62,6 +62,8 @@ export const CFG = {
   VIEW_H: 9, // высота вьюпорта в клетках
   TILE: 56,
   BASE_R: {
+    pawn: 1,
+    knight: 1,
     bishop: 3,
     rook: 3,
     queen: 2,
@@ -71,6 +73,12 @@ export const CFG = {
     king: 1,
     infiltrator: 1,
     bastion: 0,
+    guardian: 1,
+    necro: 1,
+    mimic: 1,
+    assassin: 1,
+    priest: 3,
+    frost: 3,
   },
   MOVE_ANIM_MS: 300, // длительность анимации перемещения фигур
   TILE_ANIM_SPEED: 1.0, // множитель скорости анимации тайлов (1=норма, 2=×2 быстрее)
