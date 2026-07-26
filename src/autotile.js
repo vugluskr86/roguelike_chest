@@ -87,6 +87,63 @@ export function blob47Index(m) {
 }
 
 // ════════════════════════════════════════════════════════════════
+//  Scale9 / blob47 / proc: загрузка тайлсетов и рисование стен
+// ════════════════════════════════════════════════════════════════
+
+const WALL_TEX = import.meta.glob('./assets/tiles/wall-tex-*.png', {
+  eager: true,
+  import: 'default',
+});
+const patterns = new Map(); // biomeId → CanvasPattern | null (грузится) | false (нет файла)
+const TEX_TILES = 2; // одна текстура покрывает 2×2 клетки: меньше видно повтор
+
+/**
+ * Паттерн-заливка для биома. Пока картинка грузится — возвращает null,
+ * и вызывающий рисует обычным цветом; по готовности дёргается тот же колбэк,
+ * что у тайлсетов, и кадр перерисовывается уже текстурой.
+ */
+function wallPattern(c, biome, T) {
+  const id = biome || 'default';
+  const cached = patterns.get(id);
+  if (cached === false) return null;
+  if (cached) {
+    applyPatternScale(cached, T);
+    return cached;
+  }
+  if (cached === null) return null; // уже грузится
+
+  const url = WALL_TEX[`./assets/tiles/wall-tex-${id}.png`];
+  if (!url) {
+    patterns.set(id, false);
+    return null;
+  }
+  patterns.set(id, null);
+  const img = new Image();
+  img.onload = () => {
+    patterns.set(id, c.createPattern(img, 'repeat'));
+    listeners.forEach((cb) => cb()); // тот же список, что у onTilesetLoad
+  };
+  img.onerror = () => patterns.set(id, false);
+  img.src = url;
+  return null;
+}
+
+/**
+ * Привязать масштаб текстуры к размеру тайла. Без этого текстура сохраняет
+ * свой размер в пикселях, и на мелких тайлах кладка выглядит великанской.
+ */
+function applyPatternScale(pattern, T) {
+  if (!pattern.setTransform || typeof DOMMatrix === 'undefined') return; // старый Safari
+  const src = 112; // размер файла текстуры
+  const s = (T * TEX_TILES) / src;
+  try {
+    pattern.setTransform(new DOMMatrix([s, 0, 0, s, 0, 0]));
+  } catch {
+    /* setTransform не поддержан — текстура ляжет в натуральном масштабе */
+  }
+}
+
+// ════════════════════════════════════════════════════════════════
 //  Тайлсеты
 // ════════════════════════════════════════════════════════════════
 
@@ -106,7 +163,10 @@ export function onTilesetLoad(cb) {
  *   walls-scale9.png         → набор по умолчанию
  */
 for (const [path, url] of Object.entries(SHEETS)) {
-  const name = path.split('/').pop().replace(/\.[^.]+$/, '');
+  const name = path
+    .split('/')
+    .pop()
+    .replace(/\.[^.]+$/, '');
   const m = /^walls(?:-(.+?))?-(scale9|blob47)$/.exec(name);
   if (!m) continue;
   const [, biome, mode] = m;
@@ -191,6 +251,7 @@ export function drawWallProcedural(c, x, y, T, m, opts = {}) {
   c.lineTo(x0, y0 + rTL);
   if (rTL) c.quadraticCurveTo(x0, y0, x0 + rTL, y0);
   c.closePath();
+  // c.fillStyle = wallPattern(c, opts.biome, T) || fill;
   c.fillStyle = fill;
   c.fill();
 
@@ -230,6 +291,10 @@ export function drawWallProcedural(c, x, y, T, m, opts = {}) {
   c.lineWidth = 1;
   c.stroke();
   c.restore();
+}
+
+export function clearWallPatterns() {
+  patterns.clear();
 }
 
 /** Сколько тайлсетов подхватилось — для отчёта в консоли. */

@@ -6,3 +6,5 @@ android/
 .DS_Store
 .vscode/*
 !.vscode/extensions.json
+ComfyUI/output/
+tools/comfy/__pycache__/
