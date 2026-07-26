@@ -611,8 +611,8 @@ export function endPlayerTurn() {
       S.player.active = pick;
       log(
         isEnglish()
-          ? '🌀 Chaos: form switched to <b>${NAME[activeForm().type]}</b>.'
-          : '🌀 Хаос: форма сменена на <b>${NAME[activeForm().type]}</b>.',
+          ? `🌀 Chaos: form switched to <b>${NAME[activeForm().type]}</b>.`
+          : `🌀 Хаос: форма сменена на <b>${NAME[activeForm().type]}</b>.`,
         'p',
       );
     }
