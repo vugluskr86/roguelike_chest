@@ -91,7 +91,7 @@ export function applyRelic(id) {
   } // +1 слот сразу
   log(
     isEnglish()
-      ? `Bone: <b>${RELICS[id].name}</b> — ${RELICS[id].desc}`
+      ? `Bone: <b>${RELICS[id].enName}</b> — ${RELICS[id].enDesc}`
       : `Кость: <b>${RELICS[id].name}</b> — ${RELICS[id].desc}`,
     'g',
   );
@@ -107,7 +107,7 @@ export function applyCurse(id) {
   }
   log(
     isEnglish()
-      ? `Seam: <b>${CURSES[id].name}</b> — ${CURSES[id].desc}`
+      ? `Seam: <b>${CURSES[id].enName}</b> — ${CURSES[id].enDesc}`
       : `Шов: <b>${CURSES[id].name}</b> — ${CURSES[id].desc}`,
     'r',
   );

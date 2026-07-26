@@ -12,6 +12,8 @@ import { tutorialTargets } from './tutorial.js';
 import { RISK, pendingMove, previewCell, riskOf, threatsAfterMove } from './preview.js';
 import { statusVal } from './status.js';
 import { key, tileColor } from './util.js';
+import { drawWall, wallMask } from './autotile.js';
+import { drawSprite, onSpriteLoad } from './sprites.js';
 
 export let T = CFG.TILE; // логический размер тайла (CSS-пиксели); пересчитывается в resizeBoard()
 
@@ -65,6 +67,7 @@ const animState = {
  * @param {number} ty
  */
 export function startMoveAnim(unit, fx, fy, tx, ty) {
+  unit.lastDir = [Math.sign(tx - fx), Math.sign(ty - fy)];
   if (!CFG.ANIM_ENABLED || typeof requestAnimationFrame === 'undefined') return;
   const entry = { fromX: fx, fromY: fy, toX: tx, toY: ty, startTs: null };
   if (unit === S.player) {
@@ -1446,6 +1449,23 @@ export function drawPiece(x, y, type, isPlayer, facing, improved, opts) {
   opts = opts || {};
   const cx = x * T + T / 2,
     cy = y * T + T / 2;
+
+  // попытка спрайтового рендера — если есть спрайт, рисуем его и выходим
+  const dir = facing || (opts && opts.lastDir);
+  if (
+    drawSprite(dom.ctx, type, x, y, T, {
+      dir,
+      tint: isPlayer ? null : opts.mimic ? '#b46edc' : '#d07a3f',
+    })
+  ) {
+    if (improved) {
+      dom.ctx.fillStyle = '#c9a227';
+      dom.ctx.font = '12px serif';
+      dom.ctx.fillText('★', cx + T * 0.3, cy - T * 0.3);
+    }
+    return;
+  }
+
   const glyph = GLYPH[type] || '?';
   dom.ctx.save();
   // кольца брони стража (под фигурой)
@@ -1579,19 +1599,15 @@ export function renderNow(ts) {
       // слепой спуск: затемняем всё за пределами радиуса 2
       if (blind && Math.max(Math.abs(x - S.player.x), Math.abs(y - S.player.y)) > 2) {
         dom.ctx.fillStyle = '#0a0c10';
+        dom.ctx.fillRect(x * T, y * T, T, T);
+      } else if (S.walls.has(key(x, y))) {
+        const m = wallMask(x, y, (ax, ay) => S.walls.has(key(ax, ay)));
+        drawWall(dom.ctx, x, y, T, m, { biome: S.biome && S.biome.id });
       } else {
-        dom.ctx.fillStyle = S.walls.has(key(x, y))
-          ? '#201b16'
-          : tileColor(x, y) === 0
-            ? bLight
-            : bDark;
+        dom.ctx.fillStyle = tileColor(x, y) === 0 ? bLight : bDark;
+        dom.ctx.fillRect(x * T, y * T, T, T);
       }
-      dom.ctx.fillRect(x * T, y * T, T, T);
       if (!blind || Math.max(Math.abs(x - S.player.x), Math.abs(y - S.player.y)) <= 2) {
-        if (S.walls.has(key(x, y))) {
-          dom.ctx.strokeStyle = 'rgba(0,0,0,.5)';
-          dom.ctx.strokeRect(x * T + 3.5, y * T + 3.5, T - 7, T - 7);
-        }
         if (y === 0 && !S.walls.has(key(x, y))) {
           const pp = (ts || 0) / 900;
           const pa = S.promotionUsed ? 0.05 : 0.18 + Math.sin(pp * Math.PI * 2) * 0.1;
@@ -1714,6 +1730,7 @@ export function renderNow(ts) {
       drawPiece(ex, ey, e.type, false, e.type === 'pawn' ? e.facing : null, false, {
         armor: e.armor,
         tint,
+        lastDir: e.lastDir,
       });
     }
     drawStatuses(ex, ey, e);
@@ -1721,7 +1738,9 @@ export function renderNow(ts) {
   const f = activeForm();
   const pp = getAnimPos(S.player, S.player.x, S.player.y, ts);
   drawModifierAura(pp.x, pp.y, ts); // аура и кольца — ПОД фигурой
-  drawPiece(pp.x, pp.y, f.type, true, f.type === 'pawn' ? S.player.facing : null, f.improved);
+  drawPiece(pp.x, pp.y, f.type, true, f.type === 'pawn' ? S.player.facing : null, f.improved, {
+    lastDir: S.player.lastDir,
+  });
   drawStatuses(pp.x, pp.y, S.player);
   drawModifierCounters(pp.x, pp.y, ts); // счётчики ✦/☠ у нижнего края клетки
   // реплики над фигурами
@@ -1904,3 +1923,6 @@ export function renderNow(ts) {
  * Все существующие вызовы render() продолжают работать.
  */
 export const render = requestRender;
+
+// спрайт догрузился — перерисовать кадр
+onSpriteLoad(requestRender);

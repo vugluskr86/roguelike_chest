@@ -5,9 +5,9 @@
  */
 import { S } from './state.js';
 import { dom } from './dom.js';
-import { CFG, GLYPH, KEY_GLYPH, NAME, STD_TYPES } from './config.js';
+import { CFG, GLYPH, KEY_GLYPH, NAME, NAME_EN, STD_TYPES } from './config.js';
 import { RELICS, CURSES } from './content.js';
-import { SCRIPT, actForFloor, pickLine } from './content/script.js';
+import { actForFloor, pickLine, getScript } from './content/script.js';
 import { enemiesTurn } from './enemies.js';
 import { tormentorHit, dispatchBossEvents, BOSS_CFG, linkedRookRevenge } from './bosses.js';
 import { snapshotRoom, loadRoom } from './board.js';
@@ -106,7 +106,7 @@ export function tryMoveTo(x, y) {
       activeForm().cooldown = fatigue;
       log(
         isEnglish()
-          ? `${GLYPH[e.type]} ${NAME[e.type]} shield absorbs the hit.`
+          ? `${GLYPH[e.type]} ${NAME_EN[e.type]} shield absorbs the hit.`
           : `Щит ${GLYPH[e.type]} ${NAME[e.type]} поглощает удар.`,
         'p',
       );
@@ -131,7 +131,7 @@ export function tryMoveTo(x, y) {
       activeForm().cooldown = fatigue;
       log(
         isEnglish()
-          ? `You dent ${GLYPH[e.type]} ${NAME[e.type]} (armor left: ${e.armor}).`
+          ? `You dent ${GLYPH[e.type]} ${NAME_EN[e.type]} (armor left: ${e.armor}).`
           : `Ты пробиваешь щит ${GLYPH[e.type]} ${NAME[e.type]} (осталось брони: ${e.armor})`,
         'p',
       );
@@ -148,7 +148,7 @@ export function tryMoveTo(x, y) {
     // реплика при смерти врага
     {
       const act = actForFloor(S.floor);
-      const line = pickLine(SCRIPT.deathLines[act] || []);
+      const line = pickLine(getScript().deathLines[act] || []);
       if (line && Math.random() < 0.35) addSpeech(x, y, line, 'enemy');
     }
     // Месть Ладьи: если убитая ладья была в связке, выжившая бьёт вне очереди
@@ -182,7 +182,7 @@ export function tryMoveTo(x, y) {
     }
     log(
       isEnglish()
-        ? `You take ${GLYPH[e.type]} ${NAME[e.type]} with ${NAME[activeForm().type]}.`
+        ? `You take ${GLYPH[e.type]} ${NAME_EN[e.type]} with ${NAME_EN[activeForm().type]}.`
         : `Ты берёшь ${GLYPH[e.type]} ${NAME[e.type]} формой ${NAME[activeForm().type]}`,
       'p',
     );
@@ -284,13 +284,13 @@ export function triggerSpecialForPlayer() {
       S.chainsBroken = (S.chainsBroken || 0) + 1;
       log(
         isEnglish()
-          ? 'Chain broken (${S.chainsBroken}/${BOSS_CFG.redKing.chains}).'
-          : 'Цепь разорвана (${S.chainsBroken}/${BOSS_CFG.redKing.chains}).',
+          ? `Chain broken (${S.chainsBroken}/${BOSS_CFG.redKing.chains}).`
+          : `Цепь разорвана (${S.chainsBroken}/${BOSS_CFG.redKing.chains}).`,
         'g',
       );
       const king = S.enemies.find((e) => e.king);
-      if (king && SCRIPT.bosses.redKing) {
-        const line = SCRIPT.bosses.redKing.chainBreak[S.chainsBroken];
+      if (king && getScript().bosses.redKing) {
+        const line = getScript().bosses.redKing.chainBreak[S.chainsBroken];
         if (line) {
           addSpeech(king.x, king.y, line.text, 'boss');
           log(line.text);
@@ -321,8 +321,8 @@ export function triggerSpecialForPlayer() {
     if (s.color && !S.keys.has(s.color)) {
       log(
         isEnglish()
-          ? 'Door is locked — need a ${KEY_GLYPH[s.color]} ключ.'
-          : 'Дверь заперта — нужен ${KEY_GLYPH[s.color]} ключ.',
+          ? `Door is locked — need a ${KEY_GLYPH[s.color]} ключ.`
+          : `Дверь заперта — нужен ${KEY_GLYPH[s.color]} ключ.`,
         'r',
       );
       return;
@@ -332,7 +332,7 @@ export function triggerSpecialForPlayer() {
     S.player.y = s.targetPos.y;
     screenFade('#000', 250);
     log(
-      isEnglish() ? 'Entering room ${s.targetRoom + 1}.' : 'Переход в комнату ${s.targetRoom + 1}.',
+      isEnglish() ? `Entering room ${s.targetRoom + 1}.` : `Переход в комнату ${s.targetRoom + 1}.`,
       'p',
     );
     playPortal();
@@ -354,7 +354,9 @@ export function triggerSpecialForPlayer() {
     S.player.hunger = Math.min(CFG.HUNGER.start, S.player.hunger + CFG.HUNGER.food);
     S.player.hungerMark = 1;
     log(
-      `Ты съедаешь кость (+${CFG.HUNGER.food} сытости, всего ${S.player.hunger}/${CFG.HUNGER.start}).`,
+      isEnglish()
+        ? `You eat a bone (+${CFG.HUNGER.food} satiety, total ${S.player.hunger}/${CFG.HUNGER.start}).`
+        : `Ты съедаешь кость (+${CFG.HUNGER.food} сытости, всего ${S.player.hunger}/${CFG.HUNGER.start}).`,
       'g',
     );
     tutorialMark('eat');
@@ -369,7 +371,7 @@ export function triggerSpecialForPlayer() {
         applyRelicLoot(id);
         log(
           isEnglish()
-            ? `Scroll: <b>${RELICS[id].name}</b> — ${RELICS[id].desc}`
+            ? `Scroll: <b>${RELICS[id].enName}</b> — ${RELICS[id].enDesc}`
             : `Свиток: <b>${RELICS[id].name}</b> — ${RELICS[id].desc}`,
           'g',
         );
@@ -381,7 +383,7 @@ export function triggerSpecialForPlayer() {
         applyCurseLoot(id);
         log(
           isEnglish()
-            ? `Scroll: <b>☠ ${CURSES[id].name}</b> — ${CURSES[id].desc}`
+            ? `Scroll: <b>☠ ${CURSES[id].enName}</b> — ${CURSES[id].enDesc}`
             : `Свиток: <b>☠ ${CURSES[id].name}</b> — ${CURSES[id].desc}`,
           'r',
         );
@@ -392,7 +394,7 @@ export function triggerSpecialForPlayer() {
 
 /** Срабатывание фазы босса — лог и speech. */
 export function triggerBossPhase(bossId, phase) {
-  const boss = SCRIPT.bosses[bossId];
+  const boss = getScript().bosses[bossId];
   if (!boss) return;
   const key = phase === 2 ? 'phase2' : phase === 3 ? 'phase3' : null;
   if (!key || !boss[key]) return;
@@ -410,15 +412,15 @@ export function unlockType(t, colorAt) {
   if (!STD_TYPES.has(t)) {
     log(
       isEnglish()
-        ? 'Form "${NAME[t] || t}» недоступна игроку.'
-        : 'Форма «${NAME[t] || t}» недоступна игроку.',
+        ? `Form "${NAME_EN[t] || t}" is not available to the player.`
+        : `Форма «${NAME[t] || t}» недоступна игроку.`,
     );
     return;
   }
   if (S.unlocked.has(t)) {
     log(
       isEnglish()
-        ? `«${NAME[t]}» already yours. Extra bone.`
+        ? `«${NAME_EN[t]}» already yours. Extra bone.`
         : `«${NAME[t]}» у тебя уже есть. Кость лишняя.`,
     );
     return;
@@ -437,7 +439,7 @@ export function unlockType(t, colorAt) {
   } else
     log(
       isEnglish()
-        ? `Type unlocked in pool — wheel is full.`
+        ? `Type «${NAME_EN[t]}» unlocked in pool — wheel is full.`
         : `Тип «${NAME[t]}» открыт в пуле — колесо заполнено.`,
       'g',
     );
@@ -467,7 +469,7 @@ export function switchForm(i) {
   if (f.cooldown > 0) {
     log(
       isEnglish()
-        ? `«${NAME[f.type]}» fatigued — ${f.cooldown} t. left`
+        ? `«${NAME_EN[f.type]}» fatigued — ${f.cooldown} t. left`
         : `«${NAME[f.type]}» устала — ещё ${f.cooldown} х.`,
       'r',
     );
@@ -479,7 +481,7 @@ export function switchForm(i) {
   if (!has('silence') && !S.player.wheel[i]._seenBefore) {
     S.player.wheel[i]._seenBefore = true;
     S.player.boneVoiceTimer = 3;
-    const lines = SCRIPT.boneVoices[formType];
+    const lines = getScript().boneVoices[formType];
     if (lines && lines.length) {
       const line = lines[Math.floor(Math.random() * lines.length)];
       addSpeech(S.player.x, S.player.y, line, 'bone');
@@ -491,8 +493,8 @@ export function switchForm(i) {
     S.player.freeSwapUsed = true;
     log(
       isEnglish()
-        ? 'Switch form → <b>${NAME[f.type]}</b> (бесплатно).'
-        : 'Смена формы → <b>${NAME[f.type]}</b> (бесплатно).',
+        ? `Switch form → <b>${NAME_EN[f.type]}</b> (for free).`
+        : `Смена формы → <b>${NAME[f.type]}</b> (бесплатно).`,
       'p',
     );
     render();
@@ -501,8 +503,8 @@ export function switchForm(i) {
   }
   log(
     isEnglish()
-      ? 'Switch form → <b>${NAME[f.type]}</b> (потрачен ход).'
-      : 'Смена формы → <b>${NAME[f.type]}</b> (потрачен ход).',
+      ? `Switch form → <b>${NAME_EN[f.type]}</b> (wasted move).`
+      : `Смена формы → <b>${NAME[f.type]}</b> (потрачен ход).`,
     'p',
   );
   endPlayerTurn();
@@ -555,7 +557,7 @@ export function endPlayerTurn() {
       for (const th of [0.4, 0.25, 0.1, 0]) {
         if (ratio <= th && (S.player.hungerMark ?? 1) > th) {
           S.player.hungerMark = th;
-          const line = SCRIPT.hungerLines[th];
+          const line = getScript().hungerLines[th];
           if (line) log(line, 'r');
           break;
         }
@@ -653,7 +655,7 @@ export function afterEnemies() {
     S.player.boneVoiceTimer--;
     if (S.player.boneVoiceTimer > 0 && Math.random() < 0.4) {
       const ft = activeForm().type;
-      const lines = SCRIPT.boneVoices[ft];
+      const lines = getScript().boneVoices[ft];
       if (lines && lines.length) {
         const line = lines[Math.floor(Math.random() * lines.length)];
         addSpeech(S.player.x, S.player.y, line, 'bone');
@@ -680,8 +682,8 @@ export function afterEnemies() {
     if (!S.player.lostFormThisFloor) unlockAch('flawless');
     render();
     syncUI();
-    if (S.runMode === 'campaign' && SCRIPT.interludes.act2to3) {
-      openInterlude({ ...SCRIPT.interludes.act2to3, art: ART.act2to3 }, () => offerLoot());
+    if (S.runMode === 'campaign' && getScript().interludes.act2to3) {
+      openInterlude({ ...getScript().interludes.act2to3, art: ART.act2to3 }, () => offerLoot());
       return;
     }
     offerLoot();
@@ -735,14 +737,14 @@ export function afterEnemies() {
     syncUI();
     // интерлюдии после босс-ярусов
     if (S.runMode === 'campaign') {
-      if (S.floor === 5 && SCRIPT.interludes.act1to2) {
-        openInterlude({ ...SCRIPT.interludes.act1to2, art: ART.act1to2, mode: 'aside' }, () =>
+      if (S.floor === 5 && getScript().interludes.act1to2) {
+        openInterlude({ ...getScript().interludes.act1to2, art: ART.act1to2, mode: 'aside' }, () =>
           offerLoot(),
         );
         return;
       }
-      if (S.floor === 11 && SCRIPT.interludes.act2to3) {
-        openInterlude({ ...SCRIPT.interludes.act2to3, art: ART.act2to3 }, () => offerLoot());
+      if (S.floor === 11 && getScript().interludes.act2to3) {
+        openInterlude({ ...getScript().interludes.act2to3, art: ART.act2to3 }, () => offerLoot());
         return;
       }
     }
@@ -816,13 +818,13 @@ export function degradePlayer(byEnemy) {
   if (byEnemy)
     log(
       isEnglish()
-        ? `${GLYPH[byEnemy.type]} ${NAME[byEnemy.type]} captures you! Form «${NAME[f.type]}» destroyed.`
+        ? `${GLYPH[byEnemy.type]} ${NAME_EN[byEnemy.type]} captures you! Form «${NAME_EN[f.type]}» destroyed.`
         : `${GLYPH[byEnemy.type]} ${NAME[byEnemy.type]} берёт тебя! Форма «${NAME[f.type]}» уничтожена.`,
       'r',
     );
   else
     log(
-      isEnglish() ? `Form «${NAME[f.type]}» destroyed.` : `Форма «${NAME[f.type]}» уничтожена.`,
+      isEnglish() ? `Form «${NAME_EN[f.type]}» destroyed.` : `Форма «${NAME[f.type]}» уничтожена.`,
       'r',
     );
   if (byEnemy && curse('hex')) applyStatus(S.player, 'poison', 2);
@@ -840,7 +842,7 @@ export function degradePlayer(byEnemy) {
   S.player.active = lower.i;
   log(
     isEnglish()
-      ? `Degradation → you are now <b>${NAME[activeForm().type]}</b>.${byEnemy ? ` Enemy catches breath (${CFG.ENEMY_CAPTURE_CD} t.).` : ''}`
+      ? `Degradation → you are now <b>${NAME_EN[activeForm().type]}</b>.${byEnemy ? ` Enemy catches breath (${CFG.ENEMY_CAPTURE_CD} t.).` : ''}`
       : `Деградация → теперь ты <b>${NAME[activeForm().type]}</b>.${byEnemy ? ` Враг переводит дух (${CFG.ENEMY_CAPTURE_CD} х.).` : ''}`,
     'r',
   );
@@ -900,7 +902,7 @@ export function openVictory() {
   const earned = endRunMeta();
   const finish = (id, art) => {
     closeModal();
-    const e = SCRIPT.endings[id];
+    const e = getScript().endings[id];
     if (e) {
       openInterlude({ ...e, art, button: isEnglish() ? 'The End' : 'Конец' }, () =>
         openRunSummary(e.title, '', earned, { win: true }),
@@ -932,7 +934,7 @@ export function openPromotion() {
     L('modal.promotion'),
     L('modal.promotionText'),
     choices.map((t) => ({
-      label: GLYPH[t] + ' ' + NAME[t],
+      label: GLYPH[t] + ' ' + (isEnglish() ? NAME_EN[t] : NAME[t]),
       fn: () => {
         const f = makeForm(t, tileColor(S.player.x, S.player.y), true);
         let slot = S.player.wheel.findIndex((s, i) => i > 0 && s === null);
@@ -944,8 +946,8 @@ export function openPromotion() {
         S.player.active = slot; // превращение: становимся выбранной фигурой
         log(
           isEnglish()
-            ? 'Ascension: you become <b>${NAME[t]} ★</b> (слот ${slot}).'
-            : 'Восхождение: превращаешься в <b>${NAME[t]} ★</b> (слот ${slot}).',
+            ? `Ascension: you become <b>${NAME_EN[t]} ★</b> (slot ${slot}).`
+            : `Восхождение: превращаешься в <b>${NAME[t]} ★</b> (слот ${slot}).`,
           'g',
         );
         playPromotion();

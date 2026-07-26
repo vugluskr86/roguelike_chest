@@ -11,8 +11,8 @@ import { CFG } from '../config.js';
 import { key } from '../util.js';
 import { ALGO_FN } from './algos.js';
 import { decorate } from './decorate.js';
-import { paramsForBiome, defaults } from './params.js';
-import { metrics, reachFor, validateAndRepair } from './validate.js';
+import { paramsForBiome } from './params.js';
+import { reachFor, validateAndRepair } from './validate.js';
 
 export { ALGOS, ALGO_LABEL, SCHEMA, schemaFor, defaults, paramsForBiome } from './params.js';
 export { metrics, reachFor, movesFrom, MOVE } from './validate.js';

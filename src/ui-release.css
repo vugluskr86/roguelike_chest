@@ -292,6 +292,7 @@
   align-items: center;
   gap: 4px 8px;
   margin-bottom: 8px;
+  justify-content: center;
 }
 #topbar .hudbar {
   margin: 0;
@@ -299,6 +300,15 @@
 #topbar .hunger-bar {
   flex: 1 1 220px;
   min-width: 180px;
+}
+
+#subbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 8px;
+  justify-content: center;
+  margin-bottom: 8px;
 }
 
 /* ============================================================================

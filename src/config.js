@@ -245,6 +245,7 @@ export const BIOMES = [
   {
     id: 'halls',
     name: 'Залы',
+    enName: 'Halls',
     light: '#39404e',
     dark: '#2a303c',
     accent: '#c9a227',
@@ -255,6 +256,7 @@ export const BIOMES = [
   {
     id: 'corridors',
     name: 'Коридоры',
+    enName: 'Corridors',
     light: '#31393a',
     dark: '#232a2b',
     accent: '#58b3a4',
@@ -265,6 +267,7 @@ export const BIOMES = [
   {
     id: 'maze',
     name: 'Лабиринт',
+    enName: 'Maze',
     light: '#2d3338',
     dark: '#1f2429',
     accent: '#b08d5c',
@@ -275,6 +278,7 @@ export const BIOMES = [
   {
     id: 'grid',
     name: 'Решётка',
+    enName: 'Grid',
     light: '#38342e',
     dark: '#292620',
     accent: '#c47a4a',
@@ -285,6 +289,7 @@ export const BIOMES = [
   {
     id: 'arena',
     name: 'Арена',
+    enName: 'Arena',
     light: '#35302a',
     dark: '#24201c',
     accent: '#d4a03c',
@@ -295,6 +300,7 @@ export const BIOMES = [
   {
     id: 'pylons',
     name: 'Пилоны',
+    enName: 'Pylons',
     light: '#3b392f',
     dark: '#2b2a23',
     accent: '#8fae7a',
@@ -306,10 +312,10 @@ export const BIOMES = [
 export const biomeFor = (f) => BIOMES[Math.floor((f - 1) / 2) % BIOMES.length]; // по 2 этажа на биом, циклично
 
 export const STATUS_META = {
-  poison: { name: 'яд', color: '#6cbf5a' },
-  stun: { name: 'оглушение', color: '#e0c341' },
-  shield: { name: 'щит', color: '#5bb6d6' },
-  haste: { name: 'ускорение', color: '#e08a3f' },
+  poison: { name: 'яд', enName: 'Poison', color: '#6cbf5a' },
+  stun: { name: 'оглушение', enName: 'Stun', color: '#e0c341' },
+  shield: { name: 'щит', enName: 'Shield', color: '#5bb6d6' },
+  haste: { name: 'ускорение', enName: 'Haste', color: '#e08a3f' },
 };
 export const GOLD_DROP = {
   pawn: 1,

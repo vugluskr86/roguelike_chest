@@ -184,7 +184,9 @@ function loadImage(url) {
   });
 }
 
-let activeSet = 'default';
+// авто-определение: если спрайты лежат только в не-default наборе, переключаемся сразу
+const _keys = [...sets.keys()];
+let activeSet = !sets.has('default') && _keys.length > 0 ? _keys[0] : 'default';
 const loading = new Set();
 
 /** Переключить набор спрайтов. Загрузка ленивая — по первому обращению. */
@@ -196,7 +198,14 @@ export const spriteSets = () => [...sets.keys()];
 export const currentSpriteSet = () => activeSet;
 
 function record(type) {
-  const set = sets.get(activeSet) || sets.get('default');
+  let set = sets.get(activeSet) || sets.get('default');
+  if (!set) {
+    // fallback: первый попавшийся набор — любой брошенный в assets/pieces/ подхватится сам
+    for (const [, s] of sets) {
+      set = s;
+      break;
+    }
+  }
   return set ? set.get(norm(type)) : null;
 }
 
@@ -211,7 +220,8 @@ async function ensureLoaded(type) {
       const img = await loadImage(rec.atlasUrl);
       rec.atlasImage = img;
       // атлас без json — считаем, что это один кадр
-      if (!rec.frames.size) rec.frames.set('default', { sx: 0, sy: 0, sw: img.width, sh: img.height, atlas: true });
+      if (!rec.frames.size)
+        rec.frames.set('default', { sx: 0, sy: 0, sw: img.width, sh: img.height, atlas: true });
     }
     await Promise.all(
       [...rec.frames.entries()].map(async ([dir, f]) => {

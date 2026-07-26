@@ -56,6 +56,8 @@ export default [
         fetch: 'readonly',
         prompt: 'readonly',
         AudioContext: 'readonly',
+        Image: 'readonly',
+        performance: 'readonly',
         localStorage: 'readonly',
         sessionStorage: 'readonly',
         location: 'readonly',

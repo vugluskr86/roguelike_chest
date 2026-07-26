@@ -8,6 +8,7 @@
  * Единственный экспорт для интеграции: syncHud() — дёргать в конце syncUI().
  * Контейнеры создаются лениво, менять index.html не обязательно.
  */
+import './hud.css';
 import { S } from './state.js';
 import { dom } from './dom.js';
 import { CFG, GLYPH, KEY_GLYPH, NAME, TIER_META, relicTier } from './config.js';

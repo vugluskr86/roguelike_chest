@@ -58,7 +58,8 @@ export function maybeEvent() {
 }
 
 /** Кнопка «уйти» одинакова во всех событиях — всегда в закреплённом футере. */
-function leaveButton(label) { if (!label) label = isEnglish() ? 'Leave (Continue)' : 'Уйти (дальше)';
+function leaveButton(label) {
+  if (!label) label = isEnglish() ? 'Leave (Continue)' : 'Уйти (дальше)';
   return action(mkButton(label, proceed, 'again'));
 }
 
@@ -143,7 +144,11 @@ export function openShop() {
 export function renderShop() {
   shell('md', ART.event.bonesetter, 'aside');
   dom.mTitle.textContent = isEnglish() ? 'Bonesetter' : 'Костоправ';
-  dom.mText.textContent = (isEnglish() ? 'Gold: ' : 'Золото: ') + (S.player.gold || 0) + '🪙. ' + (isEnglish() ? 'Purchases apply immediately.' : 'Покупки применяются сразу.');
+  dom.mText.textContent =
+    (isEnglish() ? 'Gold: ' : 'Золото: ') +
+    (S.player.gold || 0) +
+    '🪙. ' +
+    (isEnglish() ? 'Purchases apply immediately.' : 'Покупки применяются сразу.');
   dom.mChoices.classList.add('loot-list');
 
   shopStock.forEach((item) => {
@@ -152,9 +157,11 @@ export function renderShop() {
     const afford = (S.player.gold || 0) >= item.price && !item.sold;
     if (item.kind === 'relic') {
       const tm = TIER_META[relicTier(item.id)];
-      b.innerHTML = `<span class="ln ${tm.cls}">✦ ${RELICS[item.id].name} <em class="tag">${item.price}🪙</em></span><span class="ld">${RELICS[item.id].desc}</span>`;
+      b.innerHTML = `<span class="ln ${tm.cls}">✦ ${isEnglish() ? RELICS[item.id].enName : RELICS[item.id].name} <em class="tag">${item.price}🪙</em></span><span class="ld">${isEnglish() ? RELICS[item.id].enDesc : RELICS[item.id].desc}</span>`;
     } else {
-      b.innerHTML = isEnglish() ? '<span class="ln">✚ Remove Seam <em class="tag">${item.price}🪙</em></span><span class="ld">Removes one random seam.</span>' : '<span class="ln">✚ Снять шов <em class="tag">${item.price}🪙</em></span><span class="ld">Убирает один случайный шов.</span>';
+      b.innerHTML = isEnglish()
+        ? '<span class="ln">✚ Remove Seam <em class="tag">${item.price}🪙</em></span><span class="ld">Removes one random seam.</span>'
+        : '<span class="ln">✚ Снять шов <em class="tag">${item.price}🪙</em></span><span class="ld">Убирает один случайный шов.</span>';
     }
     if (item.sold) {
       b.disabled = true;
@@ -174,8 +181,8 @@ export function renderShop() {
           S.player.curses.delete(rm);
           log(
             isEnglish()
-              ? 'Bonesetter removed the seam: ${CURSES[rm].name}.'
-              : 'Костоправ снял шов: ${CURSES[rm].name}.',
+              ? `Bonesetter removed the seam: ${CURSES[rm].enName}.`
+              : `Костоправ снял шов: ${CURSES[rm].name}.`,
             'g',
           );
         }
@@ -203,13 +210,13 @@ export function openPurify() {
     curses.forEach((id) => {
       const b = document.createElement('button');
       b.className = 'loot';
-      b.innerHTML = `<span class="cn">☠ ${CURSES[id].name}</span><span class="cd">${CURSES[id].desc}</span>`;
+      b.innerHTML = `<span class="cn">☠ ${isEnglish() ? CURSES[id].enName : CURSES[id].name}</span><span class="cd">${isEnglish() ? CURSES[id].enDesc : CURSES[id].desc}</span>`;
       b.onclick = () => {
         S.player.curses.delete(id);
         log(
           isEnglish()
-            ? 'Unstitching: removed "${CURSES[id].name}».'
-            : 'Распайка: снят «${CURSES[id].name}».',
+            ? `Unstitching: removed "${CURSES[id].enName}".`
+            : `Распайка: снят «${CURSES[id].name}».`,
           'g',
         );
         proceed();
@@ -220,7 +227,9 @@ export function openPurify() {
   } else {
     const g = 5;
     S.player.gold = (S.player.gold || 0) + g;
-    dom.mText.textContent = isEnglish() ? 'No seams — the altar pays in gold.' : 'Швов нет — алтарь расплачивается золотом.';
+    dom.mText.textContent = isEnglish()
+      ? 'No seams — the altar pays in gold.'
+      : 'Швов нет — алтарь расплачивается золотом.';
     leaveButton(isEnglish() ? `Take +${g}🪙 (continue)` : `Взять +${g}🪙 (дальше)`);
   }
   dom.overlay.classList.add('on');
@@ -233,7 +242,9 @@ export function openPurify() {
 export function openSanctuary() {
   shell('md', ART.event.sacrifice, 'aside');
   dom.mTitle.textContent = isEnglish() ? 'Sanctuary' : 'Жертвенник';
-  dom.mText.textContent = isEnglish() ? 'Sacrifice a form — receive a rare bone.' : 'Пожертвуй форму — взамен получишь редкую кость.';
+  dom.mText.textContent = isEnglish()
+    ? 'Sacrifice a form — receive a rare bone.'
+    : 'Пожертвуй форму — взамен получишь редкую кость.';
   dom.mChoices.classList.add('loot-list');
 
   const reward = pickRareRelic();
@@ -272,14 +283,18 @@ export function openSanctuary() {
 export function openGamble() {
   shell('md', ART.event.dice, 'aside');
   dom.mTitle.textContent = isEnglish() ? 'Dice Altar' : 'Кости судьбы';
-  dom.mText.textContent = isEnglish() ? `Bet ${GAMBLE_COST}🪙: luck — a bone, loss — a seam.` : `Ставка ${GAMBLE_COST}🪙: удача — кость, провал — шов.`;
+  dom.mText.textContent = isEnglish()
+    ? `Bet ${GAMBLE_COST}🪙: luck — a bone, loss — a seam.`
+    : `Ставка ${GAMBLE_COST}🪙: удача — кость, провал — шов.`;
   dom.mChoices.classList.add('loot-list');
 
   const bet = document.createElement('button');
   bet.className = 'loot';
   bet.innerHTML =
     `isEnglish() ? '<span class="ln">Try Your Luck <em class="tag">${GAMBLE_COST}🪙</em></span>` +
-    isEnglish() ? '<span class="ld">55% — random bone · 45% — random seam</span>' : '<span class="ld">55% — случайная кость · 45% — случайный шов</span>';
+    isEnglish()
+      ? '<span class="ld">55% — random bone · 45% — random seam</span>'
+      : '<span class="ld">55% — случайная кость · 45% — случайный шов</span>';
   if ((S.player.gold || 0) < GAMBLE_COST) {
     bet.disabled = true;
     bet.style.opacity = 0.5;
@@ -291,14 +306,20 @@ export function openGamble() {
         if (r.length) {
           const id = r[randInt(r.length)];
           applyRelic(id);
-          toast((isEnglish() ? 'Luck! ' : 'Удача! ') + RELICS[id].name);
+          toast(
+            (isEnglish() ? 'Luck! ' : 'Удача! ') +
+              (isEnglish() ? RELICS[id].enName : RELICS[id].name),
+          );
         }
       } else {
         const c = cursePool();
         if (c.length) {
           const id = c[randInt(c.length)];
           applyCurse(id);
-          toast((isEnglish() ? 'Failure… ' : 'Провал… ') + CURSES[id].name);
+          toast(
+            (isEnglish() ? 'Failure… ' : 'Провал… ') +
+              (isEnglish() ? CURSES[id].enName : CURSES[id].name),
+          );
         }
       }
       proceed();

@@ -959,7 +959,7 @@ export function openLoot(options) {
         '</span>';
     });
     opt.curses.forEach((id) => {
-      html += `<span class="cn">☠ ${CURSES[id].name}</span><span class="cd">${CURSES[id].desc}</span>`;
+      html += `<span class="cn">☠ ${LContent(CURSES[id], 'name')}</span><span class="cd">${LContent(CURSES[id], 'desc')}</span>`;
     });
     b.innerHTML = html;
     b.onclick = () => {
@@ -1161,7 +1161,7 @@ export function syncUI() {
     ' ' +
     S.floor +
     '</span>' +
-    (S.biome ? '<span class="hb">' + S.biome.name + '</span>' : '') +
+    (S.biome ? '<span class="hb">' + LContent(S.biome, 'name') + '</span>' : '') +
     (S.rooms.length > 1
       ? '<span class="hb">' + L('hud.rooms') + ' ' + clearedRooms + '/' + S.rooms.length + '</span>'
       : '') +

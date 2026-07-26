@@ -1,4 +1,4 @@
-import { isEnglish } from './lang.js';
+import { isEnglish, LContent } from './lang.js';
 /**
  * src/board.js — генерация этажа: 6 стилей биомов, спавн врагов, босс-комнаты, комнаты.
  * Основные экспорты: generateRoom(), generateBossRoom(), spawnEnemiesForFloor(), newFloor(), reset().
@@ -10,6 +10,7 @@ import { RELICS } from './content.js';
 import { ART } from './assets.js';
 import { BOSS_CFG, dispatchBossEvents } from './bosses.js';
 import { applyRelic } from './loot.js';
+import { generateRoomCompat } from './gen/index.js';
 import { META, codexSeeEnemy, unlockAch } from './meta.js';
 import { necroInterval, threatCellsFrom } from './moves.js';
 import { addSpeech, clearSpeech, render, screenFade } from './render.js';
@@ -52,242 +53,9 @@ export function floodReach(wset, start) {
   return seen;
 }
 
-/** Процедурная «доска»: стиль стен зависит от биома. Рамка (x=0/W-1) и ряды 0/H-1 всегда чисты,
- *  поэтому путь по краям от старта к линии промоушена (y=0) существует при любом стиле. */
+/** Генерация комнаты — делегирована модулю gen/. */
 export function generateRoom() {
-  const start = { x: Math.floor(CFG.W / 2), y: CFG.H - 1 };
-  const w = new Set();
-  const style = (S.biome && S.biome.wallStyle) || 'halls';
-  const canWall = (x, y) =>
-    x > 0 && x < CFG.W - 1 && y > 0 && y < CFG.H - 1 && !(x === start.x && y >= CFG.H - 2);
-  if (style === 'corridors') {
-    // 2–3 горизонтальных барьера с 1–2 проходами → тесные коридоры
-    const rows = shuffle([...Array(CFG.H - 4)].map((_, i) => i + 2)).slice(0, 2 + randInt(2));
-    for (const y of rows) {
-      const gaps = new Set();
-      const ng = 1 + randInt(2);
-      for (let g = 0; g < ng; g++) gaps.add(1 + randInt(CFG.W - 2));
-      for (let x = 1; x < CFG.W - 1; x++) if (!gaps.has(x) && canWall(x, y)) w.add(key(x, y));
-    }
-  } else if (style === 'pylons') {
-    // одиночные пилоны, разбросанные по полю → лабиринт столбов
-    const target = 10 + randInt(7);
-    let guard = 0;
-    while (w.size < target && guard++ < 400) {
-      const x = 1 + randInt(CFG.W - 2),
-        y = 1 + randInt(CFG.H - 3);
-      if (!canWall(x, y) || w.has(key(x, y))) continue;
-      if ([...ORTHO].some(([dx, dy]) => w.has(key(x + dx, y + dy)))) continue; // держим пилоны раздельно
-      w.add(key(x, y));
-    }
-  } else if (style === 'maze') {
-    // всё стена, DFS прогрызает коридоры по нечётным клеткам
-    for (let y = 1; y < CFG.H - 1; y++)
-      for (let x = 1; x < CFG.W - 1; x++) if (canWall(x, y)) w.add(key(x, y));
-
-    const inMaze = (x, y) => x > 0 && x < CFG.W - 1 && y > 0 && y < CFG.H - 1;
-    const seen = new Set([key(1, 1)]);
-    w.delete(key(1, 1));
-    const stack = [{ x: 1, y: 1 }];
-    while (stack.length) {
-      const c = stack[stack.length - 1];
-      const dirs = shuffle([...ORTHO]).filter(([dx, dy]) => {
-        const nx = c.x + dx * 2,
-          ny = c.y + dy * 2;
-        return inMaze(nx, ny) && !seen.has(key(nx, ny));
-      });
-      if (!dirs.length) {
-        stack.pop();
-        continue;
-      }
-      const [dx, dy] = dirs[0];
-      const nx = c.x + dx * 2,
-        ny = c.y + dy * 2;
-      w.delete(key(c.x + dx, c.y + dy)); // стена между клетками
-      w.delete(key(nx, ny));
-      seen.add(key(nx, ny));
-      stack.push({ x: nx, y: ny });
-    }
-
-    // расплетаем часть тупиков — появляются петли и длинные диагонали
-    const braid = 0.35;
-    for (const k of [...seen]) {
-      const [x, y] = k.split(',').map(Number);
-      const open = ORTHO.filter(([dx, dy]) => !w.has(key(x + dx, y + dy)));
-      if (open.length > 1 || random() > braid) continue;
-      const cand = shuffle(
-        ORTHO.filter(([dx, dy]) => inMaze(x + dx, y + dy) && w.has(key(x + dx, y + dy))),
-      );
-      if (cand.length) w.delete(key(x + cand[0][0], y + cand[0][1]));
-    }
-
-    // старт и клетка над ним всегда свободны
-    w.delete(key(start.x, start.y));
-    w.delete(key(start.x, start.y - 1));
-  } else if (style === 'grid') {
-    // решётка — регулярная сетка 3×3 с проходами
-    const gapX = Math.floor((CFG.W - 2) / 3);
-    const gapY = Math.floor((CFG.H - 2) / 3);
-    for (let r = 1; r < 3; r++)
-      for (let c = 1; c < 3; c++) {
-        const sx = 1 + c * gapX;
-        const sy = 1 + r * gapY;
-        // горизонтальные и вертикальные перегородки
-        for (let x = sx - 1; x <= sx + 1; x++)
-          for (let y = sy - 1; y <= sy + 1; y++) {
-            if (canWall(x, y) && (x === sx - 1 || x === sx + 1 || y === sy - 1 || y === sy + 1))
-              w.add(key(x, y));
-          }
-        // проход в каждой перегородке
-        w.delete(key(sx, sy));
-        w.delete(key(sx, sy - 1 - randInt(2)));
-        w.delete(key(sx, sy + 1 + randInt(2)));
-        w.delete(key(sx - 1 - randInt(2), sy));
-        w.delete(key(sx + 1 + randInt(2), sy));
-      }
-  } else if (style === 'arena') {
-    // арена — почти без стен, только пара углов
-    const corners = [
-      [2, 2],
-      [CFG.W - 3, 2],
-      [2, CFG.H - 3],
-      [CFG.W - 3, CFG.H - 3],
-    ];
-    corners.forEach(([cx, cy]) => {
-      if (canWall(cx, cy)) w.add(key(cx, cy));
-      if (random() < 0.5 && canWall(cx + 1, cy)) w.add(key(cx + 1, cy));
-    });
-  } else {
-    // залы — разреженные кластеры (открытые пространства)
-    const target = 5 + randInt(5);
-    let guard = 0;
-    while (w.size < target && guard++ < 300) {
-      const x = 1 + randInt(CFG.W - 2),
-        y = 1 + randInt(CFG.H - 3);
-      if (!canWall(x, y) || w.has(key(x, y))) continue;
-      w.add(key(x, y));
-      if (random() < 0.5) {
-        const [dx, dy] = pick(ORTHO),
-          nx = x + dx,
-          ny = y + dy;
-        if (canWall(nx, ny) && !w.has(key(nx, ny))) w.add(key(nx, ny));
-      }
-    }
-  }
-  const reach = floodReach(w, start);
-  const specials = placeSpecials(w, reach, start);
-  return { walls: w, playerStart: start, reach, specials };
-}
-
-export function placeSpecials(wset, reach, start) {
-  const sp = new Map();
-  const cells = [...reach]
-    .map((k) => {
-      const [x, y] = k.split(',').map(Number);
-      return { x, y, k };
-    })
-    .filter(
-      (c) =>
-        c.x > 0 &&
-        c.x < CFG.W - 1 &&
-        c.y > 0 &&
-        c.y < CFG.H - 1 &&
-        !(c.x === start.x && c.y === start.y),
-    );
-  shuffle(cells);
-  let i = 0;
-  const take = () => (i < cells.length ? cells[i++] : null);
-  const fav = (t) => (((S.biome && S.biome.favorTiles) || []).includes(t) ? 0.25 : 0); // уклон биома
-  const nTrap = 1 + randInt(3); // 1–3 ловушки
-  for (let t = 0; t < nTrap; t++) {
-    const c = take();
-    if (c) sp.set(c.k, { type: 'trap' });
-  }
-  if (random() < 0.6 + fav('rune')) {
-    const c = take();
-    if (c) sp.set(c.k, { type: 'rune' });
-  } // руна перезарядки
-  if (random() < 0.5 + fav('ice')) {
-    const n = 1 + randInt(2);
-    for (let i = 0; i < n; i++) {
-      const c = take();
-      if (c) sp.set(c.k, { type: 'ice' });
-    }
-  } // лёд оглушает
-  if (random() < 0.5 + fav('portal')) {
-    const a = take(),
-      b = take(); // пара порталов
-    if (a && b) {
-      sp.set(a.k, { type: 'portal', pair: { x: b.x, y: b.y } });
-      sp.set(b.k, { type: 'portal', pair: { x: a.x, y: a.y } });
-    }
-  }
-  // туман — облако из 2–4 клеток (скрывает угрозу)
-  if (random() < 0.5 + fav('fog')) {
-    const n = 2 + randInt(3);
-    for (let t = 0; t < n; t++) {
-      const c = take();
-      if (c) sp.set(c.k, { type: 'fog' });
-    }
-  }
-  // конвейер — 1–2 клетки со стрелкой (сдвигает после хода)
-  if (random() < 0.45 + fav('conveyor')) {
-    const n = 1 + randInt(2);
-    for (let t = 0; t < n; t++) {
-      const c = take();
-      if (c) sp.set(c.k, { type: 'conveyor', dir: pick(ORTHO) });
-    }
-  }
-  // цветовая зона — 1–2 клетки (только слон)
-  if (random() < 0.4 + fav('colorzone')) {
-    const n = 1 + randInt(2);
-    for (let t = 0; t < n; t++) {
-      const c = take();
-      if (c) sp.set(c.k, { type: 'colorzone' });
-    }
-  }
-  // односторонние ворота
-  if (random() < 0.4 + fav('gate')) {
-    const c = take();
-    if (c) sp.set(c.k, { type: 'gate', dir: pick(ORTHO) });
-  }
-  // плита, открывающая соседнюю стену
-  if (random() < 0.45 + fav('plate')) {
-    for (let tries = 0; tries < 10; tries++) {
-      const c = take();
-      if (!c) break;
-      const dirs = shuffle([...ORTHO]);
-      let placed = false;
-      for (const [dx, dy] of dirs) {
-        const wx = c.x + dx,
-          wy = c.y + dy;
-        if (wset.has(key(wx, wy))) {
-          sp.set(c.k, { type: 'plate', opens: { x: wx, y: wy } });
-          placed = true;
-          break;
-        }
-      }
-      if (placed) break;
-    }
-  }
-  // растекающаяся лава — один очаг
-  if (random() < 0.35 + fav('lava')) {
-    const c = take();
-    if (c) sp.set(c.k, { type: 'lava' });
-  }
-  // кости (еда) — 1–3 на этаж
-  const nFood = 1 + randInt(3);
-  for (let f = 0; f < nFood; f++) {
-    const c = take();
-    if (c) sp.set(c.k, { type: 'food' });
-  }
-  // свитки — 1–2 на этаж (случайная реликвия или проклятие)
-  const nScroll = 1 + randInt(2);
-  for (let s = 0; s < nScroll; s++) {
-    const c = take();
-    if (c) sp.set(c.k, { type: 'scroll' });
-  }
-  return sp;
+  return generateRoomCompat(S.biome && S.biome.id);
 }
 
 export function buildFloorEnemies(flr, share = 1) {
@@ -877,8 +645,8 @@ export function newFloor() {
   const totalEnemies = S.rooms.reduce((sum, r) => sum + r.enemies.length, 0);
   log(
     isEnglish()
-      ? `-- Floor ${S.floor} · ${S.biome.name} · ${nRooms} rooms ── enemies: ${totalEnemies}`
-      : `── Ярус ${S.floor} · ${S.biome.name} · ${nRooms} комн. ── врагов: ${totalEnemies}`,
+      ? `-- Floor ${S.floor} · ${LContent(S.biome, 'name')} · ${nRooms} rooms ── enemies: ${totalEnemies}`
+      : `── Ярус ${S.floor} · ${LContent(S.biome, 'name')} · ${nRooms} комн. ── врагов: ${totalEnemies}`,
     'e',
   );
   // нарративный вход на ярус
@@ -1005,13 +773,13 @@ export function loadLevel(data) {
   log(
     isEnglish()
       ? '-- Level loaded: ' +
-          S.biome.name +
+          LContent(S.biome, 'name') +
           ' · ' +
           S.rooms.length +
           ' rooms ── enemies: ' +
           totalEnemies
       : '── Загружен уровень · ' +
-          S.biome.name +
+          LContent(S.biome, 'name') +
           ' · ' +
           S.rooms.length +
           ' комн. ── врагов: ' +
