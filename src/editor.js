@@ -1,3 +1,4 @@
+import { isEnglish } from './lang.js';
 /**
  * src/editor.js — встроенный редактор уровней (canvas + DOM).
  * Основные экспорты: openEditor(), handleEditorClick(), isEditorRunning(), stopEditorRun().
@@ -67,7 +68,7 @@ async function loadLevelFromManifest(file) {
   try {
     const res = await fetch('/data/' + file);
     if (!res.ok) {
-      log('Файл не найден: ' + file, 'r');
+      log((isEnglish() ? 'File not found: ' : 'Файл не найден: ') + +file, 'r');
       return false;
     }
     const data = await res.json();
@@ -77,11 +78,11 @@ async function loadLevelFromManifest(file) {
     document.getElementById('editorBar').style.display = '';
     state.statusEl = document.getElementById('editorStatus');
     buildToolbar();
-    log('Уровень загружен: ' + file, 'g');
+    log((isEnglish() ? 'Level loaded: ' : 'Уровень загружен: ') + +file, 'g');
     closeModal();
     return true;
   } catch (e) {
-    log('Ошибка загрузки: ' + e.message, 'r');
+    log((isEnglish() ? 'Error loading: ' : 'Ошибка загрузки: ') + +e.message, 'r');
     return false;
   }
 }
@@ -91,14 +92,21 @@ async function loadLevelFromManifest(file) {
 async function openLevelSelector() {
   const m = await loadManifest();
   if (!m || !m.levels || !m.levels.length) {
-    log('Нет сохранённых уровней в /data/manifest.json', '');
+    log(
+      isEnglish()
+        ? 'No saved levels in /data/manifest.json'
+        : 'Нет сохранённых уровней в /data/manifest.json',
+      '',
+    );
     return;
   }
   manifestData = m;
   S.modalOpen = true;
   dom.modalBox.classList.remove('death');
-  dom.mTitle.textContent = 'Открыть уровень';
-  dom.mText.textContent = 'Выбери уровень из manifest.json:';
+  dom.mTitle.textContent = isEnglish() ? 'Open Level' : 'Открыть уровень';
+  dom.mText.textContent = isEnglish()
+    ? 'Choose a level from manifest.json:'
+    : 'Выбери уровень из manifest.json:';
   dom.mChoices.innerHTML = '';
   dom.mChoices.classList.add('loot-list');
 
@@ -110,7 +118,7 @@ async function openLevelSelector() {
     row.innerHTML = `<div class="si"><span class="ln">${sanitize(l.name)}</span><span class="ld">${sanitize(l.file)}</span></div>`;
     const btn = document.createElement('button');
     btn.className = 'buy';
-    btn.textContent = 'Открыть';
+    btn.textContent = isEnglish() ? 'Open' : 'Открыть';
     btn.onclick = () => {
       closeModal();
       loadLevelFromManifest(l.file);
@@ -121,7 +129,7 @@ async function openLevelSelector() {
   dom.mChoices.appendChild(scroll);
 
   const cancel = document.createElement('button');
-  cancel.textContent = 'Отмена';
+  cancel.textContent = isEnglish() ? 'Cancel' : 'Отмена';
   cancel.onclick = () => closeModal();
   dom.mChoices.appendChild(cancel);
 
@@ -141,80 +149,80 @@ function downloadLevel() {
   a.download = name;
   a.click();
   URL.revokeObjectURL(url);
-  log('Уровень скачан: ' + name, 'g');
+  log((isEnglish() ? 'Level downloaded: ' : 'Уровень скачан: ') + +name, 'g');
 }
 
 // ===== OBJECTS (all enemies + specials) =====
 
 const ENEMIES = [
-  { id: 'enemy:pawn', label: '♟', title: 'Пешка' },
-  { id: 'enemy:knight', label: '♞', title: 'Конь' },
-  { id: 'enemy:bishop', label: '♝', title: 'Слон' },
-  { id: 'enemy:rook', label: '♜', title: 'Ладья' },
-  { id: 'enemy:queen', label: '♛', title: 'Ферзь' },
-  { id: 'enemy:king', label: '♚', title: 'Король' },
-  { id: 'enemy:guardian', label: '👤', title: 'Страж' },
-  { id: 'enemy:necro', label: '💀', title: 'Некромант' },
-  { id: 'enemy:mimic', label: '👥', title: 'Двойник' },
-  { id: 'enemy:assassin', label: '🗡', title: 'Ассасин' },
-  { id: 'enemy:priest', label: '✝', title: 'Жрец' },
-  { id: 'enemy:frost', label: '❄', title: 'Маг' },
-  { id: 'enemy:boss:tormentor', label: '👁', title: 'Мучитель' },
-  { id: 'enemy:boss:rooks', label: '♜♜', title: 'Ладьи' },
-  { id: 'enemy:boss:millstone', label: '◎', title: 'Жернов' },
+  { id: 'enemy:pawn', label: '♟', title: isEnglish() ? 'Pawn' : 'Пешка' },
+  { id: 'enemy:knight', label: '♞', title: isEnglish() ? 'Knight' : 'Конь' },
+  { id: 'enemy:bishop', label: '♝', title: isEnglish() ? 'Bishop' : 'Слон' },
+  { id: 'enemy:rook', label: '♜', title: isEnglish() ? 'Rook' : 'Ладья' },
+  { id: 'enemy:queen', label: '♛', title: isEnglish() ? 'Queen' : 'Ферзь' },
+  { id: 'enemy:king', label: '♚', title: isEnglish() ? 'King' : 'Король' },
+  { id: 'enemy:guardian', label: '👤', title: isEnglish() ? 'Guardian' : 'Страж' },
+  { id: 'enemy:necro', label: '💀', title: isEnglish() ? 'Necromancer' : 'Некромант' },
+  { id: 'enemy:mimic', label: '👥', title: isEnglish() ? 'Mimic' : 'Двойник' },
+  { id: 'enemy:assassin', label: '🗡', title: isEnglish() ? 'Assassin' : 'Ассасин' },
+  { id: 'enemy:priest', label: '✝', title: isEnglish() ? 'Priest' : 'Жрец' },
+  { id: 'enemy:frost', label: '❄', title: isEnglish() ? 'Mage' : 'Маг' },
+  { id: 'enemy:boss:tormentor', label: '👁', title: isEnglish() ? 'Tormentor' : 'Мучитель' },
+  { id: 'enemy:boss:rooks', label: '♜♜', title: isEnglish() ? 'Rooks' : 'Ладьи' },
+  { id: 'enemy:boss:millstone', label: '◎', title: isEnglish() ? 'Millstone' : 'Жернов' },
   { id: 'enemy:boss:king', label: '♛', title: 'Король' },
 ];
 
 const OBJECTS_TERRAIN = [
-  { id: 'wall', label: '🧱', title: 'Стена' },
-  { id: 'special:trap', label: '🕸', title: 'Ловушка' },
-  { id: 'special:portal', label: '◎', title: 'Портал' },
-  { id: 'special:rune', label: '◈', title: 'Жила' },
-  { id: 'special:ice', label: '❄', title: 'Лёд' },
-  { id: 'special:fog', label: '☁', title: 'Туман' },
-  { id: 'special:lava', label: '≈', title: 'Лава' },
-  { id: 'special:conveyor', label: '→', title: 'Конв.' },
-  { id: 'special:gate', label: '⇨', title: 'Ворота' },
-  { id: 'special:plate', label: '▣', title: 'Плита' },
+  { id: 'wall', label: '🧱', title: isEnglish() ? 'Wall' : 'Стена' },
+  { id: 'special:trap', label: '🕸', title: isEnglish() ? 'Trap' : 'Ловушка' },
+  { id: 'special:portal', label: '◎', title: isEnglish() ? 'Portal' : 'Портал' },
+  { id: 'special:rune', label: '◈', title: isEnglish() ? 'Vein' : 'Жила' },
+  { id: 'special:ice', label: '❄', title: isEnglish() ? 'Ice' : 'Лёд' },
+  { id: 'special:fog', label: '☁', title: isEnglish() ? 'Fog' : 'Туман' },
+  { id: 'special:lava', label: '≈', title: isEnglish() ? 'Lava' : 'Лава' },
+  { id: 'special:conveyor', label: '→', title: isEnglish() ? 'Conveyor' : 'Конв.' },
+  { id: 'special:gate', label: '⇨', title: isEnglish() ? 'Gate' : 'Ворота' },
+  { id: 'special:plate', label: '▣', title: isEnglish() ? 'Plate' : 'Плита' },
   { id: 'special:millstone', label: '◎', title: 'Жернов' },
-  { id: 'special:colorzone', label: '♝', title: 'Цветозона' },
+  { id: 'special:colorzone', label: '♝', title: isEnglish() ? 'Color Zone' : 'Цветозона' },
 ];
 
 const OBJECTS_LOOT = [
-  { id: 'special:scroll', label: '📜', title: 'Свиток' },
-  { id: 'special:door', label: '🚪', title: 'Дверь' },
-  { id: 'special:door:red', label: '🚪🔴', title: 'Дверь Кр' },
-  { id: 'special:door:blue', label: '🚪🔵', title: 'Дверь Син' },
-  { id: 'special:door:green', label: '🚪🟢', title: 'Дверь Зел' },
-  { id: 'special:door:gold', label: '🚪🟡', title: 'Дверь Зол' },
-  { id: 'special:door:purple', label: '🚪🟣', title: 'Дверь Фиол' },
-  { id: 'special:key', label: '🔑', title: 'Ключ' },
-  { id: 'special:key:red', label: '🔑🔴', title: 'Ключ Кр' },
-  { id: 'special:key:blue', label: '🔑🔵', title: 'Ключ Син' },
-  { id: 'special:key:green', label: '🔑🟢', title: 'Ключ Зел' },
-  { id: 'special:key:gold', label: '🔑🟡', title: 'Ключ Зол' },
-  { id: 'special:key:purple', label: '🔑🟣', title: 'Ключ Фиол' },
+  { id: 'special:scroll', label: '📜', title: isEnglish() ? 'Scroll' : 'Свиток' },
+  { id: 'special:door', label: '🚪', title: isEnglish() ? 'Door' : 'Дверь' },
+  { id: 'special:door:red', label: '🚪🔴', title: isEnglish() ? 'Door Red' : 'Дверь Кр' },
+  { id: 'special:door:blue', label: '🚪🔵', title: isEnglish() ? 'Door Blue' : 'Дверь Син' },
+  { id: 'special:door:green', label: '🚪🟢', title: isEnglish() ? 'Door Green' : 'Дверь Зел' },
+  { id: 'special:door:gold', label: '🚪🟡', title: isEnglish() ? 'Door Gold' : 'Дверь Зол' },
+  { id: 'special:door:purple', label: '🚪🟣', title: isEnglish() ? 'Door Purple' : 'Дверь Фиол' },
+  { id: 'special:key', label: '🔑', title: isEnglish() ? 'Key' : 'Ключ' },
+  { id: 'special:key:red', label: '🔑🔴', title: isEnglish() ? 'Key Red' : 'Ключ Кр' },
+  { id: 'special:key:blue', label: '🔑🔵', title: isEnglish() ? 'Key Blue' : 'Ключ Син' },
+  { id: 'special:key:green', label: '🔑🟢', title: isEnglish() ? 'Key Green' : 'Ключ Зел' },
+  { id: 'special:key:gold', label: '🔑🟡', title: isEnglish() ? 'Key Gold' : 'Ключ Зол' },
+  { id: 'special:key:purple', label: '🔑🟣', title: isEnglish() ? 'Key Purple' : 'Ключ Фиол' },
 ];
 
 const ACTIONS = [
-  { id: 'open', label: '📂', title: 'Открыть уровень' },
-  { id: 'save', label: '💾', title: 'Скачать JSON' },
-  { id: 'copy', label: '📋', title: 'Скопировать JSON' },
-  { id: 'import', label: '📥', title: 'Из буфера' },
-  { id: 'addRoom', label: '+Комн', title: 'Добавить комнату' },
-  { id: 'prevRoom', label: '◀', title: 'Пред. комната' },
-  { id: 'nextRoom', label: '▶', title: 'След. комната' },
-  { id: 'run', label: '▶', title: 'Запустить симуляцию' },
-  { id: 'close', label: '✕', title: 'Закрыть редактор' },
+  { id: 'open', label: '📂', title: isEnglish() ? 'Open Level' : 'Открыть уровень' },
+  { id: 'save', label: '💾', title: isEnglish() ? 'Download JSON' : 'Скачать JSON' },
+  { id: 'copy', label: '📋', title: isEnglish() ? 'Copy JSON' : 'Скопировать JSON' },
+  { id: 'import', label: '📥', title: isEnglish() ? 'From Clipboard' : 'Из буфера' },
+  { id: 'addRoom', label: '+Комн', title: isEnglish() ? 'Add Room' : 'Добавить комнату' },
+  { id: 'prevRoom', label: '◀', title: isEnglish() ? 'Prev Room' : 'Пред. комната' },
+  { id: 'nextRoom', label: '▶', title: isEnglish() ? 'Next Room' : 'След. комната' },
+  { id: 'run', label: '▶', title: isEnglish() ? 'Run Simulation' : 'Запустить симуляцию' },
+  { id: 'close', label: '✕', title: isEnglish() ? 'Close Editor' : 'Закрыть редактор' },
 ];
 
 const TOOLS = [
-  { id: 'delete', label: '🗑', title: 'Удалить' },
-  { id: 'spawn', label: '📍', title: 'Спавн' },
-  { id: 'rotate', label: '↻', title: 'Поворот' },
-  { id: 'link', label: '🔗', title: 'Связь' },
-  { id: 'brush', label: '🖌', title: 'Кисть' },
-  { id: 'flag', label: '🏷', title: 'Флаги' },
+  { id: 'delete', label: '🗑', title: isEnglish() ? 'Delete' : 'Удалить' },
+  { id: 'spawn', label: '📍', title: isEnglish() ? 'Spawn' : 'Спавн' },
+  { id: 'rotate', label: '↻', title: isEnglish() ? 'Rotate' : 'Поворот' },
+  { id: 'link', label: '🔗', title: isEnglish() ? 'Link' : 'Связь' },
+  { id: 'brush', label: '🖌', title: isEnglish() ? 'Brush' : 'Кисть' },
+  { id: 'flag', label: '🏷', title: isEnglish() ? 'Flags' : 'Флаги' },
 ];
 
 // ===== EDITOR LIFECYCLE =====
@@ -245,7 +253,12 @@ export function openEditor() {
   loadManifest().then((m) => {
     manifestData = m;
     if (m && m.levels && m.levels.length)
-      log(`Найдено ${m.levels.length} уровней в manifest.json`, '');
+      log(
+        isEnglish()
+          ? 'Found ' + m.levels.length + ' levels in manifest.json'
+          : 'Найдено ' + m.levels.length + ' уровней в manifest.json',
+        '',
+      );
   });
 }
 
@@ -276,7 +289,9 @@ function addRoom() {
   S.rooms.push({ walls: new Set(), special: new Map(), enemies: [], cleared: false });
   S.currentRoom = S.rooms.length - 1;
   syncEditorRoom();
-  state.statusEl.textContent = `Комната ${S.currentRoom + 1}/${S.rooms.length}`;
+  state.statusEl.textContent = isEnglish()
+    ? `Room ${S.currentRoom + 1}/${S.rooms.length}`
+    : `Комната ${S.currentRoom + 1}/${S.rooms.length}`;
   render();
 }
 
@@ -330,7 +345,12 @@ function runLevel() {
     state.runBtn.textContent = '⏹';
     state.runBtn.classList.add('running');
   }
-  log('Уровень запущен. Нажмите ⏹ для возврата в редактор.', 'g');
+  log(
+    isEnglish()
+      ? 'Level started. Press ⏹ to return to editor.'
+      : 'Уровень запущен. Нажмите ⏹ для возврата в редактор.',
+    'g',
+  );
 }
 
 function stopRun() {
@@ -349,7 +369,7 @@ function stopRun() {
     state.runBtn.textContent = '▶';
     state.runBtn.classList.remove('running');
   }
-  log('Возврат в редактор.', 'g');
+  log(isEnglish() ? 'Returned to editor.' : 'Возврат в редактор.', 'g');
   render();
 }
 
@@ -371,7 +391,7 @@ function pushUndo(x, y) {
 
 function undo() {
   if (!undoStack.length) {
-    state.statusEl.textContent = 'Нечего отменять.';
+    state.statusEl.textContent = isEnglish() ? 'Nothing to undo.' : 'Нечего отменять.';
     return;
   }
   const prev = undoStack.pop();
@@ -384,7 +404,7 @@ function undo() {
   S.enemies = S.enemies.filter((e) => !(e.x === prev.x && e.y === prev.y));
   prev.enemies.forEach((e) => S.enemies.push(e));
   render();
-  state.statusEl.textContent = 'Отмена (Ctrl+Z).';
+  state.statusEl.textContent = isEnglish() ? 'Undo (Ctrl+Z).' : 'Отмена (Ctrl+Z).';
 }
 
 // ===== TOOLBAR =====
@@ -479,9 +499,9 @@ function buildToolbar() {
   const objEl = document.getElementById('editorObjects');
   objEl.innerHTML = '';
   const groups = [
-    { id: 'enemies', label: 'Противники', items: ENEMIES },
-    { id: 'terrain', label: 'Объекты', items: OBJECTS_TERRAIN },
-    { id: 'loot', label: 'Лут/Двери', items: OBJECTS_LOOT },
+    { id: 'enemies', label: isEnglish() ? 'Enemies' : 'Противники', items: ENEMIES },
+    { id: 'terrain', label: isEnglish() ? 'Objects' : 'Объекты', items: OBJECTS_TERRAIN },
+    { id: 'loot', label: isEnglish() ? 'Loot/Doors' : 'Лут/Двери', items: OBJECTS_LOOT },
   ];
 
   // ряд табов
@@ -520,13 +540,13 @@ function buildToolbar() {
   // селектор размера карты
   const sizeWrap = document.createElement('span');
   sizeWrap.className = 'editor-size-wrap';
-  sizeWrap.innerHTML = 'Размер:';
+  sizeWrap.innerHTML = isEnglish() ? 'Size:' : 'Размер:';
   const wInput = document.createElement('input');
   wInput.type = 'number';
   wInput.value = CFG.W;
   wInput.min = 5;
   wInput.max = 25;
-  wInput.title = 'Ширина';
+  wInput.title = isEnglish() ? 'Width' : 'Ширина';
   wInput.onchange = () => {
     CFG.W = Math.max(5, Math.min(25, parseInt(wInput.value, 10) || 11));
     resizeEditorBoard();
@@ -539,7 +559,7 @@ function buildToolbar() {
   hInput.value = CFG.H;
   hInput.min = 5;
   hInput.max = 20;
-  hInput.title = 'Высота';
+  hInput.title = isEnglish() ? 'Height' : 'Высота';
   hInput.onchange = () => {
     CFG.H = Math.max(5, Math.min(20, parseInt(hInput.value, 10) || 9));
     resizeEditorBoard();
@@ -592,19 +612,30 @@ function resizeEditorBoard() {
 
 function updateStatus() {
   if (!state.statusEl) return;
-  const brushStr = state.brush ? ' (Кисть)' : '';
-  let t = 'Нет';
-  if (state.tool === 'wall') t = 'Стена' + brushStr + ' | клик — поставить/убрать';
-  else if (state.tool === 'delete') t = 'Удалить | клик по клетке очищает всё';
-  else if (state.tool === 'link') t = 'Связь | клик по двери — окно связей';
-  else if (state.tool === 'rotate') t = 'Поворот | клик по воротам/конвейеру';
-  else if (state.tool === 'spawn') t = 'Спавн | клик устанавливает старт игрока';
-  else if (state.tool === 'flag') t = 'Флаги | клик по врагу для флагов';
+  const brushStr = state.brush ? (isEnglish() ? ' (Brush)' : ' (Кисть)') : '';
+  let t = isEnglish() ? 'None' : 'Нет';
+  if (state.tool === 'wall')
+    t = (isEnglish() ? 'Wall' : 'Стена') + brushStr + ' | клик — поставить/убрать';
+  else if (state.tool === 'delete')
+    t = isEnglish() ? 'Delete | click cell to clear all' : 'Удалить | клик по клетке очищает всё';
+  else if (state.tool === 'link')
+    t = isEnglish() ? 'Link | click door for link window' : 'Связь | клик по двери — окно связей';
+  else if (state.tool === 'rotate')
+    t = isEnglish() ? 'Rotate | click gate/conveyor' : 'Поворот | клик по воротам/конвейеру';
+  else if (state.tool === 'spawn')
+    t = isEnglish()
+      ? 'Spawn | click to set player start'
+      : 'Спавн | клик устанавливает старт игрока';
+  else if (state.tool === 'flag')
+    t = isEnglish() ? 'Flags | click enemy for flags' : 'Флаги | клик по врагу для флагов';
   else if (state.tool.startsWith('enemy:'))
     t = GLYPH[state.tool.split(':')[1]] + ' | клик ставит врага';
   else if (state.tool.startsWith('special:'))
-    t = state.tool.split(':')[1] + ' | клик ставит спец-клетку';
-  state.statusEl.textContent = t + ' | ⌨ W D B Esc | Ctrl+Z отмена';
+    t =
+      state.tool.split(':')[1] +
+      (isEnglish() ? ' | click to place special cell' : ' | клик ставит спец-клетку');
+  state.statusEl.textContent =
+    t + (isEnglish() ? ' | ⌨ W D B Esc | Ctrl+Z undo' : ' | ⌨ W D B Esc | Ctrl+Z отмена');
 }
 
 // ===== TOOL PARSING =====
@@ -631,24 +662,41 @@ function parseTool(toolId) {
 function editEnemyFlags(x, y) {
   const e = S.enemies.find((en) => en.x === x && en.y === y);
   if (!e) {
-    state.statusEl.textContent = 'Нет врага на этой клетке.';
+    state.statusEl.textContent = isEnglish()
+      ? 'No enemy on this cell.'
+      : 'Нет врага на этой клетке.';
     return;
   }
   snapshotEditorRoom();
 
   S.modalOpen = true;
   dom.modalBox.classList.remove('death');
-  dom.mTitle.textContent = 'Флаги врага';
+  dom.mTitle.textContent = isEnglish() ? 'Enemy Flags' : 'Флаги врага';
   dom.mText.textContent = `${NAME[e.type] || e.type} (${x}, ${y})`;
   dom.mChoices.innerHTML = '';
   dom.mChoices.classList.add('loot-list');
 
   const fields = [
     { key: 'bossId', label: 'bossId', type: 'text', get: () => e.bossId || '' },
-    { key: 'armor', label: 'Броня', type: 'number', get: () => e.armor || 0 },
+    {
+      key: 'armor',
+      label: isEnglish() ? 'Armor' : 'Броня',
+      type: 'number',
+      get: () => e.armor || 0,
+    },
     { key: 'linkedTo', label: 'linkedTo', type: 'text', get: () => e.linkedTo || '' },
-    { key: 'passive', label: 'Пассивный', type: 'checkbox', get: () => (e.passive ? '1' : '') },
-    { key: 'king', label: 'Король', type: 'checkbox', get: () => (e.king ? '1' : '') },
+    {
+      key: 'passive',
+      label: isEnglish() ? 'Passive' : 'Пассивный',
+      type: 'checkbox',
+      get: () => (e.passive ? '1' : ''),
+    },
+    {
+      key: 'king',
+      label: isEnglish() ? 'King' : 'Король',
+      type: 'checkbox',
+      get: () => (e.king ? '1' : ''),
+    },
     { key: 'retinue', label: 'retinue', type: 'text', get: () => e.retinue || '' },
     {
       key: 'noAttackCd',
@@ -656,7 +704,12 @@ function editEnemyFlags(x, y) {
       type: 'checkbox',
       get: () => (e.noAttackCd ? '1' : ''),
     },
-    { key: 'r', label: 'Дальность (r)', type: 'number', get: () => e.r || 1 },
+    {
+      key: 'r',
+      label: isEnglish() ? 'Range (r)' : 'Дальность (r)',
+      type: 'number',
+      get: () => e.r || 1,
+    },
   ];
 
   fields.forEach((f) => {
@@ -670,7 +723,7 @@ function editEnemyFlags(x, y) {
     if (f.type === 'checkbox') {
       const btn = document.createElement('button');
       btn.className = 'buy';
-      btn.textContent = f.get() === '1' ? 'Да' : 'Нет';
+      btn.textContent = f.get() === '1' ? (isEnglish() ? 'Yes' : 'Да') : isEnglish() ? 'No' : 'Нет';
       btn.onclick = () => {
         const newVal = f.get() === '1' ? '' : '1';
         if (f.key === 'passive') e.passive = newVal === '1';
@@ -680,7 +733,8 @@ function editEnemyFlags(x, y) {
           e.attackReady = e.noAttackCd;
         }
         btn.textContent = newVal === '1' ? 'Да' : 'Нет';
-        info.querySelector('.ld').textContent = 'текущее: ' + (newVal === '1' ? '✓' : '—');
+        info.querySelector('.ld').textContent =
+          (isEnglish() ? 'current: ' : 'текущее: ') + (newVal === '1' ? '✓' : '—');
       };
       row.appendChild(btn);
     } else if (f.type === 'number') {
@@ -694,7 +748,7 @@ function editEnemyFlags(x, y) {
         const v = parseInt(input.value, 10) || 0;
         if (f.key === 'armor') e.armor = v;
         if (f.key === 'r') e.r = v || 1;
-        info.querySelector('.ld').textContent = 'текущее: ' + v;
+        info.querySelector('.ld').textContent = (isEnglish() ? 'current: ' : 'текущее: ') + v;
       };
       row.appendChild(input);
     } else {
@@ -717,7 +771,8 @@ function editEnemyFlags(x, y) {
           if (v) e.retinue = v;
           else delete e.retinue;
         }
-        info.querySelector('.ld').textContent = 'текущее: ' + (v || '—');
+        info.querySelector('.ld').textContent =
+          (isEnglish() ? 'current: ' : 'текущее: ') + (v || '—');
       };
       row.appendChild(input);
     }
@@ -727,7 +782,7 @@ function editEnemyFlags(x, y) {
   const actions = document.createElement('div');
   actions.style.cssText = 'display:flex;gap:8px;margin-top:4px';
   const clearBtn = document.createElement('button');
-  clearBtn.textContent = 'Сбросить всё';
+  clearBtn.textContent = isEnglish() ? 'Reset All' : 'Сбросить всё';
   clearBtn.onclick = () => {
     delete e.bossId;
     delete e.linkedTo;
@@ -739,11 +794,11 @@ function editEnemyFlags(x, y) {
     e.armor = 0;
     e.r = CFG.BASE_R[e.type] || 1;
     closeModal();
-    state.statusEl.textContent = 'Флаги сброшены.';
+    state.statusEl.textContent = isEnglish() ? 'Flags reset.' : 'Флаги сброшены.';
     render();
   };
   const doneBtn = document.createElement('button');
-  doneBtn.textContent = 'Готово';
+  doneBtn.textContent = isEnglish() ? 'Done' : 'Готово';
   doneBtn.onclick = () => {
     closeModal();
     render();
@@ -759,7 +814,7 @@ function editEnemyFlags(x, y) {
 function openDoorLinker(currentKey) {
   S.modalOpen = true;
   dom.modalBox.classList.remove('death');
-  dom.mTitle.textContent = 'Связи дверей';
+  dom.mTitle.textContent = isEnglish() ? 'Door Links' : 'Связи дверей';
   dom.mText.textContent = `Всего комнат: ${S.rooms.length}.`;
   dom.mChoices.innerHTML = '';
   dom.mChoices.classList.add('loot-list');
@@ -781,8 +836,12 @@ function openDoorLinker(currentKey) {
             });
           }
         }
-        const linkedInfo = linked ? `→ комн. ${sp.targetRoom + 1} ${linkedDoorId}` : '—';
-        const color = sp.color || 'без цвета';
+        const linkedInfo = linked
+          ? isEnglish()
+            ? `→ room ${sp.targetRoom + 1} ${linkedDoorId}`
+            : `→ комн. ${sp.targetRoom + 1} ${linkedDoorId}`
+          : '—';
+        const color = sp.color || isEnglish() ? 'no color' : 'без цвета';
         const doorId = sp.doorId != null ? `#${sp.doorId}` : '';
         allDoors.push({
           room: roomIdx,
@@ -801,7 +860,9 @@ function openDoorLinker(currentKey) {
   });
 
   if (allDoors.length === 0) {
-    dom.mText.textContent = 'На уровне нет дверей. Поставь дверь инструментом «Дверь».';
+    dom.mText.textContent = isEnglish()
+      ? 'No doors in the level. Place a door using the Door tool.'
+      : 'На уровне нет дверей. Поставь дверь инструментом «Дверь».';
   }
 
   let selectedIdx = null;
@@ -842,7 +903,7 @@ function openDoorLinker(currentKey) {
 
       if (isCurrent) {
         const badge = document.createElement('span');
-        badge.textContent = 'Текущая';
+        badge.textContent = isEnglish() ? 'Current' : 'Текущая';
         badge.style.cssText = 'font-size:11px;color:#c9a227;min-width:60px;text-align:center';
         row.appendChild(badge);
       } else if (isLinkedButNotCurrent) {
@@ -852,14 +913,20 @@ function openDoorLinker(currentKey) {
         unlinkBtn.style.cssText = 'min-height:28px;padding:2px 8px;';
         unlinkBtn.onclick = () => {
           unlinkPair(d);
-          state.statusEl.textContent = 'Связь разорвана.';
+          state.statusEl.textContent = isEnglish() ? 'Link broken.' : 'Связь разорвана.';
           refreshList();
         };
         row.appendChild(unlinkBtn);
       } else {
         const selBtn = document.createElement('button');
         selBtn.className = 'buy';
-        selBtn.textContent = isSel ? 'Выбрана' : 'Выбрать';
+        selBtn.textContent = isSel
+          ? isEnglish()
+            ? 'Selected'
+            : 'Выбрана'
+          : isEnglish()
+            ? 'Select'
+            : 'Выбрать';
         selBtn.onclick = () => {
           selectedIdx = isSel ? null : idx;
           refreshList();
@@ -904,11 +971,13 @@ function openDoorLinker(currentKey) {
     actRow.appendChild(doneBtn);
 
     const unlinkAllBtn = document.createElement('button');
-    unlinkAllBtn.textContent = 'Отвязать всё';
+    unlinkAllBtn.textContent = isEnglish() ? 'Unlink All' : 'Отвязать всё';
     unlinkAllBtn.onclick = () => {
       allDoors.forEach((d) => unlinkPair(d));
       selectedIdx = null;
-      state.statusEl.textContent = 'Все связи дверей разорваны.';
+      state.statusEl.textContent = isEnglish()
+        ? 'All door links broken.'
+        : 'Все связи дверей разорваны.';
       refreshList();
     };
     actRow.appendChild(unlinkAllBtn);
@@ -953,7 +1022,8 @@ export function handleEditorClick(x, y) {
     if (sp && (sp.type === 'conveyor' || sp.type === 'gate' || sp.type === 'millstone') && sp.dir) {
       const idx = DIRECTIONS.findIndex((d) => d[0] === sp.dir[0] && d[1] === sp.dir[1]);
       sp.dir = DIRECTIONS[(idx + 1) % 4];
-      state.statusEl.textContent = 'Направление: ' + sp.dir.join(',');
+      state.statusEl.textContent =
+        (isEnglish() ? 'Direction: ' : 'Направление: ') + +sp.dir.join(',');
     }
   } else if (parsed.kind === 'wall') {
     if (state.brush) {
@@ -1082,7 +1152,10 @@ export function handleEditorClick(x, y) {
   } else if (parsed.kind === 'link') {
     const sp = S.special.get(k);
     if (sp && sp.type === 'door') openDoorLinker(k);
-    else state.statusEl.textContent = 'Это не дверь — кликни по двери.';
+    else
+      state.statusEl.textContent = isEnglish()
+        ? 'Not a door — click a door.'
+        : 'Это не дверь — кликни по двери.';
   }
   render();
 }
@@ -1090,7 +1163,7 @@ export function handleEditorClick(x, y) {
 // ===== IO =====
 
 function importJSON() {
-  const text = prompt('Вставьте JSON уровня:');
+  const text = prompt(isEnglish() ? 'Paste level JSON:' : 'Вставьте JSON уровня:');
   if (!text) return;
   try {
     const data = JSON.parse(text);
@@ -1100,9 +1173,9 @@ function importJSON() {
     document.getElementById('editorBar').style.display = '';
     state.statusEl = document.getElementById('editorStatus');
     buildToolbar();
-    log('Уровень загружен из буфера обмена.', 'g');
+    log(isEnglish() ? 'Level loaded from clipboard.' : 'Уровень загружен из буфера обмена.', 'g');
   } catch (e) {
-    log('Ошибка парсинга JSON: ' + e.message, 'r');
+    log((isEnglish() ? 'JSON parse error: ' : 'Ошибка парсинга JSON: ') + +e.message, 'r');
   }
 }
 
@@ -1111,7 +1184,7 @@ function exportJSON() {
   const json = JSON.stringify(data, null, 2);
   navigator.clipboard
     .writeText(json)
-    .then(() => log('JSON скопирован.', 'g'))
+    .then(() => log(isEnglish() ? 'JSON copied.' : 'JSON скопирован.', 'g'))
     .catch(() => log('JSON:\n' + json, ''));
 }
 

@@ -1,3 +1,4 @@
+import { isEnglish } from './lang.js';
 /**
  * src/events.js — комнаты-события: Костоправ (лавка), Распайка (алтарь очищения),
  * Жертвенник (святилище), Кости судьбы (азартный алтарь), Благословение.
@@ -57,7 +58,7 @@ export function maybeEvent() {
 }
 
 /** Кнопка «уйти» одинакова во всех событиях — всегда в закреплённом футере. */
-function leaveButton(label = 'Уйти (дальше)') {
+function leaveButton(label) { if (!label) label = isEnglish() ? 'Leave (Continue)' : 'Уйти (дальше)';
   return action(mkButton(label, proceed, 'again'));
 }
 
@@ -67,23 +68,26 @@ function leaveButton(label = 'Уйти (дальше)') {
 
 export function openBlessing() {
   shell('md', ART.event.blessing, 'aside');
-  dom.mTitle.textContent = 'Алтарь благословения';
-  dom.mText.textContent = 'Выбери дар на следующий ярус.';
+  dom.mTitle.textContent = isEnglish() ? 'Blessing Altar' : 'Алтарь благословения';
+  dom.mText.textContent = isEnglish()
+    ? 'Choose a gift for the next floor.'
+    : 'Выбери дар на следующий ярус.';
   dom.mChoices.classList.add('loot-list');
+  var isEnB = isEnglish();
   const opts = [
     {
-      label: '🛡 Щит (2)',
-      desc: 'Поглотит одно взятие',
+      label: isEnB ? '🛡 Shield (2)' : '🛡 Щит (2)',
+      desc: isEnB ? 'Absorbs one capture' : 'Поглотит одно взятие',
       fn: () => S.player.nextFloorStatus.push({ k: 'shield', n: 2 }),
     },
     {
-      label: '⚡ Ускорение (3)',
-      desc: '+1 дальность слайдерам, доп. шаг коню',
+      label: '⚡ ' + (isEnB ? 'Haste (3)' : 'Ускорение (3)'),
+      desc: isEnB ? '+1 slider range, extra knight step' : '+1 дальность слайдерам, доп. шаг коню',
       fn: () => S.player.nextFloorStatus.push({ k: 'haste', n: 3 }),
     },
     {
-      label: '🪙 Золото (+8)',
-      desc: 'Пригодится у Костоправа',
+      label: '🪙 ' + (isEnB ? 'Gold (+8)' : 'Золото (+8)'),
+      desc: isEnB ? 'Useful at the Bonesetter' : 'Пригодится у Костоправа',
       fn: () => {
         S.player.gold = (S.player.gold || 0) + 8;
       },
@@ -138,8 +142,8 @@ export function openShop() {
 
 export function renderShop() {
   shell('md', ART.event.bonesetter, 'aside');
-  dom.mTitle.textContent = 'Костоправ';
-  dom.mText.textContent = `Золото: ${S.player.gold || 0}🪙. Покупки применяются сразу.`;
+  dom.mTitle.textContent = isEnglish() ? 'Bonesetter' : 'Костоправ';
+  dom.mText.textContent = (isEnglish() ? 'Gold: ' : 'Золото: ') + (S.player.gold || 0) + '🪙. ' + (isEnglish() ? 'Purchases apply immediately.' : 'Покупки применяются сразу.');
   dom.mChoices.classList.add('loot-list');
 
   shopStock.forEach((item) => {
@@ -150,7 +154,7 @@ export function renderShop() {
       const tm = TIER_META[relicTier(item.id)];
       b.innerHTML = `<span class="ln ${tm.cls}">✦ ${RELICS[item.id].name} <em class="tag">${item.price}🪙</em></span><span class="ld">${RELICS[item.id].desc}</span>`;
     } else {
-      b.innerHTML = `<span class="ln">✚ Снять шов <em class="tag">${item.price}🪙</em></span><span class="ld">Убирает один случайный шов.</span>`;
+      b.innerHTML = isEnglish() ? '<span class="ln">✚ Remove Seam <em class="tag">${item.price}🪙</em></span><span class="ld">Removes one random seam.</span>' : '<span class="ln">✚ Снять шов <em class="tag">${item.price}🪙</em></span><span class="ld">Убирает один случайный шов.</span>';
     }
     if (item.sold) {
       b.disabled = true;
@@ -168,7 +172,12 @@ export function renderShop() {
           const c = [...S.player.curses];
           const rm = c[randInt(c.length)];
           S.player.curses.delete(rm);
-          log(`Костоправ снял шов: ${CURSES[rm].name}.`, 'g');
+          log(
+            isEnglish()
+              ? 'Bonesetter removed the seam: ${CURSES[rm].name}.'
+              : 'Костоправ снял шов: ${CURSES[rm].name}.',
+            'g',
+          );
         }
         renderShop();
       };
@@ -185,29 +194,34 @@ export function renderShop() {
 
 export function openPurify() {
   shell('md', ART.event.unstitch, 'aside');
-  dom.mTitle.textContent = 'Распайка';
+  dom.mTitle.textContent = isEnglish() ? 'Unstitching' : 'Распайка';
   dom.mChoices.classList.add('loot-list');
   const curses = [...S.player.curses];
 
   if (curses.length) {
-    dom.mText.textContent = 'Сними один шов.';
+    dom.mText.textContent = isEnglish() ? 'Remove one seam.' : 'Сними один шов.';
     curses.forEach((id) => {
       const b = document.createElement('button');
       b.className = 'loot';
       b.innerHTML = `<span class="cn">☠ ${CURSES[id].name}</span><span class="cd">${CURSES[id].desc}</span>`;
       b.onclick = () => {
         S.player.curses.delete(id);
-        log(`Распайка: снят «${CURSES[id].name}».`, 'g');
+        log(
+          isEnglish()
+            ? 'Unstitching: removed "${CURSES[id].name}».'
+            : 'Распайка: снят «${CURSES[id].name}».',
+          'g',
+        );
         proceed();
       };
       dom.mChoices.appendChild(b);
     });
-    leaveButton('Уйти');
+    leaveButton(isEnglish() ? 'Leave' : 'Уйти');
   } else {
     const g = 5;
     S.player.gold = (S.player.gold || 0) + g;
-    dom.mText.textContent = 'Швов нет — алтарь расплачивается золотом.';
-    leaveButton(`Взять +${g}🪙 (дальше)`);
+    dom.mText.textContent = isEnglish() ? 'No seams — the altar pays in gold.' : 'Швов нет — алтарь расплачивается золотом.';
+    leaveButton(isEnglish() ? `Take +${g}🪙 (continue)` : `Взять +${g}🪙 (дальше)`);
   }
   dom.overlay.classList.add('on');
 }
@@ -218,8 +232,8 @@ export function openPurify() {
 
 export function openSanctuary() {
   shell('md', ART.event.sacrifice, 'aside');
-  dom.mTitle.textContent = 'Жертвенник';
-  dom.mText.textContent = 'Пожертвуй форму — взамен получишь редкую кость.';
+  dom.mTitle.textContent = isEnglish() ? 'Sanctuary' : 'Жертвенник';
+  dom.mText.textContent = isEnglish() ? 'Sacrifice a form — receive a rare bone.' : 'Пожертвуй форму — взамен получишь редкую кость.';
   dom.mChoices.classList.add('loot-list');
 
   const reward = pickRareRelic();
@@ -228,12 +242,15 @@ export function openSanctuary() {
     const b = document.createElement('button');
     b.className = 'loot';
     b.innerHTML =
-      `<span class="ln">Отдать: ${NAME[f.type]}${f.improved ? ' ★' : ''}</span>` +
+      `isEnglish() ? '<span class="ln">Give: ${NAME[f.type]}${f.improved ? ' ★' : ''}</span>` +
       `<span class="ld">${reward ? 'получишь: ' + RELICS[reward].name : 'наград нет'}</span>`;
     b.onclick = () => {
       S.player.wheel[i] = null;
       if (S.player.active === i) S.player.active = 0;
-      log(`Жертвенник принял ${NAME[f.type]}.`, 'r');
+      log(
+        isEnglish() ? 'Sanctuary accepted ${NAME[f.type]}.' : 'Жертвенник принял ${NAME[f.type]}.',
+        'r',
+      );
       if (reward) applyRelic(reward);
       proceed();
     };
@@ -244,7 +261,7 @@ export function openSanctuary() {
     dom.mChoices.appendChild(b);
   });
 
-  leaveButton('Отказаться');
+  leaveButton(isEnglish() ? 'Refuse' : 'Отказаться');
   dom.overlay.classList.add('on');
 }
 
@@ -254,15 +271,15 @@ export function openSanctuary() {
 
 export function openGamble() {
   shell('md', ART.event.dice, 'aside');
-  dom.mTitle.textContent = 'Кости судьбы';
-  dom.mText.textContent = `Ставка ${GAMBLE_COST}🪙: удача — кость, провал — шов.`;
+  dom.mTitle.textContent = isEnglish() ? 'Dice Altar' : 'Кости судьбы';
+  dom.mText.textContent = isEnglish() ? `Bet ${GAMBLE_COST}🪙: luck — a bone, loss — a seam.` : `Ставка ${GAMBLE_COST}🪙: удача — кость, провал — шов.`;
   dom.mChoices.classList.add('loot-list');
 
   const bet = document.createElement('button');
   bet.className = 'loot';
   bet.innerHTML =
-    `<span class="ln">Испытать судьбу <em class="tag">${GAMBLE_COST}🪙</em></span>` +
-    '<span class="ld">55% — случайная кость · 45% — случайный шов</span>';
+    `isEnglish() ? '<span class="ln">Try Your Luck <em class="tag">${GAMBLE_COST}🪙</em></span>` +
+    isEnglish() ? '<span class="ld">55% — random bone · 45% — random seam</span>' : '<span class="ld">55% — случайная кость · 45% — случайный шов</span>';
   if ((S.player.gold || 0) < GAMBLE_COST) {
     bet.disabled = true;
     bet.style.opacity = 0.5;
@@ -274,14 +291,14 @@ export function openGamble() {
         if (r.length) {
           const id = r[randInt(r.length)];
           applyRelic(id);
-          toast('Удача! ' + RELICS[id].name);
+          toast((isEnglish() ? 'Luck! ' : 'Удача! ') + RELICS[id].name);
         }
       } else {
         const c = cursePool();
         if (c.length) {
           const id = c[randInt(c.length)];
           applyCurse(id);
-          toast('Провал… ' + CURSES[id].name);
+          toast((isEnglish() ? 'Failure… ' : 'Провал… ') + CURSES[id].name);
         }
       }
       proceed();

@@ -12,6 +12,7 @@ import { DIAG, ORTHO, cheb, inB, key, tileColor } from './util.js';
 import { getScript, actForFloor, pickLine } from './content/script.js';
 import { bossTurn, dispatchBossEvents } from './bosses.js';
 import { isTutorial } from './tutorial.js';
+import { isEnglish } from './lang.js';
 
 function handleBossCapture(by) {
   if (!by) {
@@ -56,7 +57,7 @@ export function enemiesTurn() {
         spawnParticles(e.x, e.y, '#d07a3f', 6);
         playDeath();
         recordKill(e.type, true);
-        log('гибнет от яда');
+        log(isEnglish() ? 'dies from poison' : 'гибнет от яда');
         continue;
       }
     }
@@ -158,7 +159,7 @@ function checkCellForEnemy(e) {
     recordKill(e.type, false);
     spawnParticles(e.x, e.y, '#c23b30', 4);
     playDeath();
-    log('Враг погиб');
+    log(isEnglish() ? 'Enemy slain' : 'Враг погиб');
   }
 }
 export function necroTurn(e) {

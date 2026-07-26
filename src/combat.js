@@ -104,7 +104,12 @@ export function tryMoveTo(x, y) {
     if (statusVal(e, 'shield') > 0) {
       e.status.shield--;
       activeForm().cooldown = fatigue;
-      log(`Щит ${GLYPH[e.type]} ${NAME[e.type]} поглощает удар.`, 'p');
+      log(
+        isEnglish()
+          ? `${GLYPH[e.type]} ${NAME[e.type]} shield absorbs the hit.`
+          : `Щит ${GLYPH[e.type]} ${NAME[e.type]} поглощает удар.`,
+        'p',
+      );
       endPlayerTurn();
       return;
     }
@@ -124,7 +129,12 @@ export function tryMoveTo(x, y) {
     if (e.armor > 1 && !has('guard_pierce')) {
       e.armor--;
       activeForm().cooldown = fatigue;
-      log(`Ты пробиваешь щит ${GLYPH[e.type]} ${NAME[e.type]} (осталось брони: ${e.armor}).`, 'p');
+      log(
+        isEnglish()
+          ? `You dent ${GLYPH[e.type]} ${NAME[e.type]} (armor left: ${e.armor}).`
+          : `Ты пробиваешь щит ${GLYPH[e.type]} ${NAME[e.type]} (осталось брони: ${e.armor})`,
+        'p',
+      );
       endPlayerTurn();
       return;
     }
@@ -170,7 +180,12 @@ export function tryMoveTo(x, y) {
       for (const o of S.enemies)
         if (Math.max(Math.abs(o.x - x), Math.abs(o.y - y)) === 1) applyStatus(o, 'stun', 1);
     }
-    log(`Ты берёшь ${GLYPH[e.type]} ${NAME[e.type]} формой ${NAME[activeForm().type]}.`, 'p');
+    log(
+      isEnglish()
+        ? `You take ${GLYPH[e.type]} ${NAME[e.type]} with ${NAME[activeForm().type]}.`
+        : `Ты берёшь ${GLYPH[e.type]} ${NAME[e.type]} формой ${NAME[activeForm().type]}`,
+      'p',
+    );
     S.player.hunger = Math.min(CFG.HUNGER.start, S.player.hunger + CFG.HUNGER.capture);
     unlockType(e.type, tileColor(x, y));
   }
@@ -352,14 +367,24 @@ export function triggerSpecialForPlayer() {
       if (pool.length) {
         const id = pool[Math.floor(Math.random() * pool.length)];
         applyRelicLoot(id);
-        log(`Свиток: <b>${RELICS[id].name}</b> — ${RELICS[id].desc}`, 'g');
+        log(
+          isEnglish()
+            ? `Scroll: <b>${RELICS[id].name}</b> — ${RELICS[id].desc}`
+            : `Свиток: <b>${RELICS[id].name}</b> — ${RELICS[id].desc}`,
+          'g',
+        );
       }
     } else {
       const pool = Object.keys(CURSES).filter((id) => !S.player.curses.has(id));
       if (pool.length) {
         const id = pool[Math.floor(Math.random() * pool.length)];
         applyCurseLoot(id);
-        log(`Свиток: <b>☠ ${CURSES[id].name}</b> — ${CURSES[id].desc}`, 'r');
+        log(
+          isEnglish()
+            ? `Scroll: <b>☠ ${CURSES[id].name}</b> — ${CURSES[id].desc}`
+            : `Свиток: <b>☠ ${CURSES[id].name}</b> — ${CURSES[id].desc}`,
+          'r',
+        );
       }
     }
   }
@@ -391,7 +416,11 @@ export function unlockType(t, colorAt) {
     return;
   }
   if (S.unlocked.has(t)) {
-    log(`«${NAME[t]}» у тебя уже есть. Кость лишняя.`);
+    log(
+      isEnglish()
+        ? `«${NAME[t]}» already yours. Extra bone.`
+        : `«${NAME[t]}» у тебя уже есть. Кость лишняя.`,
+    );
     return;
   }
   S.unlocked.add(t);
@@ -399,8 +428,19 @@ export function unlockType(t, colorAt) {
   const slot = S.player.wheel.findIndex((s, i) => i > 0 && s === null);
   if (slot !== -1) {
     S.player.wheel[slot] = makeForm(t, colorAt);
-    log(`Форма <b>${NAME[t]}</b> добавлена в колесо (слот ${slot}).`, 'g');
-  } else log(`Тип «${NAME[t]}» открыт в пуле — колесо заполнено.`, 'g');
+    log(
+      isEnglish()
+        ? `Form <b>${NAME[t]}</b> added to wheel (slot ${slot}).`
+        : `Форма <b>${NAME[t]}</b> добавлена в колесо (слот ${slot})`,
+      'g',
+    );
+  } else
+    log(
+      isEnglish()
+        ? `Type unlocked in pool — wheel is full.`
+        : `Тип «${NAME[t]}» открыт в пуле — колесо заполнено.`,
+      'g',
+    );
 }
 
 export function switchForm(i) {
@@ -425,7 +465,12 @@ export function switchForm(i) {
     return;
   }
   if (f.cooldown > 0) {
-    log(`«${NAME[f.type]}» устала — ещё ${f.cooldown} х.`, 'r');
+    log(
+      isEnglish()
+        ? `«${NAME[f.type]}» fatigued — ${f.cooldown} t. left`
+        : `«${NAME[f.type]}» устала — ещё ${f.cooldown} х.`,
+      'r',
+    );
     return;
   }
   S.player.active = i;
@@ -770,19 +815,21 @@ export function degradePlayer(byEnemy) {
   }
   if (byEnemy)
     log(
-      `${GLYPH[byEnemy.type]} ${NAME[byEnemy.type]} берёт тебя! Форма «${NAME[f.type]}» уничтожена.`,
+      isEnglish()
+        ? `${GLYPH[byEnemy.type]} ${NAME[byEnemy.type]} captures you! Form «${NAME[f.type]}» destroyed.`
+        : `${GLYPH[byEnemy.type]} ${NAME[byEnemy.type]} берёт тебя! Форма «${NAME[f.type]}» уничтожена.`,
       'r',
     );
   else
     log(
-      isEnglish() ? 'Form "${NAME[f.type]}» уничтожена.' : 'Форма «${NAME[f.type]}» уничтожена.',
+      isEnglish() ? `Form «${NAME[f.type]}» destroyed.` : `Форма «${NAME[f.type]}» уничтожена.`,
       'r',
     );
-  if (byEnemy && curse('hex')) applyStatus(S.player, 'poison', 2); // «Порча» — яд при взятии
+  if (byEnemy && curse('hex')) applyStatus(S.player, 'poison', 2);
   if (f.type === 'pawn' && S.challenge !== 'lone_figure') {
     death();
     return;
-  } // уже проверено выше для челленджа
+  }
   S.player.wheel[S.player.active] = null;
   S.player.lostFormThisFloor = true;
   // ступень ниже из имеющихся: сортируем по ценности
@@ -792,7 +839,9 @@ export function degradePlayer(byEnemy) {
     alive.find((v) => CFG.LADDER[v.s.type] < CFG.LADDER[f.type]) || alive[alive.length - 1];
   S.player.active = lower.i;
   log(
-    `Деградация → теперь ты <b>${NAME[activeForm().type]}</b>.${byEnemy ? ` Враг переводит дух (${CFG.ENEMY_CAPTURE_CD} х.).` : ''}`,
+    isEnglish()
+      ? `Degradation → you are now <b>${NAME[activeForm().type]}</b>.${byEnemy ? ` Enemy catches breath (${CFG.ENEMY_CAPTURE_CD} t.).` : ''}`
+      : `Деградация → теперь ты <b>${NAME[activeForm().type]}</b>.${byEnemy ? ` Враг переводит дух (${CFG.ENEMY_CAPTURE_CD} х.).` : ''}`,
     'r',
   );
 }
@@ -807,7 +856,7 @@ export function death() {
   S.gameOver = true;
   sting('death');
   const earned = endRunMeta();
-  openRunSummary('Пешка пала', 'Последняя кость сломана. Дальше нечем ходить.', earned);
+  openRunSummary(L('summary.dead'), L('summary.deadSub'), earned);
 }
 
 export function checkMate() {
@@ -853,20 +902,20 @@ export function openVictory() {
     closeModal();
     const e = SCRIPT.endings[id];
     if (e) {
-      openInterlude({ ...e, art, button: 'Конец' }, () =>
+      openInterlude({ ...e, art, button: isEnglish() ? 'The End' : 'Конец' }, () =>
         openRunSummary(e.title, '', earned, { win: true }),
       );
     } else {
-      openRunSummary('Победа', '', earned, { win: true });
+      openRunSummary(L('app.title'), '', earned, { win: true });
     }
   };
   openModal(
-    'Король пал',
-    `Ты прошёл Подземелье до конца.\nЯрусов: ${S.floor} · Взятий: ${S.player.totalCaptures} · Пепел: +${earned}`,
+    L('modal.victory'),
+    L('modal.victoryText', S.floor, S.player.totalCaptures, earned),
     [
-      { label: '⚔ Убить', fn: () => finish('kill', ART.endingKill) },
-      { label: '♚ Занять место', fn: () => finish('throne', ART.endingThrone) },
-      { label: '💥 Сломать доску', fn: () => finish('breakBoard', ART.endingBreak) },
+      { label: L('modal.victoryKill'), fn: () => finish('kill', ART.endingKill) },
+      { label: L('modal.victoryThrone'), fn: () => finish('throne', ART.endingThrone) },
+      { label: L('modal.victoryBreak'), fn: () => finish('breakBoard', ART.endingBreak) },
     ],
     false,
   );
@@ -880,8 +929,8 @@ export function openPromotion() {
     return;
   } // нет открытых форм — промоушен пропускается
   openModal(
-    'Линия восхождения',
-    'Пешка дошла до линии. Выбери, чьи кости прирастить — форма войдёт в колесо усиленной (★) и ты станешь ею прямо сейчас.',
+    L('modal.promotion'),
+    L('modal.promotionText'),
     choices.map((t) => ({
       label: GLYPH[t] + ' ' + NAME[t],
       fn: () => {

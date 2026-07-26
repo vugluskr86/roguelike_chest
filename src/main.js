@@ -105,6 +105,14 @@ function applyPageTitle() {
   if (t) t.innerHTML = L('app.title') + ' <span class="v">v1.0</span>';
   var s = document.getElementById('gameSub');
   if (s) s.textContent = L('app.sub');
+  var pt = document.getElementById('pageTitle');
+  if (pt) pt.textContent = L('app.title');
+  var md = document.getElementById('metaDesc');
+  if (md) md.setAttribute('content', L('app.metaDesc'));
+  var ogt = document.getElementById('metaOgTitle');
+  if (ogt) ogt.setAttribute('content', L('app.title'));
+  var ogd = document.getElementById('metaOgDesc');
+  if (ogd) ogd.setAttribute('content', L('app.metaOgDesc'));
   scanI18n();
 }
 

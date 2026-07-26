@@ -9,6 +9,7 @@ import { maybeEvent } from './events.js';
 import { codexSeeCurse, codexSeeRelic, unlockAch } from './meta.js';
 import { log, openLoot } from './ui.js';
 import { playLoot } from './audio.js';
+import { isEnglish } from './lang.js';
 import { shuffle } from './util.js';
 
 export const relicPool = () => Object.keys(RELICS).filter((id) => !S.player.relics.has(id));
@@ -88,7 +89,12 @@ export function applyRelic(id) {
   if (id === 'extra_slot') {
     if (S.player.wheel.length < 5) S.player.wheel.push(null);
   } // +1 слот сразу
-  log(`Кость: <b>${RELICS[id].name}</b> — ${RELICS[id].desc}`, 'g');
+  log(
+    isEnglish()
+      ? `Bone: <b>${RELICS[id].name}</b> — ${RELICS[id].desc}`
+      : `Кость: <b>${RELICS[id].name}</b> — ${RELICS[id].desc}`,
+    'g',
+  );
 }
 export function applyCurse(id) {
   S.player.curses.add(id);
@@ -99,7 +105,12 @@ export function applyCurse(id) {
     S.player.wheel.pop();
     if (S.player.active >= S.player.wheel.length) S.player.active = 0;
   }
-  log(`Шов: <b>${CURSES[id].name}</b> — ${CURSES[id].desc}`, 'r');
+  log(
+    isEnglish()
+      ? `Seam: <b>${CURSES[id].name}</b> — ${CURSES[id].desc}`
+      : `Шов: <b>${CURSES[id].name}</b> — ${CURSES[id].desc}`,
+    'r',
+  );
 }
 export function applyOption(opt) {
   playLoot();

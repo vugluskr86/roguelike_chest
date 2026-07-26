@@ -1,3 +1,4 @@
+import { isEnglish } from './lang.js';
 /**
  * src/board.js — генерация этажа: 6 стилей биомов, спавн врагов, босс-комнаты, комнаты.
  * Основные экспорты: generateRoom(), generateBossRoom(), spawnEnemiesForFloor(), newFloor(), reset().
@@ -648,12 +649,19 @@ export function newFloor() {
       clearPending();
       cleanse(S.player);
       S.player.lostFormThisFloor = false;
-      const bossNames = {
+      const bossNamesRu = {
         tormentor: 'Слон-Мучитель',
         spawnedRooks: 'Спаянные Ладьи',
         millstone: 'Жернов',
         redKing: 'Красный Король',
       };
+      const bossNamesEn = {
+        tormentor: 'Tormentor Bishop',
+        spawnedRooks: 'Linked Rooks',
+        millstone: 'Millstone',
+        redKing: 'Red King',
+      };
+      const bossNames = isEnglish() ? bossNamesEn : bossNamesRu;
       const bossScript = getScript().bosses[bossId];
       const appear = bossScript && bossScript.appear;
       if (appear) {
@@ -662,7 +670,12 @@ export function newFloor() {
           addSpeech: (x, y, t, kind) => addSpeech(x, y, t, kind),
         });
       } else {
-        log(`── Ярус ${S.floor} · Босс: ${bossNames[bossId] || bossId} ──`, 'e');
+        log(
+          isEnglish()
+            ? `-- Floor ${S.floor} · Boss: ${bossNames[bossId] || bossId} ──`
+            : `── Ярус ${S.floor} · Босс: ${bossNames[bossId] || bossId} ──`,
+          'e',
+        );
       }
       render();
       syncUI();
@@ -862,7 +875,12 @@ export function newFloor() {
       });
   }
   const totalEnemies = S.rooms.reduce((sum, r) => sum + r.enemies.length, 0);
-  log(`── Ярус ${S.floor} · ${S.biome.name} · ${nRooms} комн. ── врагов: ${totalEnemies}`, 'e');
+  log(
+    isEnglish()
+      ? `-- Floor ${S.floor} · ${S.biome.name} · ${nRooms} rooms ── enemies: ${totalEnemies}`
+      : `── Ярус ${S.floor} · ${S.biome.name} · ${nRooms} комн. ── врагов: ${totalEnemies}`,
+    'e',
+  );
   // нарративный вход на ярус
   if (getScript().floorIntro[S.floor]) log(getScript().floorIntro[S.floor], '');
   render();
@@ -985,7 +1003,19 @@ export function loadLevel(data) {
   S.player.capturedThisFloor = 0;
   const totalEnemies = S.rooms.reduce((sum, r) => sum + r.enemies.length, 0);
   log(
-    `── Загружен уровень · ${S.biome.name} · ${S.rooms.length} комн. ── врагов: ${totalEnemies}`,
+    isEnglish()
+      ? '-- Level loaded: ' +
+          S.biome.name +
+          ' · ' +
+          S.rooms.length +
+          ' rooms ── enemies: ' +
+          totalEnemies
+      : '── Загружен уровень · ' +
+          S.biome.name +
+          ' · ' +
+          S.rooms.length +
+          ' комн. ── врагов: ' +
+          totalEnemies,
     'e',
   );
   render();
@@ -1054,9 +1084,19 @@ export function reset() {
     openInterlude({ ...getScript().interludes.prologue, art: ART.prologue }, () => newFloor());
     return;
   }
-  if (S.runMode === 'campaign' && META.runs >= 1 && getScript().repeat && getScript().repeat.prologue) {
-    openInterlude({ ...getScript().repeat.prologue, art: ART.prologue, button: 'Встать' }, () =>
-      newFloor(),
+  if (
+    S.runMode === 'campaign' &&
+    META.runs >= 1 &&
+    getScript().repeat &&
+    getScript().repeat.prologue
+  ) {
+    openInterlude(
+      {
+        ...getScript().repeat.prologue,
+        art: ART.prologue,
+        button: isEnglish() ? 'Rise' : 'Встать',
+      },
+      () => newFloor(),
     );
     return;
   }

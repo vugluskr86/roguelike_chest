@@ -1,6 +1,8 @@
 {
   "app.title": "Endgame",
   "app.sub": "Move or be taken",
+  "app.metaDesc": "Endgame — a turn-based chess roguelike. You are a piece that changes form as you descend through the floors of the Dungeon.",
+  "app.metaOgDesc": "A turn-based chess roguelike. Move or be taken.",
 
   "loading.hint": "Tap to continue",
   "loading.lore.0": "Deep underground, where the laws of chess took physical form, an ancient labyrinth awoke.",

@@ -19,6 +19,7 @@ import { META, saveMeta } from './meta.js';
 import { allThreats } from './moves.js';
 import { addSpeech, render } from './render.js';
 import { key, makeForm } from './util.js';
+import { isEnglish } from './lang.js';
 import { action, closeModal, log, mkButton, openInterlude, syncUI, toast } from './ui.js';
 
 // ════════════════════════════════════════════════════════════════
@@ -157,7 +158,7 @@ function nextScene() {
       title: scene.title,
       lines: [scene.lore, '', scene.task],
       art: scene.art,
-      button: 'Дальше',
+      button: isEnglish() ? 'Continue' : 'Дальше',
     },
     () => {
       if (scene.speech) {
@@ -169,7 +170,7 @@ function nextScene() {
     },
   );
   // кнопка «Пропустить» — вторая в футере, серая, не перетягивает внимание
-  action(mkButton('Пропустить', () => skipTutorial()));
+  action(mkButton(isEnglish() ? 'Skip' : 'Пропустить', () => skipTutorial()));
 }
 
 // ════════════════════════════════════════════════════════════════
@@ -194,12 +195,19 @@ export const tutorialAllowsRotate = () => allow('rotate');
 /** Мягкий отказ: подсказка вместо тишины. Игрок не должен гадать, почему не идёт. */
 export function tutorialNudge(what) {
   if (!T.active || !T.scene) return;
-  const msg = {
+  var msgRu = {
     move: 'Сейчас нужно дойти до метки.',
     switch: 'Смена формы — в следующей сцене.',
     pass: 'Пасовать пока незачем.',
     rotate: 'Поворот здесь не нужен.',
-  }[what];
+  };
+  var msgEn = {
+    move: 'You need to reach the marker.',
+    switch: 'Form switching — in the next scene.',
+    pass: 'No need to pass yet.',
+    rotate: 'Rotation is not needed here.',
+  };
+  var msg = (isEnglish() ? msgEn : msgRu)[what];
   if (msg) toast(msg);
 }
 
@@ -214,7 +222,11 @@ export const tutorialEnemiesFrozen = () => T.active && T.scene?.freeze !== false
  */
 export function tutorialBlocksDegrade() {
   if (!T.active) return false;
-  toast('В обучении тебя не убьют. Попробуй иначе.');
+  toast(
+    isEnglish()
+      ? 'You will not die in the tutorial. Try something else.'
+      : 'В обучении тебя не убьют. Попробуй иначе.',
+  );
   return true;
 }
 
@@ -265,7 +277,12 @@ export function tutorialCheck() {
   if (d.rotated && !T.rotated) ok = false;
   if (!ok) return;
 
-  log(`Обучение: «${sc.title}» пройдено.`, 'g');
+  log(
+    isEnglish()
+      ? 'Tutorial: \u00AB' + sc.title + '\u00BB completed.'
+      : 'Обучение: \u00AB' + sc.title + '\u00BB пройдено.',
+    'g',
+  );
   setTimeout(() => nextScene(), 350);
 }
 
@@ -309,5 +326,5 @@ export function resetHints() {
   META.hints = {};
   META.tutorialDone = false;
   saveMeta();
-  toast('Обучение и подсказки сброшены.');
+  toast(isEnglish() ? 'Tutorial and hints reset.' : 'Обучение и подсказки сброшены.');
 }

@@ -1,3 +1,4 @@
+import { isEnglish } from './lang.js';
 /**
  * src/bosses.js — AI четырёх боссов: Мучитель (tormentor), Спаянные Ладьи (linkedRooks),
  * Жернов (millstone), Кукловод (puppeteer), Красный Король (redKing).
@@ -139,8 +140,14 @@ export function tormentorTurn(e) {
             : out.push(ev.say(e.x, e.y, l.text, l.kind || 'boss')),
         );
       else {
-        out.push(ev.say(e.x, e.y, 'Я жёг.'));
-        out.push(ev.log('Три голоса кричат одновременно. Ты глохнешь.'));
+        out.push(ev.say(e.x, e.y, isEnglish() ? 'I burned.' : 'Я жёг.'));
+        out.push(
+          ev.log(
+            isEnglish()
+              ? 'Three voices scream at once. You go deaf.'
+              : 'Три голоса кричат одновременно. Ты глохнешь.',
+          ),
+        );
       }
     }
     e.stunCd = C.stunEvery;
@@ -189,8 +196,17 @@ export function tormentorHit(e) {
       return script.map((l) =>
         l.ch === 'log' ? ev.log(l.text) : ev.say(e.x, e.y, l.text, l.kind || 'boss'),
       );
-    const said = ['Нас двое.', 'Я всё записал.'][Math.min(e.phase - 2, 1)] || 'Нас меньше.';
-    return [ev.log('Одно тело отваливается. Оно ещё шевелится.'), ev.say(e.x, e.y, said)];
+    const saidRu = ['Нас двое.', 'Я всё записал.'][Math.min(e.phase - 2, 1)] || 'Нас меньше.';
+    const saidEn = ['Two of us.', 'I wrote it down.'][Math.min(e.phase - 2, 1)] || 'Fewer of us.';
+    const said = isEnglish() ? saidEn : saidRu;
+    return [
+      ev.log(
+        isEnglish()
+          ? 'One body sloughs off. It still twitches.'
+          : 'Одно тело отваливается. Оно ещё шевелится.',
+      ),
+      ev.say(e.x, e.y, said),
+    ];
   }
   // распад: три пешки бегут к краям
   S.enemies = S.enemies.filter((v) => v !== e);
@@ -238,7 +254,13 @@ export function fleeingTurn(e) {
   if (edge) {
     S.enemies = S.enemies.filter((v) => v !== e);
     S.mercy = (S.mercy || 0) + 1;
-    return [ev.log('Она ушла в трещину. Ты её отпустил.')];
+    return [
+      ev.log(
+        isEnglish()
+          ? 'She slipped into a crack. You let her go.'
+          : 'Она ушла в трещину. Ты её отпустил.',
+      ),
+    ];
   }
   let best = null,
     bestScore = -Infinity;
@@ -325,10 +347,16 @@ export function linkedRooksTurn(pair) {
     if (a.stuck >= C.breakAfterStuck) {
       delete a.linkedTo;
       delete b.linkedTo;
-      const blockedScript = (getScript().bosses.spawnedRooks && getScript().bosses.spawnedRooks.blocked) || [
-        { ch: 'log', text: 'Они упёрлись друг в друга. Впервые за века — стоят.' },
-        { ch: 'speech', kind: 'boss', text: 'Отпусти меня.' },
-        { ch: 'speech', kind: 'boss', text: 'Отпусти меня.' },
+      const blockedScript = (getScript().bosses.spawnedRooks &&
+        getScript().bosses.spawnedRooks.blocked) || [
+        {
+          ch: 'log',
+          text: isEnglish()
+            ? 'They jam against each other. For the first time in ages — they stop.'
+            : 'Они упёрлись друг в друга. Впервые за века — стоят.',
+        },
+        { ch: 'speech', kind: 'boss', text: isEnglish() ? 'Let me go.' : 'Отпусти меня.' },
+        { ch: 'speech', kind: 'boss', text: isEnglish() ? 'Let me go.' : 'Отпусти меня.' },
       ];
       return blockedScript
         .map((l) => {
@@ -341,9 +369,15 @@ export function linkedRooksTurn(pair) {
         })
         .filter(Boolean);
     }
-    out.push(ev.log(`Спина не гнётся. Ладьи встали (${a.stuck}/${C.breakAfterStuck}).`));
+    out.push(
+      ev.log(
+        isEnglish()
+          ? 'Spine does not bend. The Rooks stop (${a.stuck}/${C.breakAfterStuck}).'
+          : 'Спина не гнётся. Ладьи встали (${a.stuck}/${C.breakAfterStuck}).',
+      ),
+    );
     // в упоре они грызутся — подсказка игроку, что он на верном пути
-    const banter = (getScript().bosses.spawnedRooks && getScript().bosses.spawnedRooks.banter) || [
+    const banterRu = [
       { ch: 'speech', kind: 'boss', text: 'Ты открыл ворота.' },
       { ch: 'speech', kind: 'boss', text: 'Ты назвал моё имя.' },
       { ch: 'speech', kind: 'boss', text: 'Я держал левый край.' },
@@ -351,6 +385,17 @@ export function linkedRooksTurn(pair) {
       { ch: 'speech', kind: 'boss', text: 'Мы могли уйти.' },
       { ch: 'speech', kind: 'boss', text: 'Мы и ушли. Сюда.' },
     ];
+    const banterEn = [
+      { ch: 'speech', kind: 'boss', text: 'You opened the gate.' },
+      { ch: 'speech', kind: 'boss', text: 'You spoke my name.' },
+      { ch: 'speech', kind: 'boss', text: 'I held the left flank.' },
+      { ch: 'speech', kind: 'boss', text: 'You held the knife.' },
+      { ch: 'speech', kind: 'boss', text: 'We could have left.' },
+      { ch: 'speech', kind: 'boss', text: 'We did leave. Here.' },
+    ];
+    const banter =
+      (getScript().bosses.spawnedRooks && getScript().bosses.spawnedRooks.banter) ||
+      (isEnglish() ? banterEn : banterRu);
     const i = Math.floor(Math.random() * (banter.length / 2)) * 2;
     out.push(
       ev.say(a.x, a.y, banter[i].text, banter[i].kind || 'boss'),
@@ -374,10 +419,11 @@ export function linkedRookRevenge(killed) {
   if (!BOSS_CFG.linkedRooks.revenge || !killed.linkedTo) return [];
   const other = S.enemies.find((e) => e.linkedTo === killed.linkedTo && e !== killed);
   if (!other) return [];
-  const firstDeath = (getScript().bosses.spawnedRooks && getScript().bosses.spawnedRooks.firstDeath) || {
+  const firstDeath = (getScript().bosses.spawnedRooks &&
+    getScript().bosses.spawnedRooks.firstDeath) || {
     ch: 'speech',
     kind: 'boss',
-    text: 'Наконец тихо.',
+    text: isEnglish() ? 'Quiet at last.' : 'Наконец тихо.',
   };
   if (rookAttacks(other).has(key(S.player.x, S.player.y))) {
     return [
@@ -434,7 +480,13 @@ export function millstoneTurn() {
         // тело забивает механизм — это единственный путь к победе
         S.millFed = (S.millFed || 0) + 1;
         const q = BOSS_CFG.puppeteer.jamQuota;
-        out.push(ev.log(`Жернов перемалывает тело. Забито: ${S.millFed}/${q}.`));
+        out.push(
+          ev.log(
+            isEnglish()
+              ? 'The millstone grinds a body. Jammed: ${S.millFed}/${q}.'
+              : 'Жернов перемалывает тело. Забито: ${S.millFed}/${q}.',
+          ),
+        );
         if (S.millFed >= q) reachedQuota = true;
       }
       if (S.player.x === x && S.player.y === y) out.push({ ch: 'crush' });
@@ -446,8 +498,14 @@ export function millstoneTurn() {
     const md = getScript().bosses.millstone && getScript().bosses.millstone.death;
     if (md) out.push(ev.log(md.text));
     else {
-      out.push(ev.log('Жернов встал. Внутри — кости. Много.'));
-      out.push(ev.log('Некоторые ещё сжимают чужие.'));
+      out.push(
+        ev.log(
+          isEnglish()
+            ? 'The millstone stops. Inside — bones. Many.'
+            : 'Жернов встал. Внутри — кости. Много.',
+        ),
+      );
+      out.push(ev.log(isEnglish() ? 'Some still clutch others.' : 'Некоторые ещё сжимают чужие.'));
     }
     out.push({ ch: 'bossDown', boss: 'puppeteer' });
     for (const k2 of [...S.special.keys()]) {
@@ -551,7 +609,13 @@ export function partyTurn() {
       });
       P.reserve--;
       P.dropCd = C.dropEvery;
-      out.push(ev.log('Сверху падает тело. Нить натягивается.'));
+      out.push(
+        ev.log(
+          isEnglish()
+            ? 'A body drops from above. The thread tightens.'
+            : 'Сверху падает тело. Нить натягивается.',
+        ),
+      );
     }
   } else P.dropCd--;
 
@@ -564,7 +628,7 @@ export function partyTurn() {
 
   if (pulling) {
     // дёргает все нити: куклы идут напролом, прямо под жернов
-    out.push(ev.say(S.player.x, S.player.y, 'Приказ.', 'boss'));
+    out.push(ev.say(S.player.x, S.player.y, isEnglish() ? 'Order.' : 'Приказ.', 'boss'));
     for (const p of puppets) {
       if (rookLikeCapture(p)) return [...out, { ch: 'capture', by: p }];
       puppetStep(p, null);
@@ -576,7 +640,12 @@ export function partyTurn() {
       if (rookLikeCapture(p)) return [...out, { ch: 'capture', by: p }];
     }
     const mover = sorted.find((p) => puppetStep(p, danger));
-    if (!mover) out.push(ev.log('Нити провисли. Никто не двинулся.'));
+    if (!mover)
+      out.push(
+        ev.log(
+          isEnglish() ? 'The threads go slack. No one moved.' : 'Нити провисли. Никто не двинулся.',
+        ),
+      );
   }
   return out;
 }
@@ -603,7 +672,7 @@ export function redKingTurn(king) {
     const q = retinue.find((e) => e.retinue === 'queen');
     if (q) {
       applyStatus(q, 'shield', C.queenShield);
-      out.push(ev.log('Королева снова под щитом.'));
+      out.push(ev.log(isEnglish() ? 'The Queen is shielded again.' : 'Королева снова под щитом.'));
     }
   }
 
@@ -613,19 +682,17 @@ export function redKingTurn(king) {
     king.orderCd = C.orderEvery;
     const target = pick(retinue);
     target.kingOrder = true;
-    const orders = (getScript().bosses.redKing && getScript().bosses.redKing.orders) || [
-      { ch: 'speech', kind: 'boss', text: 'Иди.' },
-      { ch: 'speech', kind: 'boss', text: 'Не он. Ты.' },
-      { ch: 'speech', kind: 'boss', text: 'Простите.' },
-    ];
+    const orders = (getScript().bosses.redKing && getScript().bosses.redKing.orders) || (isEnglish()
+    ? [{ ch: 'speech', kind: 'boss', text: 'Go.' }, { ch: 'speech', kind: 'boss', text: 'Not him. You.' }, { ch: 'speech', kind: 'boss', text: 'Forgive me.' }]
+    : [{ ch: 'speech', kind: 'boss', text: 'Иди.' }, { ch: 'speech', kind: 'boss', text: 'Не он. Ты.' }, { ch: 'speech', kind: 'boss', text: 'Простите.' }]);
     const ord =
       target.retinue === 'knight'
-        ? orders.find((o) => o.text === 'Простите.') || {
+        ? orders.find((o) => o.text === (isEnglish() ? 'Forgive me.' : 'Простите.')) || {
             ch: 'speech',
             kind: 'boss',
             text: 'Простите.',
           }
-        : pick(orders.filter((o) => o.text !== 'Простите.'));
+        : pick(orders.filter((o) => o.text !== (isEnglish() ? 'Forgive me.' : 'Простите.')));
     out.push(ev.say(king.x, king.y, ord.text, ord.kind || 'boss'));
   }
 
@@ -633,11 +700,11 @@ export function redKingTurn(king) {
   king.armor = S.chainsBroken >= C.chains ? C.kingArmorAfterChains : 99;
   if (S.chainsBroken >= C.chains && !king.exposed) {
     king.exposed = true;
-    out.push(ev.log('Цепи пали. Он открыт.'));
+    out.push(ev.log(isEnglish() ? 'The chains fell. He is exposed.' : 'Цепи пали. Он открыт.'));
     if (!retinue.length) {
       const alone = (getScript().bosses.redKing && getScript().bosses.redKing.alone) || [
-        { ch: 'speech', kind: 'boss', text: 'Все.' },
-        { ch: 'speech', kind: 'boss', text: 'Больше некого послать.' },
+        { ch: 'speech', kind: 'boss', text: isEnglish() ? 'All of them.' : 'Все.' },
+        { ch: 'speech', kind: 'boss', text: isEnglish() ? 'No one left to send.' : 'Больше некого послать.' },
       ];
       alone.forEach((l) =>
         out.push(
@@ -699,7 +766,7 @@ export function blindRookTurn(e) {
   if (e.x !== S.player.x && e.y !== S.player.y) {
     const rf = (getScript().bosses.redKing.rooks && getScript().bosses.redKing.rooks.fight) || {
       ch: 'log',
-      text: 'Они бьют по линиям. Не по тебе. Просто по линиям.',
+      text: isEnglish() ? 'They strike along lines. Not at you. Just the lines.' : 'Они бьют по линиям. Не по тебе. Просто по линиям.',
     };
     out.push(rf.ch === 'speech' ? ev.say(e.x, e.y, rf.text, rf.kind) : ev.log(rf.text));
     return out;
