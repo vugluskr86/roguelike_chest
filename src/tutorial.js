@@ -315,9 +315,12 @@ export function hint(id, after) {
     toast(h.text);
     return false;
   }
-  openInterlude({ title: h.title, lines: h.lines, button: h.button || 'Дальше' }, () => {
-    if (after) after();
-  });
+  openInterlude(
+    { title: h.title, lines: h.lines, button: h.button || (isEnglish() ? 'Next' : 'Дальше') },
+    () => {
+      if (after) after();
+    },
+  );
   return true;
 }
 
