@@ -286,25 +286,25 @@ export function generateBossRoom(bossId) {
     CFG.W = 15;
     CFG.H = 13;
     const w = new Set();
-    // коридор снизу вверх
+    // коридор снизу вверх: проход x=3..7 (5 клеток), стены по бокам
     for (let x = 0; x < CFG.W; x++)
       for (let y = 0; y < CFG.H; y++) {
-        if (x < 3 || x > 5) w.add(key(x, y));
+        if (x < 3 || x > 7) w.add(key(x, y));
         if (y === 0 || y === CFG.H - 1) w.delete(key(x, y));
       }
-    // проход по центру
+    // проход по центру — гарантируем стартовую клетку и путь к жернову
     for (let y = 0; y < CFG.H; y++) {
-      w.delete(key(3, y));
-      w.delete(key(4, y));
-      w.delete(key(5, y));
+      for (let x = 3; x <= 7; x++) w.delete(key(x, y));
     }
-    // Жернов как special cell
+    // старт игрока всегда свободен (центр нижнего ряда)
+    w.delete(key(Math.floor(CFG.W / 2), CFG.H - 1));
+    // Жернов как special cell: начинает сверху, катится вниз к игроку
     const sp = new Map();
-    sp.set(key(4, CFG.H - 3), { type: 'millstone', dir: [0, -1] });
-    // пилоны сверху и снизу коридора — жернов разворачивается о них
-    for (let x = 3; x <= 5; x++) {
+    sp.set(key(Math.floor(CFG.W / 2), 2), { type: 'millstone', dir: [0, 1] });
+    // пилоны только сверху коридора — жернов разворачивается о них;
+    // нижний ряд оставлен свободным для старта игрока
+    for (let x = 3; x <= 7; x++) {
       sp.set(key(x, 0), { type: 'pillar' });
-      sp.set(key(x, CFG.H - 1), { type: 'pillar' });
     }
     // инициализировать состояние Кукловода — куклы падают бесконечно
     S.party = {
