@@ -2,135 +2,107 @@
 <html lang="ru">
   <head>
     <meta charset="utf-8" />
-    <!-- viewport-fit=cover обязателен: без него env(safe-area-inset-*) всегда 0
-         и док на iPhone уедет под домашнюю полосу.
-         maximum-scale убран — он ломает пинч-зум и не нужен: двойной тап
-         гасится через touch-action: manipulation. -->
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
     <meta name="theme-color" content="#14161c" />
     <meta
       name="description"
+      id="metaDesc"
       content="Эндшпиль — пошаговый шахматный рогалик. Ты фигура, что меняет форму, спускаясь по ярусам Подземелья."
     />
-    <title>Эндшпиль</title>
-    <script type="module" crossorigin src="./assets/index-TOGU8Csp.js"></script>
-    <link rel="stylesheet" crossorigin href="./assets/index-BF1ukFuQ.css">
+    <link rel="icon" type="image/png" href="./favicon.png" />
+    <meta property="og:title" id="metaOgTitle" content="Эндшпиль" />
+    <meta
+      property="og:description"
+      id="metaOgDesc"
+      content="Пошаговый шахматный рогалик. Двигайся или будь съеден."
+    />
+    <meta property="og:image" content="./cover.png" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <title id="pageTitle">Эндшпиль</title>
+    <script type="module" crossorigin src="./assets/index-BPEipIx4.js"></script>
+    <link rel="stylesheet" crossorigin href="./assets/index-Cb81weyO.css">
   </head>
   <body>
     <div id="loadingScreen">
       <div class="loading-content">
-        <img class="loading-logo" src="./assets/logo-CXWVF3Ke.png" alt="" />
+        <img class="loading-logo" src="./assets/logo-ChAK2Kni.png" alt="" />
         <h2 class="loading-title">♟ Эндшпиль</h2>
         <p class="loading-lore"></p>
         <p class="loading-tip"></p>
-        <p class="loading-hint">Нажмите для продолжения</p>
+        <p class="loading-hint i18n" data-key="loading.hint">Нажмите для продолжения</p>
       </div>
     </div>
 
-    <h1>♟ Эндшпиль <span class="v">v1.0</span></h1>
-    <div class="sub">Двигайся или будь съеден</div>
+    <h1 id="gameTitle">♟ Эндшпиль <span class="v">v1.0</span></h1>
+    <div class="sub" id="gameSub">Двигайся или будь съеден</div>
 
-    <!-- Статус вынесен из боковой колонки: на телефоне он липнет к верху,
-         а управление уезжает вниз. Разделение делает мобильную раскладку
-         чистым CSS, без переноса узлов скриптом. -->
     <div id="topbar">
       <div id="turnNo" class="hudbar"></div>
+      <span class="badge shah i18n" data-key="shah" id="shah">Шах</span>
+    </div>
+    <div id="subbar">
       <div id="hungerBar" class="hudbar hunger-bar">
-        <span class="hunger-label">Голод</span>
+        <span class="hunger-label i18n" data-key="hud.hunger">Голод</span>
         <span class="hunger-ribs"></span>
       </div>
-      <span class="badge shah" id="shah">Шах</span>
     </div>
 
     <div class="layout">
       <div class="board-wrap">
-        <canvas id="board" width="616" height="504" aria-label="Игровое поле"></canvas>
+        <canvas id="board" width="616" height="504" aria-label="Board"></canvas>
         <div id="editorBar" style="display: none">
           <div id="editorActions" class="editor-tools"></div>
           <div id="editorTools" class="editor-tools"></div>
           <div class="editor-sep"></div>
           <div id="editorObjects" class="editor-tools"></div>
           <div id="editorStatus" class="editor-status">
-            🖌 Редактор · Выбери элемент и кликай по полю
+            🖌 Editor · Pick an element and click the board
           </div>
+        </div>
+
+        <div class="card">
+          <h2 class="i18n" data-key="ui.log">Log</h2>
+          <div id="log" role="log" aria-live="polite" aria-relevant="additions"></div>
         </div>
       </div>
 
       <div class="side">
-        <!-- Всё, что нужно каждый ход. На телефоне становится фиксированным доком. -->
         <div class="card" id="controlCard">
-          <h2>Колесо форм</h2>
+          <h2 class="i18n" data-key="ui.wheel">Form Wheel</h2>
           <div class="wheel" id="wheel"></div>
           <div class="status">
             <span id="faceInfo"></span>
           </div>
           <div class="btnrow" id="primaryActions">
-            <button id="btnCCW" title="Бесплатно">⟲ (Q)</button>
-            <button id="btnCW" title="Бесплатно">⟳ (E)</button>
-            <button id="btnPass">Пас (Space)</button>
+            <button id="btnCCW" title="Free">⟲ (Q)</button>
+            <button id="btnCW" title="Free">⟳ (E)</button>
+            <button id="btnPass" class="i18n" data-key="ui.pass">Pass (Space)</button>
           </div>
         </div>
 
-        <!-- Всё, что нужно раз в забег. В док не попадает. -->
         <div class="card">
-          <h2>Меню</h2>
+          <h2 class="i18n" data-key="ui.menu">Menu</h2>
           <div class="btnrow" id="secondaryActions">
-            <button id="btnHelp">Как играть (?)</button>
-            <button id="btnSettings">⚙ Настройки</button>
-            <button id="btnEditor">🗺 Редактор</button>
-            <button id="btnRestart">Заново (R)</button>
+            <button id="btnHelp" class="i18n" data-key="ui.help">How to Play (?)</button>
+            <button id="btnSettings" class="i18n" data-key="ui.settings">⚙ Settings</button>
+            <button id="btnEditor" class="i18n" data-key="ui.editor">🗺 Editor</button>
+            <button id="btnRestart" class="i18n" data-key="ui.restart">Restart (R)</button>
           </div>
         </div>
 
-        <!-- Заголовок строит hud.js (renderMods): он показывает счётчики ✦/☠
-             и сворачивает список. Статический h2 здесь дублировал бы его. -->
         <div class="card" id="relicCard" style="display: none">
           <div class="relics" id="relics"></div>
         </div>
 
         <div class="card">
-          <h2>Журнал</h2>
-          <div id="log"></div>
-        </div>
-
-        <div class="card">
-          <h2>Легенда</h2>
-          <div class="legend">
-            <span class="sw" style="background: var(--threat)"></span><b>битые поля</b> врагов
-            (тапни по врагу — его зона)<br />
-            <span class="sw" style="background: #e0a03a"></span><b>появится после хода</b> —
-            предпросмотр угроз<br />
-            <span class="sw" style="background: var(--promo)"></span><b>линия восхождения</b> —
-            закончи ход пешкой<br />
-            <span style="color: #c23b30">▼</span> <b>паутина</b>: наступишь — теряешь форму; враг
-            гибнет (одноразово)<br />
-            <span style="color: #9b6dd0">◎</span> <b>портал</b> ·
-            <span style="color: #58b3a4">◈</span> <b>жила</b> (насыщает, снимает усталость) ·
-            <span style="color: #8fd0e6">❄</span> <b>лёд</b> (оглушает)<br />
-            <span style="color: #96a0b0">☁</span> <b>туман</b> скрывает угрозу ·
-            <span style="color: #7aa0c0">→</span> <b>конвейер</b> сдвигает ·
-            <span style="color: #c9a227">→</span> <b>ворота</b> (только по стрелке)<br />
-            <span style="color: #b0a8f0">♝</span> <b>цветовая зона</b> (только слон) ·
-            <span style="color: #8fae7a">▣</span> <b>плита</b> открывает стену ·
-            <span style="color: #d65a28">≈</span> <b>лава</b> растекается и жжёт<br />
-            🍖 <b>кость</b> — еда, восполняет сытость · <span style="color: #8a8070">▮</span>
-            <b>пилон</b> непроходим<br />
-            <span class="sw" style="background: var(--teal)"></span>ход безопасен ·
-            <span class="sw" style="background: #e0a03a"></span>под удар ·
-            <span class="sw" style="background: var(--threat)"></span>конец забега<br />
-            Тап по клетке — ход или взятие; тап по слоту — смена формы (тратит ход).<br />
-            Голод тает каждый ход. Взятия, жилы и кости насыщают.<br />
-            Клавиши: <kbd>1</kbd>–<kbd>5</kbd> формы, <kbd>Q</kbd>/<kbd>E</kbd> поворот,
-            <kbd>Space</kbd> пас, <kbd>Tab</kbd> перебор врагов, <kbd>Esc</kbd> сброс,
-            <kbd>Enter</kbd> подтвердить ход.
-          </div>
+          <details class="legend-details">
+            <summary class="i18n" data-key="legend.title">Legend</summary>
+            <div class="legend" id="legendBody"></div>
+          </details>
         </div>
       </div>
     </div>
 
-    <!-- Модалка: шапка / прокручиваемое тело / прижатые действия.
-         Раньше скроллилась целиком, из-за чего в справке заголовок уезжал,
-         а кнопка «Понятно» лежала в конце 25 секций текста. -->
     <div class="overlay" id="overlay">
       <div
         class="modal m-md"
@@ -142,7 +114,7 @@
         <div class="m-head" id="mHead">
           <img class="m-art" id="mArt" alt="" hidden />
           <h3 id="mTitle"></h3>
-          <p id="mText"></p>
+          <div id="mText"></div>
         </div>
         <div class="m-body" id="mBody">
           <div class="choices" id="mChoices"></div>
