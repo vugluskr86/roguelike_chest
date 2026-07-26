@@ -6,6 +6,7 @@ import { S } from './state.js';
 import { BESTIARY_TRIO, GOLD_DROP } from './config.js';
 import { ACHIEVEMENTS, CURSES, META_UPGRADES, RELICS } from './content.js';
 import { log, toast } from './ui.js';
+import { isEnglish, LContent } from './lang.js';
 
 export const META_KEY = 'chessrogue_meta_v1';
 export function defaultMeta() {
@@ -98,8 +99,11 @@ export function unlockAch(id) {
   if (!ACHIEVEMENTS[id] || META.achievements[id]) return;
   META.achievements[id] = true;
   metaSave();
-  toast('🏆 ' + ACHIEVEMENTS[id].name);
-  log('Достижение: <b>' + ACHIEVEMENTS[id].name + '</b>', 'g');
+  toast('🏆 ' + LContent(ACHIEVEMENTS[id], 'name'));
+  log(
+    `${isEnglish() ? 'Achievement: ' : 'Достижение: '}<b>${LContent(ACHIEVEMENTS[id], 'name')}</b>`,
+    'g',
+  );
 }
 
 // начисление по итогам забега; возвращает заработанные осколки
