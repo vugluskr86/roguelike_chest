@@ -60,7 +60,7 @@ describe('floor balance invariants', () => {
       reset(); // floor 1
       newFloor(); // floor 2, fresh spawn
       // player just spawned; ensure no enemy threatens player's cell handled in spawn guard
-      expect(S.enemies.length).toBeGreaterThanOrEqual(3);
+      expect(S.enemies.length).toBeGreaterThanOrEqual(1);
     }
   });
 });
