@@ -32,6 +32,16 @@ function handleBossCapture(by) {
 
 export function enemiesTurn() {
   if (isTutorial()) return; // обучение управляет ходами самостоятельно
+
+  // «Шторм»: враги ходят дважды за ход
+  const turns = 1 + (S.challenge === 'storm' ? 1 : 0);
+  for (let t = 0; t < turns; t++) {
+    if (t > 0 && S.gameOver) break;
+    _enemiesTurnOnce();
+  }
+}
+
+function _enemiesTurnOnce() {
   const bossEvents = bossTurn();
   dispatchBossEvents(bossEvents, {
     log: (t) => log(t),

@@ -72,7 +72,7 @@ export const CFG = {
     beast: 1,
     king: 1,
     infiltrator: 1,
-    bastion: 0,
+    bastion: 1,
     guardian: 1,
     necro: 1,
     mimic: 1,
@@ -161,7 +161,7 @@ export const CFG = {
   },
   ROOMS: {
     startMin: 1,
-    startMax: 1,
+    startMax: 3,
     growEvery: 3,
     cap: 5,
     budgetExp: 0.65, // доля бюджета на комнату = nRooms ^ -budgetExp

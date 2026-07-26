@@ -83,7 +83,7 @@ export function tryMoveTo(x, y) {
   tutorialSnapshot();
   // если ход (не взятие) — клетка должна быть свободна от врагов
   if (isMove && enemyAt(x, y)) {
-    addSpeech(x, y, 'Занято.', 'enemy');
+    addSpeech(x, y, isEnglish() ? 'Occupied.' : 'Занято.', 'enemy');
     return;
   }
   // двухступенчатое подтверждение: первый тап показывает последствия,
@@ -186,7 +186,10 @@ export function tryMoveTo(x, y) {
         : `Ты берёшь ${GLYPH[e.type]} ${NAME[e.type]} формой ${NAME[activeForm().type]}`,
       'p',
     );
-    S.player.hunger = Math.min(CFG.HUNGER.start, S.player.hunger + CFG.HUNGER.capture);
+    S.player.hunger = Math.min(
+      CFG.HUNGER.cap ?? CFG.HUNGER.start,
+      S.player.hunger + CFG.HUNGER.capture,
+    );
     unlockType(e.type, tileColor(x, y));
   }
   // запоминаем старую позицию для анимации
@@ -351,7 +354,10 @@ export function triggerSpecialForPlayer() {
     playLoot();
   } else if (s.type === 'food') {
     S.special.delete(k);
-    S.player.hunger = Math.min(CFG.HUNGER.start, S.player.hunger + CFG.HUNGER.food);
+    S.player.hunger = Math.min(
+      CFG.HUNGER.cap ?? CFG.HUNGER.start,
+      S.player.hunger + CFG.HUNGER.food,
+    );
     S.player.hungerMark = 1;
     log(
       isEnglish()
@@ -789,10 +795,6 @@ export function spreadLava() {
 export function degradePlayer(byEnemy) {
   if (S.godMode) return; // чит-режим — неуязвимость
   const f = activeForm();
-  if (S.challenge === 'lone_figure') {
-    death();
-    return;
-  } // челлендж: взятие = конец
   if (byEnemy && has('venom')) applyStatus(byEnemy, 'poison', 2); // «Ядовитый след» — месть атакующему
   if (statusVal(S.player, 'shield') > 0 && !curse('glass')) {
     // щит гасит взятие (проклятие «Хрупкое тело» отменяет)
@@ -815,6 +817,10 @@ export function degradePlayer(byEnemy) {
     if (byEnemy) byEnemy.cd = CFG.ENEMY_CAPTURE_CD; // враг всё равно переводит дух
     return;
   }
+  if (S.challenge === 'lone_figure') {
+    death();
+    return;
+  } // челлендж: взятие = конец, после щита/талисмана
   if (byEnemy)
     log(
       isEnglish()

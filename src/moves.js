@@ -177,6 +177,37 @@ export function genMoves(piece, form, isEnemyCell, isBlocked) {
       }
       break;
     }
+    case 'infiltrator': {
+      // пешка без фасинга: шаг вперёд по ORTHO, бьёт по всем 4 диагоналям
+      for (const [dx, dy] of ORTHO) {
+        const nx = piece.x + dx,
+          ny = piece.y + dy;
+        if (!inB(nx, ny) || S.walls.has(key(nx, ny))) continue;
+        if (blk(nx, ny)) continue;
+        if (isEnemyCell(nx, ny)) captures.push({ x: nx, y: ny });
+        else if (!isBlocked(nx, ny)) moves.push({ x: nx, y: ny });
+      }
+      for (const [dx, dy] of DIAG) {
+        const nx = piece.x + dx,
+          ny = piece.y + dy;
+        if (!inB(nx, ny) || S.walls.has(key(nx, ny))) continue;
+        if (blk(nx, ny)) continue;
+        if (isEnemyCell(nx, ny)) captures.push({ x: nx, y: ny });
+      }
+      break;
+    }
+    case 'bastion': {
+      // стационарный танк: шаг 1 по ортогоналям, стартует с бронёй (armor)
+      for (const [dx, dy] of ORTHO) {
+        const nx = piece.x + dx,
+          ny = piece.y + dy;
+        if (!inB(nx, ny) || S.walls.has(key(nx, ny))) continue;
+        if (blk(nx, ny)) continue;
+        if (isEnemyCell(nx, ny)) captures.push({ x: nx, y: ny });
+        else if (!isBlocked(nx, ny)) moves.push({ x: nx, y: ny });
+      }
+      break;
+    }
     case 'king': {
       for (const [dx, dy] of [...ORTHO, ...DIAG]) {
         const x = piece.x + dx,

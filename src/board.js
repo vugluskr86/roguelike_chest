@@ -637,7 +637,7 @@ export function newFloor() {
   if (S.challenge === 'escalation') {
     for (const room of S.rooms)
       room.enemies.forEach((e) => {
-        e.r = (e.r || 1) + S.floor;
+        e.r = (e.r || 1) + Math.min(3, Math.floor(S.floor / 3));
         e.rb = (e.rb || 0) + 1;
         if (S.floor >= 5 && !e.armor) e.armor = 1;
       });

@@ -111,7 +111,9 @@ export function endRunMeta() {
   META.runs++;
   META.bestFloor = Math.max(META.bestFloor, S.floor);
   META.totalCaptures += S.player.totalCaptures;
-  const earned = S.floor * 3 + S.player.totalCaptures;
+  let earned = S.floor * 3 + S.player.totalCaptures;
+  if (S.challenge === 'storm') earned = Math.round(earned * 1.5);
+  if (S.challenge === 'escalation' && S.floor >= 5) earned *= 2;
   META.shards += earned;
   metaSave();
   if (META.shards >= 100) unlockAch('wealthy');
