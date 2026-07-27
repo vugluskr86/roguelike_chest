@@ -1264,14 +1264,106 @@ export function drawSpecial(x, y, s, ts) {
       c.fill();
     }
   } else if (s.type === 'food') {
-    // ── ЕДА (КОСТЬ): мерцающий символ еды ──
+    // ── КОСТЬ: лежит на полу. Подача та же, что у ключа и свитка —
+    //    тень, парение, тёплое свечение, искры: три предмета должны
+    //    читаться как один класс «можно подобрать» ──
     const p = ats / 1800 + seed;
     const breathe = 0.5 + 0.5 * Math.sin(p * Math.PI * 2);
-    c.fillStyle = `rgba(212,166,106,${0.55 + breathe * 0.3})`;
-    c.font = T * 0.44 + "px 'Segoe UI Symbol','Noto Sans Symbols 2',serif";
-    c.textAlign = 'center';
-    c.textBaseline = 'middle';
-    c.fillText('🍖', cx, cy + 1);
+    const float = Math.sin(p * Math.PI * 2) * T * 0.018;
+    const ang = -0.55 + seed * 1.1; // в каждой клетке лежит по-своему
+
+    const LEN = T * 0.3, // половина длины ствола
+      W = T * 0.075, // половина толщины
+      R = T * 0.088, // радиус доли
+      DY = T * 0.062, // разнос долей поперёк оси
+      OUT = Math.max(1, T * 0.028);
+
+    glow(c, cx, cy + float, T * 0.36, '212,166,106', 0.09 + breathe * 0.11);
+
+    // тень на полу — сплюснутый круг, как у ключа
+    c.save();
+    c.translate(cx, cy + T * 0.25);
+    c.scale(1, 0.24);
+    c.fillStyle = 'rgba(14,12,8,.42)';
+    c.beginPath();
+    c.arc(0, 0, T * 0.19, 0, 7);
+    c.fill();
+    c.restore();
+
+    c.save();
+    c.translate(cx, cy + float);
+    c.rotate(ang);
+
+    const knobs = [
+      [-LEN, -DY],
+      [-LEN, DY],
+      [LEN, -DY],
+      [LEN, DY],
+    ];
+    // Силуэт рисуется дважды: сперва толще и тёмным — это контур, потом
+    // телом. Обводить составной путь нельзя: проступят внутренние стыки.
+    const shape = (w, r) => {
+      c.lineCap = 'round';
+      c.lineWidth = w * 2;
+      c.beginPath();
+      c.moveTo(-LEN, 0);
+      c.lineTo(LEN, 0);
+      c.stroke();
+      for (const [kx, ky] of knobs) {
+        c.beginPath();
+        c.arc(kx, ky, r, 0, 7);
+        c.fill();
+      }
+    };
+
+    c.strokeStyle = c.fillStyle = 'rgba(28,20,8,.85)';
+    shape(W + OUT, R + OUT);
+
+    const g = c.createLinearGradient(0, -R - DY, 0, R + DY);
+    g.addColorStop(0, '#f2e6c8');
+    g.addColorStop(0.42, '#d9b078');
+    g.addColorStop(1, '#9c7442');
+    c.strokeStyle = c.fillStyle = g;
+    shape(W, R);
+
+    // борозда между долями — без неё концы выглядят гантелей
+    c.strokeStyle = 'rgba(120,88,48,.5)';
+    c.lineWidth = Math.max(1, T * 0.02);
+    for (const sx of [-1, 1]) {
+      c.beginPath();
+      c.moveTo(sx * LEN, -DY * 0.85);
+      c.lineTo(sx * LEN, DY * 0.85);
+      c.stroke();
+    }
+
+    // блик вдоль ствола: даёт объём одной линией
+    c.strokeStyle = 'rgba(255,248,228,.4)';
+    c.lineWidth = Math.max(1, T * 0.022);
+    c.beginPath();
+    c.moveTo(-LEN * 0.72, -W * 0.45);
+    c.lineTo(LEN * 0.72, -W * 0.45);
+    c.stroke();
+
+    // поры — три точки, чтобы кость не выглядела пластиковой
+    c.fillStyle = 'rgba(120,88,48,.3)';
+    for (let i = 0; i < 3; i++) {
+      const px = (nz(i * 17 + x * 3 + y) - 0.5) * LEN * 1.2;
+      const py = (nz(i * 29 + x + y * 3) - 0.5) * W * 0.9;
+      c.beginPath();
+      c.arc(px, py, Math.max(0.7, T * 0.012), 0, 7);
+      c.fill();
+    }
+    c.restore();
+
+    // искры по орбите — «можно подобрать», как у ключа и свитка
+    for (let i = 0; i < 3; i++) {
+      const a = p * Math.PI * 0.8 + (i / 3) * Math.PI * 2;
+      const orb = T * (0.3 + 0.025 * Math.sin(p * Math.PI * 4 + i));
+      c.fillStyle = `rgba(226,196,138,${0.22 + 0.42 * pingPong(p + i / 3)})`;
+      c.beginPath();
+      c.arc(cx + Math.cos(a) * orb, cy + float + Math.sin(a) * orb * 0.7, 1.5, 0, 7);
+      c.fill();
+    }
   } else if (s.type === 'scroll') {
     // ── СВИТОК: пергамент с валиками, строками текста и пульсирующим «?» ──
     const p = ats / 2000 + seed;
