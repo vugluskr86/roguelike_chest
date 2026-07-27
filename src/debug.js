@@ -33,7 +33,7 @@ export function feedDebugChar(ch) {
   }
 }
 
-function openDebugMenu() {
+export function openDebugMenu() {
   S.modalOpen = true;
   dom.modalBox.classList.remove('death');
   dom.mTitle.textContent = '🛠 Инструменты разработчика';

@@ -306,6 +306,10 @@ document.getElementById('btnPass').onclick = () => {
 };
 document.getElementById('btnSettings').onclick = () => openSettings();
 document.getElementById('btnHelp').onclick = () => openHelp();
+document.getElementById('btnDebug').onclick = () => {
+  // динамический импорт — debug.js не грузится в прод-сборку без кнопки
+  import('./debug.js').then((m) => m.openDebugMenu());
+};
 document.getElementById('btnEditor').onclick = () => {
   openEditor();
 };

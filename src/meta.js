@@ -40,8 +40,6 @@ export function metaLoad() {
         kills: c.kills || {},
       };
       META.achievements = o.achievements || {};
-
-      // META.shards = 1000;
     }
   } catch (e) {
     /* хранилище недоступно (напр. песочница) — играем без персистентности */
