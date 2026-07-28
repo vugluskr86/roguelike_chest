@@ -55,7 +55,7 @@ export function renderHunger() {
   const val = Math.max(0, Math.min(max, S.player.hunger));
   const perTurn = CFG.HUNGER.perTurn || 1;
   const turns = Math.ceil(val / perTurn);
-  const frozen = isBossFloor(S.floor); // на босс-ярусах голод не тратится
+  const frozen = S.runMode === 'campaign' && isBossFloor(S.floor);
 
   let html = '';
   for (let i = 0; i < max; i++) {

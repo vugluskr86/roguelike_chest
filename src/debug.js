@@ -221,7 +221,6 @@ function initBossArena(bossId) {
   S.chainsBroken = 0;
   S.millTick = 0;
   S.millFed = 0;
-  S.millsJammed = 0;
   S.party = null;
   S.keys = new Set();
   S.player.lostFormThisFloor = false;

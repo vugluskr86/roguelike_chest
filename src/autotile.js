@@ -137,6 +137,7 @@ function applyPatternScale(pattern, T) {
   const src = 112; // размер файла текстуры
   const s = (T * TEX_TILES) / src;
   try {
+    // eslint-disable-next-line no-undef
     pattern.setTransform(new DOMMatrix([s, 0, 0, s, 0, 0]));
   } catch {
     /* setTransform не поддержан — текстура ляжет в натуральном масштабе */

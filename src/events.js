@@ -7,7 +7,7 @@ import { isEnglish } from './lang.js';
  * Все окна переведены на shell() — иначе от предыдущей модалки остаётся её
  * размерный класс и картинка в шапке, а завершающие кнопки уезжают в скролл.
  */
-import { S } from './state.js';
+import { S, curse } from './state.js';
 import { dom } from './dom.js';
 import { newFloor } from './board.js';
 import {
@@ -77,11 +77,15 @@ export function openBlessing() {
   dom.mChoices.classList.add('loot-list');
   var isEnB = isEnglish();
   const opts = [
-    {
-      label: isEnB ? '🛡 Shield (2)' : '🛡 Щит (2)',
-      desc: isEnB ? 'Absorbs one capture' : 'Поглотит одно взятие',
-      fn: () => S.player.nextFloorStatus.push({ k: 'shield', n: 2 }),
-    },
+    ...(curse('glass')
+      ? []
+      : [
+          {
+            label: isEnB ? '🛡 Shield (2)' : '🛡 Щит (2)',
+            desc: isEnB ? 'Absorbs one capture' : 'Поглотит одно взятие',
+            fn: () => S.player.nextFloorStatus.push({ k: 'shield', n: 2 }),
+          },
+        ]),
     {
       label: '⚡ ' + (isEnB ? 'Haste (3)' : 'Ускорение (3)'),
       desc: isEnB ? '+1 slider range, extra knight step' : '+1 дальность слайдерам, доп. шаг коню',
@@ -161,8 +165,8 @@ export function renderShop() {
       b.innerHTML = `<span class="ln ${tm.cls}">✦ ${isEnglish() ? RELICS[item.id].enName : RELICS[item.id].name} <em class="tag">${item.price}🪙</em></span><span class="ld">${isEnglish() ? RELICS[item.id].enDesc : RELICS[item.id].desc}</span>`;
     } else {
       b.innerHTML = isEnglish()
-        ? '<span class="ln">✚ Remove Seam <em class="tag">${item.price}🪙</em></span><span class="ld">Removes one random seam.</span>'
-        : '<span class="ln">✚ Снять шов <em class="tag">${item.price}🪙</em></span><span class="ld">Убирает один случайный шов.</span>';
+        ? `<span class="ln">✚ Remove Seam <em class="tag">${item.price}🪙</em></span><span class="ld">Removes one random seam.</span>`
+        : `<span class="ln">✚ Снять шов <em class="tag">${item.price}🪙</em></span><span class="ld">Убирает один случайный шов.</span>`;
     }
     if (item.sold) {
       b.disabled = true;
@@ -272,7 +276,7 @@ export function openSanctuary() {
       S.player.wheel[i] = null;
       if (S.player.active === i) S.player.active = 0;
       log(
-        isEnglish() ? 'Sanctuary accepted ${NAME[f.type]}.' : 'Жертвенник принял ${NAME[f.type]}.',
+        isEnglish() ? `Sanctuary accepted ${NAME[f.type]}.` : `Жертвенник принял ${NAME[f.type]}.`,
         'r',
       );
       if (reward) applyRelic(reward);

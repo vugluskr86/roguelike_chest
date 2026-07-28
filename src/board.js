@@ -402,7 +402,6 @@ export function newFloor() {
       S.bossPhase = 1;
       S.chainsBroken = 0;
       S.millTick = 0;
-      S.millsJammed = 0;
       // Кукловод: состояние для millstone уже задано в generateBossRoom,
       // но на всякий случай убедимся, что оно не потерялось
       if (bossId === 'millstone') {
@@ -454,7 +453,6 @@ export function newFloor() {
   S.bossPhase = 0;
   S.chainsBroken = 0;
   S.millTick = 0;
-  S.millsJammed = 0;
   S.millFed = 0;
   S.party = null;
   const C = CFG.ROOMS;

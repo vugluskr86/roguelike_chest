@@ -372,8 +372,8 @@ export function linkedRooksTurn(pair) {
     out.push(
       ev.log(
         isEnglish()
-          ? 'Spine does not bend. The Rooks stop (${a.stuck}/${C.breakAfterStuck}).'
-          : 'Спина не гнётся. Ладьи встали (${a.stuck}/${C.breakAfterStuck}).',
+          ? `Spine does not bend. The Rooks stop (${a.stuck}/${C.breakAfterStuck}).`
+          : `Спина не гнётся. Ладьи встали (${a.stuck}/${C.breakAfterStuck}).`,
       ),
     );
     // в упоре они грызутся — подсказка игроку, что он на верном пути
@@ -483,8 +483,8 @@ export function millstoneTurn() {
         out.push(
           ev.log(
             isEnglish()
-              ? 'The millstone grinds a body. Jammed: ${S.millFed}/${q}.'
-              : 'Жернов перемалывает тело. Забито: ${S.millFed}/${q}.',
+              ? `The millstone grinds a body. Jammed: ${S.millFed}/${q}.`
+              : `Жернов перемалывает тело. Забито: ${S.millFed}/${q}.`,
           ),
         );
         if (S.millFed >= q) reachedQuota = true;
@@ -682,9 +682,19 @@ export function redKingTurn(king) {
     king.orderCd = C.orderEvery;
     const target = pick(retinue);
     target.kingOrder = true;
-    const orders = (getScript().bosses.redKing && getScript().bosses.redKing.orders) || (isEnglish()
-    ? [{ ch: 'speech', kind: 'boss', text: 'Go.' }, { ch: 'speech', kind: 'boss', text: 'Not him. You.' }, { ch: 'speech', kind: 'boss', text: 'Forgive me.' }]
-    : [{ ch: 'speech', kind: 'boss', text: 'Иди.' }, { ch: 'speech', kind: 'boss', text: 'Не он. Ты.' }, { ch: 'speech', kind: 'boss', text: 'Простите.' }]);
+    const orders =
+      (getScript().bosses.redKing && getScript().bosses.redKing.orders) ||
+      (isEnglish()
+        ? [
+            { ch: 'speech', kind: 'boss', text: 'Go.' },
+            { ch: 'speech', kind: 'boss', text: 'Not him. You.' },
+            { ch: 'speech', kind: 'boss', text: 'Forgive me.' },
+          ]
+        : [
+            { ch: 'speech', kind: 'boss', text: 'Иди.' },
+            { ch: 'speech', kind: 'boss', text: 'Не он. Ты.' },
+            { ch: 'speech', kind: 'boss', text: 'Простите.' },
+          ]);
     const ord =
       target.retinue === 'knight'
         ? orders.find((o) => o.text === (isEnglish() ? 'Forgive me.' : 'Простите.')) || {
@@ -704,7 +714,11 @@ export function redKingTurn(king) {
     if (!retinue.length) {
       const alone = (getScript().bosses.redKing && getScript().bosses.redKing.alone) || [
         { ch: 'speech', kind: 'boss', text: isEnglish() ? 'All of them.' : 'Все.' },
-        { ch: 'speech', kind: 'boss', text: isEnglish() ? 'No one left to send.' : 'Больше некого послать.' },
+        {
+          ch: 'speech',
+          kind: 'boss',
+          text: isEnglish() ? 'No one left to send.' : 'Больше некого послать.',
+        },
       ];
       alone.forEach((l) =>
         out.push(
@@ -766,7 +780,9 @@ export function blindRookTurn(e) {
   if (e.x !== S.player.x && e.y !== S.player.y) {
     const rf = (getScript().bosses.redKing.rooks && getScript().bosses.redKing.rooks.fight) || {
       ch: 'log',
-      text: isEnglish() ? 'They strike along lines. Not at you. Just the lines.' : 'Они бьют по линиям. Не по тебе. Просто по линиям.',
+      text: isEnglish()
+        ? 'They strike along lines. Not at you. Just the lines.'
+        : 'Они бьют по линиям. Не по тебе. Просто по линиям.',
     };
     out.push(rf.ch === 'speech' ? ev.say(e.x, e.y, rf.text, rf.kind) : ev.log(rf.text));
     return out;

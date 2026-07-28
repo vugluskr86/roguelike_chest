@@ -1,7 +1,7 @@
 import { S } from './state.js';
 import { afterEnemies, degradePlayer } from './combat.js';
 import { CFG } from './config.js';
-import { recordKill } from './meta.js';
+import { recordKill, unlockAch } from './meta.js';
 import { effectiveForm, genMoves, necroInterval } from './moves.js';
 import { addSpeech, render, startMoveAnim, spawnParticles } from './render.js';
 import { enemyAt, isBossEntity } from './state.js';
@@ -167,6 +167,8 @@ function checkCellForEnemy(e) {
     S.enemies = S.enemies.filter((v) => v !== e);
     if (sp.type === 'trap') S.special.delete(k); // лава остаётся, ловушка тратится
     recordKill(e.type, false);
+    if (sp.type === 'trap') unlockAch('web_master');
+    if (sp.type === 'lava') unlockAch('arsonist');
     spawnParticles(e.x, e.y, '#c23b30', 4);
     playDeath();
     log(isEnglish() ? 'Enemy slain' : 'Враг погиб');

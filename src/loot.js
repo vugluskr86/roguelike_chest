@@ -12,7 +12,15 @@ import { playLoot } from './audio.js';
 import { isEnglish } from './lang.js';
 import { shuffle } from './util.js';
 
-export const relicPool = () => Object.keys(RELICS).filter((id) => !S.player.relics.has(id));
+export const relicPool = () =>
+  Object.keys(RELICS).filter((id) => {
+    if (S.player.relics.has(id)) return false;
+    // «Хрупкое тело» — щиты не работают, убираем связанные кости из пула
+    if (S.player.curses.has('glass') && (id === 'smoke' || id === 'bulwark')) return false;
+    // «Широкое колесо» — при полном колесе слот-кость бесполезна
+    if (id === 'extra_slot' && S.player.wheel.length >= 5) return false;
+    return true;
+  });
 export const cursePool = () => Object.keys(CURSES).filter((id) => !S.player.curses.has(id));
 
 // Редкость реликвий: 1 обычная, 2 редкая, 3 эпическая
@@ -86,6 +94,7 @@ export function applyRelic(id) {
   S.player.relics.add(id);
   codexSeeRelic(id);
   if (S.player.relics.size >= 5) unlockAch('collector');
+  if (S.player.relics.size >= 10) unlockAch('collector_elite');
   if (id === 'extra_slot') {
     if (S.player.wheel.length < 5) S.player.wheel.push(null);
   } // +1 слот сразу
@@ -101,8 +110,9 @@ export function applyCurse(id) {
   codexSeeCurse(id);
   if (S.player.curses.size >= 3) unlockAch('cursed');
   if (id === 'rusted' && S.player.wheel.length > 1) {
-    // −1 слот: теряем последний (форма в нём уничтожается)
-    S.player.wheel.pop();
+    // −1 слот: теряем последний непустой
+    const idx = S.player.wheel.findLastIndex((s) => s !== null);
+    if (idx >= 0) S.player.wheel[idx] = null;
     if (S.player.active >= S.player.wheel.length) S.player.active = 0;
   }
   log(

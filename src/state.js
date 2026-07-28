@@ -24,7 +24,6 @@ export const S = {
   mercy: 0, // счётчик милосердия
   millTick: 0, // счётчик ходов жернова
   millFed: 0, // тел, скормленных жернову
-  millsJammed: 0, // жернова забиты (квота набрана)
   party: null, // состояние Кукловода { dropCd, pullCd, reserve }
   runMode: 'campaign', // 'campaign' | 'infinite'
   currentRoom: 0, // id активной комнаты на этаже

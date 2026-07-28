@@ -673,6 +673,9 @@ export function afterEnemies() {
     if (f && f.cooldown > 0) f.cooldown--;
   });
   spreadLava();
+  // достижения за челленджи
+  if (S.challenge === 'storm') unlockAch('storm_chaser');
+  if (S.challenge === 'lone_figure') unlockAch('glass_cannon');
   // Жернов: победа по квоте bossDown (Кукловод), а не по пустому списку врагов
   const millQuota = BOSS_CFG.puppeteer.jamQuota;
   if (bossOnFloor(S.floor) === 'millstone' && S.millFed >= millQuota && !S.gameOver) {
@@ -739,6 +742,7 @@ export function afterEnemies() {
     }
     log(isEnglish() ? 'Floor cleared!' : 'Ярус зачищен!', 'g');
     if (!S.player.lostFormThisFloor) unlockAch('flawless');
+    if (!S.player.capturedThisFloor) unlockAch('pacifist');
     render();
     syncUI();
     // интерлюдии после босс-ярусов
@@ -796,7 +800,7 @@ export function degradePlayer(byEnemy) {
   if (S.godMode) return; // чит-режим — неуязвимость
   const f = activeForm();
   if (byEnemy && has('venom')) applyStatus(byEnemy, 'poison', 2); // «Ядовитый след» — месть атакующему
-  if (statusVal(S.player, 'shield') > 0 && !curse('glass')) {
+  if (statusVal(S.player, 'shield') > 0) {
     // щит гасит взятие (проклятие «Хрупкое тело» отменяет)
     S.player.status.shield--;
     log(isEnglish() ? 'Shield absorbs the capture!' : 'Щит поглощает взятие!', 'g');
@@ -844,7 +848,7 @@ export function degradePlayer(byEnemy) {
   const alive = S.player.wheel.map((s, i) => ({ s, i })).filter((v) => v.s);
   alive.sort((a, b) => CFG.LADDER[b.s.type] - CFG.LADDER[a.s.type]);
   const lower =
-    alive.find((v) => CFG.LADDER[v.s.type] < CFG.LADDER[f.type]) || alive[alive.length - 1];
+    alive.find((v) => CFG.LADDER[v.s.type] <= CFG.LADDER[f.type]) || alive[alive.length - 1];
   S.player.active = lower.i;
   log(
     isEnglish()
@@ -957,6 +961,7 @@ export function openPromotion() {
           'g',
         );
         playPromotion();
+        if (t === 'queen') unlockAch('kingmaker');
         closeModal();
         enemiesTurn();
       },
