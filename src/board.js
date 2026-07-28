@@ -12,7 +12,7 @@ import { BOSS_CFG, dispatchBossEvents } from './bosses.js';
 import { applyRelic } from './loot.js';
 import { generateRoomCompat } from './gen/index.js';
 import { META, codexSeeEnemy, unlockAch } from './meta.js';
-import { necroInterval, threatCellsFrom } from './moves.js';
+import { isSpawnable, necroInterval, threatCellsFrom } from './moves.js';
 import { addSpeech, clearSpeech, render, screenFade } from './render.js';
 import { startTutorial } from './tutorial.js';
 import { getScript } from './content/script.js';
@@ -131,8 +131,12 @@ export function spawnEnemiesForFloor(f, reach, share = 1) {
   for (const t of bag) {
     // ищем клетку, из которой враг НЕ бьёт стартовую клетку игрока — не начинаем этаж с шаха
     let idx = cand.findIndex(
-      (c) => !enemyAt(c.x, c.y) && !threatCellsFrom(mk(t, c), c.x, c.y).has(pk),
+      (c) =>
+        !enemyAt(c.x, c.y) &&
+        !threatCellsFrom(mk(t, c), c.x, c.y).has(pk) &&
+        isSpawnable(t, c.x, c.y),
     );
+    if (idx === -1) idx = cand.findIndex((c) => !enemyAt(c.x, c.y) && isSpawnable(t, c.x, c.y));
     if (idx === -1) idx = cand.findIndex((c) => !enemyAt(c.x, c.y)); // край. случай — любая свободная
     if (idx === -1) break;
     S.enemies.push(mk(t, cand[idx]));

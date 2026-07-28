@@ -96,11 +96,22 @@ function _enemiesTurnOnce() {
     if (ef.type === 'pawn') {
       const dx = S.player.x - e.x,
         dy = S.player.y - e.y;
-      e.facing =
-        Math.abs(dx) >= Math.abs(dy)
-          ? [Math.sign(dx) || 0, Math.sign(dx) ? 0 : Math.sign(dy)]
-          : [0, Math.sign(dy) || 1];
-      if (e.facing[0] === 0 && e.facing[1] === 0) e.facing = [0, 1];
+      let fx = Math.sign(dx) || 0,
+        fy = Math.sign(dy) || 0;
+      // если вектор нулевой или ведёт в стену — пешка застрянет, пробуем случайный фасинг
+      const fwdBlocked =
+        (fx === 0 && fy === 0) || !inB(e.x + fx, e.y + fy) || S.walls.has(key(e.x + fx, e.y + fy));
+      if (fwdBlocked) {
+        const fallback = ORTHO.filter(
+          ([ox, oy]) => inB(e.x + ox, e.y + oy) && !S.walls.has(key(e.x + ox, e.y + oy)),
+        );
+        if (fallback.length) {
+          const [nx, ny] = fallback[Math.floor(Math.random() * fallback.length)];
+          fx = nx;
+          fy = ny;
+        }
+      }
+      e.facing = Math.abs(fx) >= Math.abs(fy) ? [fx, 0] : [0, fy];
     }
     const opts = genMoves(
       e,
@@ -136,10 +147,14 @@ function _enemiesTurnOnce() {
       }
       continue;
     }
-    const bestMove = opts.moves.reduce(
-      (a, b) => (cheb(b, S.player) < cheb(a, S.player) ? b : a),
-      opts.moves[0],
-    );
+    const bestMove = opts.moves.reduce((a, b) => {
+      // штраф за trap/lava — враг идёт туда только если нет другого пути
+      const spA = S.special.get(key(a.x, a.y));
+      const spB = S.special.get(key(b.x, b.y));
+      const penaltyA = spA && (spA.type === 'trap' || spA.type === 'lava') ? 3 : 0;
+      const penaltyB = spB && (spB.type === 'trap' || spB.type === 'lava') ? 3 : 0;
+      return cheb(b, S.player) + penaltyB < cheb(a, S.player) + penaltyA ? b : a;
+    }, opts.moves[0]);
     if (bestMove) {
       if (enemyAt(bestMove.x, bestMove.y)) continue;
       startMoveAnim(e, e.x, e.y, bestMove.x, bestMove.y);

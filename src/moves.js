@@ -351,3 +351,20 @@ export function movesToThreaten(e, sx, sy, attackSet, cap = 5) {
   }
   return cap + 5;
 }
+
+/**
+ * Проверка, что враг типа `t` на клетке (x, y) не заперт навсегда —
+ * у него есть хотя бы один ход без учёта взятий.
+ * Используется при спавне врагов.
+ */
+export function isSpawnable(t, x, y) {
+  const dummy = { type: t, x, y, facing: [0, 1], cd: 0, status: {}, r: CFG.BASE_R[t] || 1, rb: 0 };
+  const ef = effectiveForm(dummy);
+  const opts = genMoves(
+    dummy,
+    ef,
+    () => false,
+    (nx, ny) => S.walls.has(key(nx, ny)),
+  );
+  return opts.moves.length > 0;
+}
