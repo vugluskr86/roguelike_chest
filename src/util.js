@@ -114,6 +114,20 @@ export const isBossFloor = (f) => Object.prototype.hasOwnProperty.call(BOSS_FLOO
 export const isFinalFloor = (f) => f === FINAL_FLOOR;
 export const bossOnFloor = (f) => BOSS_FLOORS[f] || null;
 
+/** Преобразует координаты (x, y) в алгебраическую нотацию: "e4", "a8". */
+export function xyToAlgebraic(x, y) {
+  const file = String.fromCharCode(97 + x); // 'a'..'k' (0..10)
+  const rank = CFG.H - y;
+  return file + rank;
+}
+
+/** Сдвиг от (fx,fy) до (tx,ty) — применяется в логе ходов. */
+export function moveNotation(fx, fy, tx, ty, glyph, enemyGlyph) {
+  const from = xyToAlgebraic(fx, fy);
+  const to = xyToAlgebraic(tx, ty);
+  return enemyGlyph ? `${glyph} ${from}×${enemyGlyph} ${to}` : `${glyph} ${from}-${to}`;
+}
+
 export function shuffle(a) {
   for (let i = a.length - 1; i > 0; i--) {
     const j = randInt(i + 1);

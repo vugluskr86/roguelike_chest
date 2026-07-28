@@ -285,7 +285,7 @@ document.addEventListener('keydown', (ev) => {
       break;
     case 'r':
     case 'к':
-      seedRNG(Math.floor(Date.now()));
+      seedRNG(S.runMode === 'campaign' ? CFG.CAMPAIGN_SEED : Date.now());
       closeModal();
       reset();
       break;
@@ -314,7 +314,7 @@ document.getElementById('btnEditor').onclick = () => {
   openEditor();
 };
 document.getElementById('btnRestart').onclick = () => {
-  seedRNG(Math.floor(Date.now()));
+  seedRNG(S.runMode === 'campaign' ? CFG.CAMPAIGN_SEED : Date.now());
   closeModal();
   reset();
 };

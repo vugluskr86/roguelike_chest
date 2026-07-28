@@ -56,6 +56,7 @@
 /** @typedef {{type:PieceType, r:number, improved:boolean, cooldown:number, homeColor:0|1}} Form */
 
 export const CFG = {
+  CAMPAIGN_SEED: 42, // фиксированный seed для кампании (воспроизводимые забеги)
   W: 13,
   H: 11,
   VIEW_W: 11, // ширина вьюпорта в клетках

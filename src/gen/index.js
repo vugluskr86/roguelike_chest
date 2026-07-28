@@ -8,7 +8,7 @@
  * в игре не ходит ни одна фигура.
  */
 import { CFG } from '../config.js';
-import { key } from '../util.js';
+import { key, shuffle } from '../util.js';
 import { ALGO_FN } from './algos.js';
 import { decorate } from './decorate.js';
 import { paramsForBiome } from './params.js';
@@ -54,7 +54,7 @@ export function generate(opts = {}) {
   const cells = (W - 2) * (H - 2);
   const wantWalls = Math.round(cells * (1 - P.openness));
   if (walls.size > wantWalls) {
-    const list = [...walls];
+    const list = shuffle([...walls]);
     // выбрасываем в первую очередь то, что стоит одиноко: одиночные блоки
     // хуже всех автотайлятся и не читаются как архитектура
     list.sort((a, b) => neighbours(walls, b) - neighbours(walls, a));

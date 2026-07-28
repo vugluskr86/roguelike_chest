@@ -58,6 +58,7 @@ import {
   isFinalFloor,
   key,
   makeForm,
+  moveNotation,
   pick,
   tileColor,
   bossOnFloor,
@@ -186,6 +187,7 @@ export function tryMoveTo(x, y) {
         : `Ты берёшь ${GLYPH[e.type]} ${NAME[e.type]} формой ${NAME[activeForm().type]}`,
       'p',
     );
+    log(moveNotation(S.player.x, S.player.y, x, y, GLYPH[activeForm().type], GLYPH[e.type]), '');
     S.player.hunger = Math.min(
       CFG.HUNGER.cap ?? CFG.HUNGER.start,
       S.player.hunger + CFG.HUNGER.capture,
@@ -199,6 +201,7 @@ export function tryMoveTo(x, y) {
   S.player.y = y;
   startMoveAnim(S.player, fx, fy, x, y);
   playMove();
+  if (!isCap) log(moveNotation(fx, fy, x, y, GLYPH[activeForm().type]), '');
   triggerSpecialForPlayer();
   if (S.gameOver) {
     render();

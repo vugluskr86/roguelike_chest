@@ -31,6 +31,7 @@ import {
   pick,
   randInt,
   random,
+  seedRNG,
   shuffle,
   tileColor,
   bossOnFloor,
@@ -356,7 +357,11 @@ function checkRoomConnectivity(rooms, n) {
 }
 
 export function newFloor() {
-  // seedRNG(S.floor * 1000000 + S.turn + 1);
+  if (S.runMode === 'campaign') {
+    seedRNG(CFG.CAMPAIGN_SEED + S.floor * 1000000 + S.turn);
+  } else {
+    seedRNG(Math.floor(Math.random() * 0x7fffffff));
+  }
   screenFade('#000', 350);
   S.floor++;
   // прогрессия размера карты с этажом
@@ -651,6 +656,7 @@ export function newFloor() {
       : `── Ярус ${S.floor} · ${LContent(S.biome, 'name')} · ${nRooms} комн. ── врагов: ${totalEnemies}`,
     'e',
   );
+  log(isEnglish() ? `Board: ${CFG.W}×${CFG.H}` : `Поле: ${CFG.W}×${CFG.H}`, '');
   // нарративный вход на ярус
   if (getScript().floorIntro[S.floor]) log(getScript().floorIntro[S.floor], '');
   render();
