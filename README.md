@@ -76,6 +76,26 @@
 
 ---
 
+## Скриншоты
+
+<table>
+  <tr>
+    <td><img src="screens/01-title-screen.png" alt="Загрузочный экран" width="400"><br><i>Загрузочный экран</i></td>
+    <td><img src="screens/02-meta-upgrades.png" alt="Мета-прогрессия" width="400"><br><i>Стартовое окно и мета-прогрессия</i></td>
+  </tr>
+  <tr>
+    <td><img src="screens/03-gameplay.png" alt="Игровой процесс" width="400"><br><i>Игровой процесс (забег)</i></td>
+    <td><img src="screens/04-loot-reward.png" alt="Добыча" width="400"><br><i>Добыча после победы</i></td>
+  </tr>
+  <tr>
+    <td><img src="screens/05-blessing-altar.png" alt="Алтарь благословения" width="400"><br><i>Алтарь благословения</i></td>
+    <td><img src="screens/06-floor-cleared.png" alt="Добыча яруса" width="400"><br><i>Добыча яруса</i></td>
+  </tr>
+  <tr>
+    <td><img src="screens/07-gameplay-room.png" alt="Забег в комнатах" width="400"><br><i>Игровой процесс (комнаты)</i></td>
+  </tr>
+</table>
+
 ## Запуск
 
 ```bash
