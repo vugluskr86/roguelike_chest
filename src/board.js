@@ -12,7 +12,7 @@ import { BOSS_CFG, dispatchBossEvents } from './bosses.js';
 import { applyRelic } from './loot.js';
 import { generateRoomCompat } from './gen/index.js';
 import { META, codexSeeEnemy, unlockAch } from './meta.js';
-import { isSpawnable, necroInterval, threatCellsFrom } from './moves.js';
+import { allThreats, invalidateThreats, isSpawnable, necroInterval, threatCellsFrom } from './moves.js';
 import { addSpeech, clearSpeech, render, screenFade } from './render.js';
 import { startTutorial } from './tutorial.js';
 import { getScript } from './content/script.js';
@@ -22,6 +22,7 @@ import { clearRunLog, clearToastQueue, log, openInterlude, openTitle, syncUI } f
 import { L } from './lang.js';
 import { updateMusic, preload } from './music.js';
 import { clearPending } from './preview.js';
+import { flushAnalytics, recordSnapshot, startAnalyticsRun } from './analytics.js';
 import {
   ORTHO,
   inB,
@@ -356,7 +357,15 @@ function checkRoomConnectivity(rooms, n) {
   return visited.size >= n;
 }
 
+/** Обновить индикатор «Шах» после смены карты или комнаты. */
+export function syncCheckIndicator() {
+  const onThreat = allThreats().has(key(S.player.x, S.player.y));
+  dom.shahEl?.classList.toggle('on', onThreat);
+}
+
 export function newFloor() {
+  // Кэш угроз и DOM-индикатор относятся к прошлой карте и не должны переживать переход.
+  invalidateThreats();
   if (S.runMode === 'campaign') {
     seedRNG(CFG.CAMPAIGN_SEED + S.floor * 1000000 + S.turn);
   } else {
@@ -453,6 +462,7 @@ export function newFloor() {
           'e',
         );
       }
+      syncCheckIndicator();
       render();
       syncUI();
       return;
@@ -659,6 +669,9 @@ export function newFloor() {
   log(isEnglish() ? `Board: ${CFG.W}×${CFG.H}` : `Поле: ${CFG.W}×${CFG.H}`, '');
   // нарративный вход на ярус
   if (getScript().floorIntro[S.floor]) log(getScript().floorIntro[S.floor], '');
+  recordSnapshot('floor_started', { biome: S.biome?.id, rooms: S.rooms.length });
+  void flushAnalytics();
+  syncCheckIndicator();
   render();
   syncUI();
 }
@@ -681,6 +694,7 @@ export function loadRoom(id) {
   S.walls = r.walls;
   S.enemies = r.enemies;
   S.special = r.special;
+  invalidateThreats();
 }
 
 /**
@@ -794,11 +808,13 @@ export function loadLevel(data) {
           totalEnemies,
     'e',
   );
+  syncCheckIndicator();
   render();
   syncUI();
 }
 
 export function reset() {
+  startAnalyticsRun({ mode: S.runMode || 'campaign' });
   S.player = {
     x: 0,
     y: 0,

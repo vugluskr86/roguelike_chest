@@ -21,6 +21,7 @@ import { addSpeech, render } from './render.js';
 import { key, makeForm } from './util.js';
 import { isEnglish } from './lang.js';
 import { action, closeModal, log, mkButton, openInterlude, syncUI, toast } from './ui.js';
+import { recordEvent, recordSnapshot } from './analytics.js';
 
 // ════════════════════════════════════════════════════════════════
 //  Состояние
@@ -117,6 +118,7 @@ function finish() {
   T.scene = null;
   T.targets = [];
   META.tutorialDone = true;
+  recordSnapshot('tutorial_finished');
   saveMeta();
   const cb = T.onDone;
   T.onDone = null;
@@ -132,6 +134,7 @@ function nextScene() {
     return;
   }
   const scene = (T.scene = isEnglish() ? SCENES_EN[T.idx] : SCENES[T.idx]);
+  recordEvent('tutorial_step_started', { id: scene.id, index: T.idx });
   const { level, targets } = compile(scene);
   T.targets = targets;
   T.reached = false;
@@ -245,6 +248,7 @@ export function tutorialMark(event) {
   if (event === 'rotate') T.rotated = true;
   if (event === 'switch') T.switched = true;
   if (event === 'eat') T.ate = true;
+  recordEvent('tutorial_action', { event, scene: T.scene?.id || null });
 }
 
 /** Вызывать в конце хода игрока, до хода врагов. */

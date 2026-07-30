@@ -93,6 +93,9 @@ export const CFG = {
   // ── интерфейс ──
   CONFIRM_MOVES: 'risky', // 'off' | 'risky' | 'all' — подтверждение хода вторым тапом
   SHOW_PREVIEW: true, // показывать угрозы, которые появятся после хода
+  ANALYTICS_ENABLED: false,
+  ANALYTICS_ENDPOINT: 'http://localhost:8787',
+  ANALYTICS_ADMIN_TOKEN: '',
   HUNGER: {
     start: 20, // сытость в начале этажа
     cap: 30, // ← новое: потолок сытости
@@ -381,6 +384,9 @@ const SETTINGS_KEYS = [
   'MUSIC_ENABLED',
   'MUSIC_VOLUME',
   'LANG',
+  'ANALYTICS_ENABLED',
+  'ANALYTICS_ENDPOINT',
+  'ANALYTICS_ADMIN_TOKEN',
 ];
 
 export function loadSettings() {

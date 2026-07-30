@@ -586,6 +586,12 @@
   bottom: 3px;
 }
 
+@media (max-width: 780px) {
+  .side > .card {
+    width: 100%;
+  }
+}
+
 /* ── Журнал под доской ── */
 .board-wrap > .card {
   margin-top: 10px;

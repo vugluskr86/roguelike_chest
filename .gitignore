@@ -8,3 +8,4 @@ android/
 !.vscode/extensions.json
 ComfyUI/output/
 tools/comfy/__pycache__/
+analytics-data/

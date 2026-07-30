@@ -22,6 +22,7 @@ import {
 } from './render.js';
 import { enemyAt } from './state.js';
 import { closeModal, dismissModal, openHelp, openSettings, openTitle } from './ui.js';
+import { installAnalyticsLifecycle } from './analytics.js';
 import { isTutorial } from './tutorial.js';
 import { inB, key, seedRNG } from './util.js';
 import { editorActive, handleEditorClick, isBrushActive, openEditor } from './editor.js';
@@ -186,6 +187,7 @@ function startGame() {
   renderLegend();
   metaLoad();
   reset();
+  installAnalyticsLifecycle();
   resizeBoard();
   startRenderLoop();
 

@@ -11,6 +11,7 @@ import { log, openLoot } from './ui.js';
 import { playLoot } from './audio.js';
 import { isEnglish } from './lang.js';
 import { shuffle } from './util.js';
+import { recordEvent } from './analytics.js';
 
 export const relicPool = () =>
   Object.keys(RELICS).filter((id) => {
@@ -91,6 +92,7 @@ export function offerLoot() {
 }
 
 export function applyRelic(id) {
+  recordEvent('relic_selected', { id });
   S.player.relics.add(id);
   codexSeeRelic(id);
   if (S.player.relics.size >= 5) unlockAch('collector');
@@ -106,6 +108,7 @@ export function applyRelic(id) {
   );
 }
 export function applyCurse(id) {
+  recordEvent('curse_selected', { id });
   S.player.curses.add(id);
   codexSeeCurse(id);
   if (S.player.curses.size >= 3) unlockAch('cursed');

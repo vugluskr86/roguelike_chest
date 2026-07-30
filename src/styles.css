@@ -937,6 +937,14 @@ button.again {
     width: min(616px, 100%);
   }
 }
+@media (max-width: 780px) {
+  .side {
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+}
 @media (max-width: 640px) {
   body {
     padding: 10px;

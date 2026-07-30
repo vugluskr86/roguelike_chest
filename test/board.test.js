@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { S } from '../src/state.js';
 import { biomeFor, BIOMES, CFG } from '../src/config.js';
 import { generateRoom, floodReach, buildFloorEnemies, reset, newFloor } from '../src/board.js';
+import { cachedThreats } from '../src/moves.js';
 
 const K = (x, y) => x + ',' + y;
 
@@ -62,5 +63,18 @@ describe('floor balance invariants', () => {
       // player just spawned; ensure no enemy threatens player's cell handled in spawn guard
       expect(S.enemies.length).toBeGreaterThanOrEqual(1);
     }
+  });
+  it('clears threats cached for the previous floor', () => {
+    reset();
+    newFloor();
+    S.walls = new Set();
+    S.enemies = [
+      { type: 'rook', x: S.player.x, y: 0, facing: [0, 1], status: {}, r: CFG.H },
+    ];
+    expect(cachedThreats().has(K(S.player.x, S.player.y))).toBe(true);
+
+    newFloor();
+
+    expect(cachedThreats().has(K(S.player.x, S.player.y))).toBe(false);
   });
 });

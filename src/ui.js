@@ -26,6 +26,7 @@ import { syncHud } from './hud.js';
 import { ART } from './assets.js';
 import { isEnglish, L, LContent, invalidateLang } from './lang.js';
 import { duck, syncMusicSettings } from './music.js';
+import { downloadReplay, recordSnapshot, startAnalyticsRun } from './analytics.js';
 
 //  Оболочка модалки
 // ════════════════════════════════════════════════════════════════
@@ -1074,6 +1075,62 @@ export function openSettings() {
   dom.mChoices.appendChild(mkToggle(L('settings.anim'), 'ANIM_ENABLED'));
   dom.mChoices.appendChild(mkToggle(L('settings.music'), 'MUSIC_ENABLED'));
   dom.mChoices.appendChild(mkToggle(L('settings.preview'), 'SHOW_PREVIEW'));
+
+  const analyticsRow = mkRow(
+    isEnglish() ? 'Anonymous playtest telemetry' : 'Анонимная статистика плейтеста',
+    isEnglish()
+      ? 'Sends game actions and replays without personal data.'
+      : 'Отправляет игровые действия и реплеи без персональных данных.',
+  );
+  const analyticsBtn = document.createElement('button');
+  analyticsBtn.className = 'buy';
+  analyticsBtn.textContent = CFG.ANALYTICS_ENABLED ? L('on') : L('off');
+  analyticsBtn.onclick = () => {
+    CFG.ANALYTICS_ENABLED = !CFG.ANALYTICS_ENABLED;
+    saveSettings();
+    if (CFG.ANALYTICS_ENABLED) {
+      startAnalyticsRun({ enabledFromSettings: true, mode: S.runMode || 'campaign' });
+      recordSnapshot('analytics_enabled');
+    }
+    analyticsBtn.textContent = CFG.ANALYTICS_ENABLED ? L('on') : L('off');
+  };
+  analyticsRow.appendChild(analyticsBtn);
+  dom.mChoices.appendChild(analyticsRow);
+
+  const endpointRow = mkRow(isEnglish() ? 'Playtest server URL' : 'Адрес сервера плейтеста');
+  const endpointInput = document.createElement('input');
+  endpointInput.type = 'url';
+  endpointInput.value = CFG.ANALYTICS_ENDPOINT;
+  endpointInput.placeholder = 'http://localhost:8787';
+  endpointInput.onchange = () => {
+    CFG.ANALYTICS_ENDPOINT = endpointInput.value.trim().replace(/\/$/, '');
+    saveSettings();
+  };
+  endpointRow.appendChild(endpointInput);
+  dom.mChoices.appendChild(endpointRow);
+
+  const tokenRow = mkRow(isEnglish() ? 'Analytics Bearer token' : 'Bearer-токен аналитики');
+  const tokenInput = document.createElement('input');
+  tokenInput.type = 'password';
+  tokenInput.autocomplete = 'off';
+  tokenInput.value = CFG.ANALYTICS_ADMIN_TOKEN;
+  tokenInput.placeholder = 'ADMIN_TOKEN';
+  tokenInput.onchange = () => {
+    CFG.ANALYTICS_ADMIN_TOKEN = tokenInput.value.trim();
+    saveSettings();
+  };
+  tokenRow.appendChild(tokenInput);
+  dom.mChoices.appendChild(tokenRow);
+
+  if (CFG.ANALYTICS_ENABLED) {
+    const exportRow = mkRow(isEnglish() ? 'Export current replay' : 'Экспортировать текущий реплей');
+    const exportBtn = document.createElement('button');
+    exportBtn.className = 'buy';
+    exportBtn.textContent = isEnglish() ? 'export' : 'экспорт';
+    exportBtn.onclick = () => downloadReplay();
+    exportRow.appendChild(exportBtn);
+    dom.mChoices.appendChild(exportRow);
+  }
 
   // подтверждение хода — три состояния
   const modes = ['off', 'risky', 'all'];

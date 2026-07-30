@@ -1,0 +1,17 @@
+<!doctype html>
+<html lang="ru">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Эндшпиль — аналитика</title><link rel="stylesheet" href="/style.css"></head>
+<body>
+  <header><h1>Эндшпиль · аналитика плейтестов</h1><input id="token" placeholder="Admin token"><button id="refresh">Обновить</button></header>
+  <main>
+    <section id="summary" class="cards"></section>
+    <section><h2>Забеги</h2><table><thead><tr><th>Начат</th><th>Версия</th><th>Итог</th><th>Ярус</th><th>События</th><th></th></tr></thead><tbody id="runs"></tbody></table></section>
+    <section id="viewer" hidden>
+      <h2>Реплей <span id="replayId"></span></h2>
+      <div class="controls"><button id="prev">←</button><input id="step" type="range" min="0" value="0"><button id="next">→</button><span id="event"></span></div>
+      <div class="replay-layout"><div><div id="board" class="replay-board"></div><div id="items" class="replay-items"></div></div><div><ol id="eventLog" class="event-log"></ol><pre id="state"></pre></div></div>
+    </section>
+  </main>
+  <script type="module" src="/app.js"></script>
+</body>
+</html>

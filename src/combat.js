@@ -10,7 +10,7 @@ import { RELICS, CURSES } from './content.js';
 import { actForFloor, pickLine, getScript } from './content/script.js';
 import { enemiesTurn } from './enemies.js';
 import { tormentorHit, dispatchBossEvents, BOSS_CFG, linkedRookRevenge } from './bosses.js';
-import { snapshotRoom, loadRoom } from './board.js';
+import { snapshotRoom, loadRoom, syncCheckIndicator } from './board.js';
 import { offerLoot } from './loot.js';
 import { endRunMeta, recordKill, unlockAch } from './meta.js';
 import { activeForm, allThreats, playerOptions } from './moves.js';
@@ -64,6 +64,7 @@ import {
   bossOnFloor,
 } from './util.js';
 import { clearPending, confirmMove } from './preview.js';
+import { finishAnalyticsRun, recordEvent, recordSnapshot } from './analytics.js';
 
 export function tryMoveTo(x, y) {
   if (S.gameOver || S.modalOpen) return;
@@ -71,6 +72,7 @@ export function tryMoveTo(x, y) {
   const isCap = captures.some((c) => c.x === x && c.y === y);
   const isMove = moves.some((c) => c.x === x && c.y === y);
   if (!isCap && !isMove) {
+    recordEvent('move_rejected', { to: [x, y], reason: 'not_legal' });
     // тап мимо легальных клеток — показываем, куда можно
     if (moves.length || captures.length) {
       log(isEnglish() ? 'No valid move to that cell.' : 'Нет хода на эту клетку.', '');
@@ -78,6 +80,7 @@ export function tryMoveTo(x, y) {
     return;
   }
   if (!tutorialAllowsMove(x, y)) {
+    recordEvent('move_rejected', { to: [x, y], reason: 'tutorial_locked' });
     tutorialNudge('move');
     return;
   }
@@ -90,6 +93,7 @@ export function tryMoveTo(x, y) {
   // двухступенчатое подтверждение: первый тап показывает последствия,
   // второй по той же клетке выполняет ход (CFG.CONFIRM_MOVES)
   if (!confirmMove(x, y)) {
+    recordEvent('move_confirmation_requested', { to: [x, y], capture: isCap });
     render();
     syncUI();
     return;
@@ -208,6 +212,7 @@ export function tryMoveTo(x, y) {
     syncUI();
     return;
   }
+  recordEvent(isCap ? 'capture' : 'move', { to: [x, y], form: activeForm().type });
   endPlayerTurn();
 }
 
@@ -336,6 +341,8 @@ export function triggerSpecialForPlayer() {
     loadRoom(s.targetRoom);
     S.player.x = s.targetPos.x;
     S.player.y = s.targetPos.y;
+    syncCheckIndicator();
+    recordSnapshot('room_entered', { room: s.targetRoom });
     screenFade('#000', 250);
     log(
       isEnglish() ? `Entering room ${s.targetRoom + 1}.` : `Переход в комнату ${s.targetRoom + 1}.`,
@@ -485,6 +492,8 @@ export function switchForm(i) {
     return;
   }
   S.player.active = i;
+  recordEvent('switch_form', { slot: i, form: f.type });
+  recordSnapshot('form_switched');
   // голоса костей: 3 хода своенравия при смене на новую форму
   const formType = S.player.wheel[i].type;
   if (!has('silence') && !S.player.wheel[i]._seenBefore) {
@@ -525,6 +534,8 @@ export function rotate(dir) {
   if (!tutorialAllowsRotate()) return tutorialNudge('rotate');
   const i = ORTHO.findIndex(([dx, dy]) => dx === S.player.facing[0] && dy === S.player.facing[1]);
   S.player.facing = ORTHO[(i + dir + 4) % 4];
+  recordEvent('rotate', { direction: dir, facing: S.player.facing });
+  recordSnapshot('rotated');
   render();
   syncUI();
 }
@@ -545,6 +556,7 @@ export function pass() {
     }
   }
   S.player.hunger -= CFG.HUNGER.passExtra;
+  recordEvent('pass', { hunger: S.player.hunger });
   log(
     isEnglish()
       ? `Pass. Hunger deepens (−${CFG.HUNGER.passExtra}).`
@@ -555,6 +567,7 @@ export function pass() {
 
 export function endPlayerTurn() {
   clearPending();
+  recordSnapshot('turn_started');
   if (S.player.status && S.player.status.haste > 0) S.player.status.haste--; // тик ускорения игрока
   // Голод: на босс-этажах не тратится
   // голод замирает только на реальном босс-бое, а не на любом «боссовом» номере
@@ -770,6 +783,7 @@ export function afterEnemies() {
     syncUI();
     return;
   }
+  recordSnapshot('turn_resolved');
   checkMate();
   render();
   syncUI();
@@ -869,6 +883,7 @@ export function death() {
     return;
   }
   S.gameOver = true;
+  finishAnalyticsRun('death', { floor: S.floor, turn: S.turn });
   sting('death');
   const earned = endRunMeta();
   openRunSummary(L('summary.dead'), L('summary.deadSub'), earned);
@@ -910,6 +925,7 @@ export function openVictory() {
     return;
   }
   S.gameOver = true;
+  finishAnalyticsRun('victory', { floor: S.floor, turn: S.turn });
   S.modalOpen = true;
   playTrack('ending');
   const earned = endRunMeta();

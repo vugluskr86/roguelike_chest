@@ -1,0 +1,11 @@
+services:
+  analytics:
+    build: .
+    ports:
+      - "8787:8787"
+    environment:
+      ANALYTICS_ADMIN_TOKEN: ${ANALYTICS_ADMIN_TOKEN:?set-in-.env}
+    volumes:
+      - analytics-data:/data
+volumes:
+  analytics-data:
