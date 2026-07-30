@@ -1,0 +1,1876 @@
+:root {
+  --ink: #14161c; /* фон подземелья */
+  --panel: #1c1f27;
+  --tile-light: #a2937c; /* кость */
+  --tile-dark: #4b433c; /* морёный дуб */
+  --wall: #262119;
+  --threat: #b3423a; /* киноварь угрозы */
+  --promo: #c9a227; /* золото промоушена */
+  --ivory: #f2e9d8; /* игрок */
+  --ember: #d07a3f; /* враги */
+  --teal: #58b3a4; /* акцент игрока */
+  --txt: #d8d2c4;
+  --muted: #8a8478;
+}
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+/* ===== экран загрузки ===== */
+#loadingScreen {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  background: #1d1e3a;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 1;
+  transition: opacity 0.6s ease-out;
+}
+#loadingScreen.hidden {
+  opacity: 0;
+  pointer-events: none;
+}
+.loading-content {
+  text-align: center;
+  max-width: 420px;
+  padding: 24px;
+}
+.loading-logo {
+  width: 140px;
+  height: auto;
+  margin-bottom: 20px;
+  image-rendering: auto;
+}
+.loading-title {
+  font-size: 28px;
+  font-weight: normal;
+  color: var(--promo);
+  letter-spacing: 0.08em;
+  margin-bottom: 24px;
+}
+.loading-lore {
+  font-family: Georgia, 'Times New Roman', serif;
+  font-style: italic;
+  font-size: 15px;
+  color: var(--muted);
+  line-height: 1.65;
+  margin-bottom: 20px;
+}
+.loading-tip {
+  font-size: 13.5px;
+  color: var(--teal);
+  line-height: 1.5;
+}
+.loading-hint {
+  margin-top: 28px;
+  font-size: 14px;
+  color: var(--promo);
+  letter-spacing: 0.06em;
+  animation: hintPulse 1.8s ease-in-out infinite;
+}
+@keyframes hintPulse {
+  0%,
+  100% {
+    opacity: 0.3;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+body {
+  background: var(--ink);
+  color: var(--txt);
+  font-family: Georgia, 'Iowan Old Style', 'Times New Roman', serif;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 16px;
+}
+h1 {
+  font-size: 20px;
+  letter-spacing: 0.06em;
+  font-weight: normal;
+  color: var(--ivory);
+  margin-bottom: 2px;
+}
+h1 .v {
+  color: var(--muted);
+  font-size: 13px;
+}
+.sub {
+  color: var(--muted);
+  font-size: 13px;
+  margin-bottom: 12px;
+}
+.layout {
+  display: flex;
+  gap: 16px;
+  flex-wrap: wrap;
+  justify-content: center;
+  align-items: flex-start;
+  width: 100%;
+  max-width: 940px;
+}
+.board-wrap {
+  width: 616px;
+  max-width: 100%;
+  flex: 0 0 auto;
+  overscroll-behavior: none;
+  touch-action: none;
+}
+canvas {
+  background: var(--ink);
+  border: 1px solid #2c2f38;
+  border-radius: 4px;
+  display: block;
+  width: 100%;
+  touch-action: none;
+  -webkit-tap-highlight-color: transparent;
+}
+.side {
+  width: 300px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.card {
+  background: var(--panel);
+  border: 1px solid #2c2f38;
+  border-radius: 6px;
+  padding: 10px 12px;
+}
+.card h2 {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--muted);
+  margin-bottom: 8px;
+  font-weight: normal;
+}
+.hudbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 6px;
+  margin: -2px 0 10px;
+}
+.hudbar .hb {
+  font-size: 11px;
+  color: var(--muted);
+  background: #181b22;
+  border: 1px solid #2c2f38;
+  border-radius: 5px;
+  padding: 1px 8px;
+  white-space: nowrap;
+}
+.hudbar .hb.gold {
+  color: var(--promo);
+  border-color: #5a4a1e;
+}
+/* шкала голода */
+.hunger-bar {
+  align-items: center;
+  gap: 8px;
+}
+.hunger-label {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--muted);
+  flex-shrink: 0;
+}
+.hunger-ribs {
+  display: flex;
+  gap: 1px;
+  flex: 1;
+  align-items: center;
+}
+.rib {
+  flex: 1;
+  height: 6px;
+  background: #282a30;
+  border-radius: 1px;
+  transition: background 0.3s;
+}
+.rib-on {
+  background: #58b3a4;
+}
+.rib-starve {
+  background: #c23b30;
+  animation: ribPulse 0.8s ease-in-out infinite;
+}
+@keyframes ribPulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.45;
+  }
+}
+
+.hudbar .hb.shards {
+  color: #9b6dd0;
+  border-color: #5a3d7a;
+}
+.wheel {
+  display: flex;
+  gap: 8px;
+}
+.slot {
+  flex: 1;
+  border: 1px solid #3a3e49;
+  border-radius: 6px;
+  padding: 6px 4px;
+  text-align: center;
+  cursor: pointer;
+  background: #181b22;
+  transition: border-color 0.15s;
+  user-select: none;
+  position: relative;
+}
+.slot:hover {
+  border-color: var(--teal);
+}
+.slot.active {
+  border-color: var(--teal);
+  background: #1d2a28;
+}
+.slot.cd {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+.slot.empty {
+  opacity: 0.35;
+  cursor: default;
+  border-style: dashed;
+}
+.slot .glyph {
+  font-size: 26px;
+  line-height: 1;
+  color: var(--ivory);
+  font-family: 'Segoe UI Symbol', 'Noto Sans Symbols 2', serif;
+}
+.slot .nm {
+  font-size: 10px;
+  color: var(--muted);
+  margin-top: 2px;
+}
+.slot .star {
+  position: absolute;
+  top: 2px;
+  right: 5px;
+  color: var(--promo);
+  font-size: 11px;
+}
+.slot .cdn {
+  position: absolute;
+  top: 2px;
+  left: 5px;
+  color: var(--threat);
+  font-size: 11px;
+}
+.status {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-wrap: wrap;
+  font-size: 13px;
+}
+.badge {
+  padding: 2px 8px;
+  border-radius: 3px;
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.badge.shah {
+  background: var(--threat);
+  color: #fff;
+  display: none;
+}
+.badge.shah.on {
+  display: inline-block;
+}
+.btnrow {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+button {
+  background: #242833;
+  color: var(--txt);
+  border: 1px solid #3a3e49;
+  border-radius: 5px;
+  padding: 6px 12px;
+  font-family: inherit;
+  font-size: 13px;
+  cursor: pointer;
+  min-height: 40px;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-tap-highlight-color: transparent;
+}
+button:hover {
+  border-color: var(--teal);
+  color: var(--ivory);
+}
+button:focus-visible {
+  outline: 2px solid var(--teal);
+  outline-offset: 1px;
+}
+button:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+#log {
+  font-family: ui-monospace, Consolas, monospace;
+  font-size: 11.5px;
+  line-height: 1.5;
+  height: 150px;
+  overflow-y: auto;
+  color: var(--muted);
+}
+#log .p {
+  color: var(--teal);
+}
+#log .e {
+  color: var(--ember);
+}
+#log .g {
+  color: var(--promo);
+}
+#log .r {
+  color: #d66a62;
+}
+.legend {
+  font-size: 12px;
+  color: var(--muted);
+  line-height: 1.7;
+}
+.legend b {
+  color: var(--txt);
+  font-weight: normal;
+}
+.sw {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 2px;
+  vertical-align: -1px;
+  margin-right: 4px;
+}
+kbd {
+  background: #242833;
+  border: 1px solid #3a3e49;
+  border-radius: 3px;
+  padding: 0 5px;
+  font-size: 11px;
+  font-family: ui-monospace, monospace;
+}
+/* модалка промоушена / конца игры */
+.overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(10, 11, 15, 0.8);
+  display: none;
+  align-items: center;
+  justify-content: center;
+  z-index: 10;
+}
+.overlay.on {
+  display: flex;
+}
+.modal {
+  background: var(--panel);
+  border: 1px solid var(--promo);
+  border-radius: 8px;
+  padding: 24px;
+  max-width: 420px;
+  max-height: 88vh;
+  overflow-y: auto;
+  text-align: center;
+}
+.modal h3 {
+  color: var(--promo);
+  font-weight: normal;
+  letter-spacing: 0.06em;
+  margin-bottom: 6px;
+}
+.modal p {
+  font-size: 13px;
+  color: var(--muted);
+  margin-bottom: 14px;
+}
+.modal .choices {
+  display: flex;
+  gap: 10px;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+.modal .choices button {
+  font-size: 14px;
+  min-height: 40px;
+  padding: 8px 14px;
+}
+.modal.death {
+  border-color: var(--threat);
+}
+.modal.death h3 {
+  color: var(--threat);
+}
+.choices.loot-list {
+  flex-direction: column;
+  align-items: stretch;
+}
+.modal .choices button.loot {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  text-align: left;
+  padding: 12px 14px;
+  font-size: 15px;
+}
+.modal .choices button.loot .lk {
+  color: var(--muted);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  margin-bottom: 2px;
+}
+.modal .choices button.loot .ln {
+  color: var(--promo);
+  letter-spacing: 0.02em;
+}
+.modal .choices button.loot .ln.t-common {
+  color: #cabf9f;
+}
+.modal .choices button.loot .ln.t-rare {
+  color: #69b0e6;
+}
+.modal .choices button.loot .ln.t-epic {
+  color: #c483d8;
+}
+.modal .choices button.loot .ln .tag {
+  font-style: normal;
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  opacity: 0.75;
+  margin-left: 5px;
+}
+.modal .choices button.loot .ld {
+  color: var(--muted);
+  font-size: 12.5px;
+  line-height: 1.3;
+  font-family: Georgia, serif;
+  margin-bottom: 2px;
+}
+.modal .choices button.loot .cn {
+  color: var(--threat);
+  letter-spacing: 0.02em;
+  font-size: 14px;
+  margin-top: 3px;
+}
+.modal .choices button.loot .cd {
+  color: #c98a86;
+  font-size: 12.5px;
+  line-height: 1.3;
+  font-family: Georgia, serif;
+}
+.modal .choices button.loot.cursed {
+  border-color: var(--threat);
+  background: #241819;
+}
+.modal .choices button.loot.cursed:hover {
+  border-color: #e0645c;
+}
+.relics {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.chip {
+  background: #1d2a28;
+  border: 1px solid #2f6f63;
+  color: #bfe3db;
+  border-radius: 12px;
+  padding: 3px 9px;
+  font-size: 11.5px;
+  cursor: default;
+}
+.chip.curse {
+  background: #2a1a1b;
+  border-color: #7a3833;
+  color: #e6b3ae;
+}
+.chip.chip-t-rare {
+  border-color: #3d6b90;
+  color: #9ccdf0;
+}
+.chip.chip-t-epic {
+  border-color: #7a4d90;
+  color: #d3a6e2;
+}
+.summary {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  text-align: left;
+}
+.summary .sfloor {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0;
+  padding: 6px 0;
+}
+.summary .snum {
+  font-size: 56px;
+  line-height: 1;
+  color: var(--promo);
+  font-weight: normal;
+}
+.summary .slbl {
+  font-size: 12px;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin-top: 4px;
+}
+.summary .sstats {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 13px;
+  color: var(--txt);
+  align-items: center;
+  text-align: center;
+}
+.summary .sstats b {
+  color: var(--ivory);
+}
+.summary .ssec {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.summary .sh {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--muted);
+}
+.summary .relics {
+  justify-content: flex-start;
+}
+button.again {
+  margin-top: 4px;
+  min-height: 44px;
+  font-size: 15px;
+  border-color: var(--teal);
+}
+.summary .searn {
+  color: var(--promo);
+  font-size: 14px;
+  margin-top: 2px;
+}
+.summary .searn b {
+  color: var(--promo);
+}
+.summary .srec {
+  color: var(--muted);
+  font-size: 12px;
+}
+.run-log {
+  max-height: 140px;
+  overflow-y: auto;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--muted);
+  padding: 4px 0;
+  border-top: 1px solid #2a2f3a;
+  margin-top: 2px;
+  font-family: ui-monospace, Consolas, monospace;
+}
+.run-log .p {
+  color: var(--teal);
+}
+.run-log .e {
+  color: var(--ember);
+}
+.run-log .g {
+  color: var(--promo);
+}
+.run-log .r {
+  color: #d66a62;
+}
+.btnrow2 {
+  display: flex;
+  gap: 8px;
+  margin-top: 6px;
+}
+.btnrow2 button {
+  flex: 1;
+}
+.shop {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.shoprow {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: #181b22;
+  border: 1px solid #2c2f38;
+  border-radius: 6px;
+  padding: 9px 11px;
+}
+.shoprow .si {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  text-align: left;
+  flex: 1;
+}
+.shoprow .si .ln {
+  color: var(--ivory);
+  font-size: 14px;
+}
+.shoprow .si .lvl {
+  color: var(--muted);
+  font-size: 11px;
+}
+.shoprow .si .ld {
+  color: var(--muted);
+  font-size: 12px;
+  font-family: Georgia, serif;
+  line-height: 1.3;
+}
+.shoprow .buy {
+  min-height: 38px;
+  white-space: nowrap;
+  border-color: var(--promo);
+  color: var(--promo);
+}
+.shoprow .buy:disabled {
+  border-color: #3a3e49;
+  color: var(--muted);
+}
+/* табы в мета-окне */
+.tab-row {
+  display: flex;
+  gap: 0;
+  margin-bottom: 8px;
+}
+.tab-btn {
+  flex: 1;
+  background: transparent;
+  border: none;
+  border-bottom: 2px solid transparent;
+  color: var(--muted);
+  font-size: 13px;
+  padding: 8px 0;
+  min-height: unset;
+  border-radius: 0;
+  cursor: pointer;
+  transition: border-color 0.2s;
+}
+.tab-btn.active {
+  border-color: var(--promo);
+  color: var(--ivory);
+}
+.tab-btn:hover {
+  border-color: var(--promo);
+}
+.tab-panel {
+  width: 100%;
+}
+.scroll-shop {
+  max-height: 260px;
+  overflow-y: auto;
+}
+.scroll-shop,
+#log,
+.modal {
+  scrollbar-width: thin;
+  scrollbar-color: #3a3e49 #181b22;
+}
+.scroll-shop::-webkit-scrollbar,
+#log::-webkit-scrollbar,
+.modal::-webkit-scrollbar {
+  width: 6px;
+}
+.scroll-shop::-webkit-scrollbar-track,
+#log::-webkit-scrollbar-track,
+.modal::-webkit-scrollbar-track {
+  background: #181b22;
+  border-radius: 3px;
+}
+.scroll-shop::-webkit-scrollbar-thumb,
+#log::-webkit-scrollbar-thumb,
+.modal::-webkit-scrollbar-thumb {
+  background: #3a3e49;
+  border-radius: 3px;
+}
+.scroll-shop::-webkit-scrollbar-thumb:hover,
+#log::-webkit-scrollbar-thumb:hover,
+.modal::-webkit-scrollbar-thumb:hover {
+  background: var(--promo);
+}
+.help {
+  text-align: left;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: var(--txt);
+}
+.help .hsec {
+  color: var(--muted);
+}
+.help .hh {
+  color: var(--promo);
+  font-size: 13px;
+  letter-spacing: 0.04em;
+  margin-bottom: 3px;
+}
+.help b {
+  color: var(--ivory);
+  font-weight: normal;
+}
+.help .cdx {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  padding: 4px 0;
+  border-bottom: 1px solid #24272f;
+}
+.help .cdx b {
+  color: var(--ivory);
+  font-weight: normal;
+  font-size: 13px;
+}
+.help .cdx span {
+  color: var(--muted);
+  font-size: 12px;
+}
+.help .cdx.locked b,
+.help .cdx.locked span {
+  color: #565049;
+  font-style: italic;
+}
+.toast {
+  position: fixed;
+  top: 18px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 50;
+  background: #1d2a28;
+  border: 1px solid var(--teal);
+  color: #d7efe9;
+  border-radius: 8px;
+  padding: 9px 16px;
+  font-family: Georgia, serif;
+  font-size: 14px;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.5);
+  transition:
+    opacity 0.5s,
+    transform 0.5s;
+}
+.toast.out {
+  opacity: 0;
+  transform: translateX(-50%) translateY(-10px);
+}
+/* редактор уровней */
+#editorBar {
+  width: 100%;
+  max-width: 940px;
+  margin-top: 6px;
+  background: var(--panel);
+  border: 1px solid #2c2f38;
+  border-radius: 6px;
+  padding: 6px 10px;
+}
+.editor-tools {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 3px;
+  margin-bottom: 4px;
+}
+#editorActions {
+  margin-bottom: 2px;
+}
+#editorActions button {
+  min-height: 26px;
+  padding: 2px 7px;
+  font-size: 14px;
+  line-height: 1;
+}
+#editorObjects {
+  gap: 3px;
+}
+#editorObjects button {
+  min-height: 26px;
+  padding: 2px 7px;
+  font-size: 13px;
+  line-height: 1;
+  white-space: nowrap;
+}
+.editor-tab-row {
+  display: flex;
+  gap: 2px;
+  margin-bottom: 0;
+}
+.editor-tab-btn {
+  background: #242833;
+  border: 1px solid #3a3e49;
+  color: var(--muted);
+  font-size: 12px;
+  padding: 3px 10px;
+  border-radius: 5px 5px 0 0;
+  cursor: pointer;
+  min-height: unset;
+  border-bottom: none;
+}
+.editor-tab-btn.active {
+  background: #181b22;
+  color: var(--txt);
+  border-color: #3a3e49;
+  border-bottom: 1px solid #181b22;
+  margin-bottom: -1px;
+}
+.editor-group-body {
+  background: #181b22;
+  border: 1px solid #3a3e49;
+  border-radius: 0 5px 5px 5px;
+  padding: 4px 6px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 3px;
+  margin-bottom: 4px;
+}
+.editor-sep {
+  width: 100%;
+  height: 1px;
+  background: #3a3e49;
+  margin: 3px 0 5px;
+}
+.editor-tools button.active {
+  border-color: var(--teal);
+  background: #1d2a28;
+  color: var(--ivory);
+}
+.editor-tools button.running {
+  border-color: var(--threat);
+  background: #2a1a1b;
+  color: #e6b3ae;
+}
+.editor-status {
+  font-size: 11px;
+  color: var(--muted);
+  margin-top: 3px;
+}
+.editor-group-label {
+  font-size: 9px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--muted);
+  margin-right: 2px;
+  user-select: none;
+}
+.editor-size-wrap {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  margin-left: auto;
+  font-size: 11px;
+  color: var(--muted);
+}
+.editor-size-wrap input {
+  width: 40px;
+  background: #242833;
+  color: var(--txt);
+  border: 1px solid #3a3e49;
+  border-radius: 4px;
+  padding: 1px 4px;
+  font-family: inherit;
+  font-size: 11px;
+  text-align: center;
+}
+.editor-size-wrap input::-webkit-inner-spin-button,
+.editor-size-wrap input::-webkit-outer-spin-button {
+  opacity: 0.5;
+}
+/* скролл-области редактора (выбор уровня, связи дверей) */
+.editor-scroll {
+  max-height: 240px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.editor-scroll::-webkit-scrollbar {
+  width: 5px;
+}
+.editor-scroll::-webkit-scrollbar-track {
+  background: #181b22;
+  border-radius: 3px;
+}
+.editor-scroll::-webkit-scrollbar-thumb {
+  background: #3a3e49;
+  border-radius: 3px;
+}
+.editor-scroll::-webkit-scrollbar-thumb:hover {
+  background: var(--promo);
+}
+.editor-scroll .shoprow {
+  flex-shrink: 0;
+}
+@media (max-width: 980px) {
+  .side {
+    width: min(616px, 100%);
+  }
+}
+@media (max-width: 780px) {
+  .side {
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+}
+@media (max-width: 640px) {
+  body {
+    padding: 10px;
+  }
+  h1 {
+    font-size: 17px;
+    text-align: center;
+  }
+  .sub {
+    font-size: 11.5px;
+    margin-bottom: 10px;
+    text-align: center;
+    line-height: 1.4;
+  }
+  .layout {
+    gap: 10px;
+  }
+  .card {
+    padding: 10px 11px;
+  }
+  .wheel {
+    gap: 10px;
+  }
+  .slot {
+    padding: 9px 4px;
+    min-height: 64px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+  }
+  .slot .glyph {
+    font-size: 32px;
+  }
+  .slot .nm {
+    font-size: 11px;
+  }
+  .btnrow {
+    gap: 9px;
+  }
+  button {
+    flex: 1 1 auto;
+    min-width: 0;
+    font-size: 14px;
+    padding: 10px 8px;
+  }
+  #btnRestart {
+    flex-basis: 100%;
+  }
+  #log {
+    height: 104px;
+    font-size: 12px;
+  }
+  .legend {
+    font-size: 12.5px;
+  }
+  .modal {
+    max-width: 94vw;
+    padding: 20px 16px;
+  }
+}
+@media (hover: none) and (pointer: coarse) {
+  .slot {
+    min-height: 68px;
+    padding: 12px 4px;
+  }
+  .slot .glyph {
+    font-size: 36px;
+  }
+  button {
+    min-height: 48px;
+    font-size: 15px;
+    padding: 12px 10px;
+  }
+}
+/* ============================================================
+   src/hud.css — стили новых элементов HUD.
+   Палитра взята из уже существующей: кость #f2e9d8, бирюза #58b3a4,
+   охра #d07a3f, золото #c9a227, багрец #b3423a, янтарь #e0a03a.
+   Подключить в index.html после основного css.
+   ============================================================ */
+
+#hudExtra {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin: 4px 0 6px;
+  font:
+    11px/1.3 Georgia,
+    serif;
+}
+
+/* ---------- шкала голода ---------- */
+
+.rib {
+  height: 10px;
+  min-width: 4px;
+  border-radius: 2px;
+  background: #3a3530;
+}
+.rib-gap {
+  display: inline-block;
+  width: 4px;
+}
+
+.rib-on {
+  background: #58b3a4;
+}
+.rib-low {
+  background: #c9a227;
+}
+.rib-starve {
+  background: #b3423a;
+}
+/* запас сверх стартового — читается как «накопил» */
+.rib-over {
+  box-shadow: 0 0 3px rgba(88, 179, 164, 0.9);
+}
+
+.hcount {
+  margin-left: 8px;
+  color: #8b91a0;
+  font:
+    12px Georgia,
+    serif;
+  white-space: nowrap;
+}
+.hcount.warn {
+  color: #e08a3f;
+  font-weight: bold;
+}
+.hcount.frozen {
+  color: #58b3a4;
+}
+
+/* ---------- миникарта комнат ---------- */
+
+.roommap {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+.rm-label {
+  color: #6b7080;
+  margin-right: 4px;
+  letter-spacing: 0.04em;
+}
+.rm {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 3px;
+  border: 1px solid #4a4438;
+  border-radius: 3px;
+  background: #1b1a16;
+  color: #8b8578;
+  cursor: default;
+}
+.rm-link {
+  width: 8px;
+  height: 1px;
+  background: #4a4438;
+}
+.rm-clear {
+  color: #58b3a4;
+  border-color: #34584f;
+}
+.rm-lock {
+  color: #c9a227;
+  border-color: #6b5a1e;
+}
+.rm-cur {
+  border-color: #f2e9d8;
+  color: #f2e9d8;
+  box-shadow: 0 0 4px rgba(242, 233, 216, 0.25);
+}
+
+/* ---------- строка «под ударом» ---------- */
+
+.checkline {
+  color: #d07a3f;
+  letter-spacing: 0.02em;
+}
+.checkline .ck-t {
+  color: #b3423a;
+  text-transform: uppercase;
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  margin-right: 4px;
+}
+
+/* ---------- панель модификаторов ---------- */
+
+.modhead {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  padding: 3px 4px;
+  margin-bottom: 4px;
+  border: 0;
+  border-bottom: 1px solid #33302a;
+  background: none;
+  color: #8b91a0;
+  font:
+    11px Georgia,
+    serif;
+  text-align: left;
+  cursor: pointer;
+  min-height: unset;
+}
+.modhead:hover {
+  color: #cfe8e0;
+}
+.mh-t {
+  flex: 1;
+}
+.mh-n.rel {
+  color: #7ed6be;
+}
+.mh-n.cur {
+  color: #e87c7c;
+}
+.mh-x {
+  color: #5a5348;
+}
+#relicCard.collapsed #relics {
+  display: none;
+}
+
+/* ---------- бейдж на слоте формы ---------- */
+
+.slot {
+  position: relative;
+}
+.slot-opts {
+  position: absolute;
+  right: 3px;
+  bottom: 2px;
+  padding: 0 3px;
+  border-radius: 2px;
+  background: rgba(8, 10, 14, 0.75);
+  color: #8fa39b;
+  font:
+    9px/1.4 system-ui,
+    sans-serif;
+  pointer-events: none;
+}
+.slot-opts.cap {
+  color: #e0a03a;
+}
+.slot-opts.none {
+  color: #7a4a44;
+}
+
+/* ---------- мобильная адаптация ---------- */
+
+@media (max-width: 560px) {
+  #hudExtra {
+    font-size: 12px;
+  }
+  .rm {
+    min-width: 24px;
+    height: 24px;
+  }
+  .hcount {
+    display: block;
+    margin: 2px 0 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .rib-over {
+    box-shadow: none;
+  }
+}
+/* ============================================================================
+   src/ui-release.css — подключать ПОСЛЕ основного styles.css.
+
+   Версия 3. Главное изменение: картинки 512×768 — это карточки с собственной
+   рамкой и центрированной композицией, а не баннеры. Обрезка полосой съедала
+   сюжет, а заголовок поверх контрастной фактуры не читался. Теперь картинка
+   всегда показывается ЦЕЛИКОМ, а текст всегда лежит на панели, не на ней.
+
+   Два режима подачи:
+     .m-art--hero  — картинка и есть событие (интерлюдии, эпилоги, боссы):
+                     во всю доступную высоту, по центру, заголовок под ней.
+     .m-art--aside — картинка как контекст (меню, справка, события, лут):
+                     маленькая карточка слева, заголовок и текст справа.
+   ============================================================================ */
+
+:root {
+  --modal-w-sm: 340px;
+  --modal-w-md: 480px;
+  --modal-w-lg: 600px;
+  --modal-h-max: min(88dvh, 800px);
+  --modal-pad: 20px;
+
+  /* карточка 512×768 = 2:3, обрезать нечего */
+  --art-ratio: 2 / 3;
+  --art-hero-h: min(44dvh, 400px); /* высоту задаём, ширина считается из ratio */
+  --art-aside-w: 116px;
+}
+
+.pixel,
+.loading-logo,
+.m-art {
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
+}
+
+/* ============================================================================
+   1. ОБОЛОЧКА МОДАЛКИ
+   ============================================================================ */
+
+/* ⟵ заменяет .modal целиком.
+   Ключевое: width, а не только max-width. Без него флекс-элемент ужимается
+   по содержимому, и окно меняет ширину при каждом открытии. */
+.modal {
+  --modal-w: var(--modal-w-md);
+  width: var(--modal-w);
+  max-width: 94vw;
+  max-height: var(--modal-h-max);
+  padding: 0;
+  overflow: hidden;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  background: var(--panel);
+  border: 1px solid var(--promo);
+  border-radius: 8px;
+  text-align: center;
+}
+.modal.m-sm {
+  --modal-w: var(--modal-w-sm);
+}
+.modal.m-md {
+  --modal-w: var(--modal-w-md);
+}
+.modal.m-lg {
+  --modal-w: var(--modal-w-lg);
+}
+
+.m-head {
+  padding: var(--modal-pad) var(--modal-pad) 12px;
+  border-bottom: 1px solid #2a2d36;
+}
+.m-body {
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 14px var(--modal-pad);
+  min-height: 0;
+}
+.m-body:has(.choices:empty) {
+  padding: 0;
+}
+.m-actions {
+  display: flex;
+  gap: 8px;
+  padding: 10px var(--modal-pad) var(--modal-pad);
+  border-top: 1px solid #2a2d36;
+}
+.m-actions:empty {
+  display: none;
+}
+/* колонка — когда в футере несколько смысловых рядов (главное меню) */
+.m-actions.stack {
+  flex-direction: column;
+  gap: 6px;
+}
+
+.m-body .scroll-shop {
+  max-height: none;
+  overflow: visible;
+}
+
+/* ============================================================================
+   2. ТИПОГРАФИКА МОДАЛКИ
+   ============================================================================ */
+
+.modal h3 {
+  font-size: 19px;
+  margin-bottom: 6px;
+  line-height: 1.25;
+}
+.modal p {
+  font-size: 13px;
+  line-height: 1.5;
+  margin-bottom: 0;
+}
+.modal p:empty {
+  display: none;
+}
+/* Интерлюдии кладут строки абзацами внутрь #mText. */
+#mText p {
+  margin: 0 0 6px;
+  color: var(--txt);
+  font-size: 14px;
+  line-height: 1.6;
+}
+#mText p:last-child {
+  margin-bottom: 0;
+}
+
+/* ============================================================================
+   3. КНОПКИ — были заметно крупнее нужного
+   ============================================================================ */
+
+/* ⟵ заменяет .modal .choices button.
+   Оригинал ставил 22px всем кнопкам модалок, потому что так нужно глифам
+   промоушена. Теперь крупный кегль только там, где действительно глифы. */
+.modal .choices button {
+  font-size: 14px;
+  padding: 8px 14px;
+  min-height: 40px;
+  font-family: inherit;
+}
+/* промоушен и прочие окна, где кнопка — это фигура */
+.modal .choices.glyphs button {
+  font-size: 26px;
+  padding: 10px 18px;
+  min-height: 52px;
+  font-family: 'Segoe UI Symbol', 'Noto Sans Symbols 2', serif;
+}
+
+.m-actions button {
+  flex: 1;
+  margin: 0;
+  min-height: 40px;
+  font-size: 14px;
+  padding: 8px 12px;
+}
+/* ⟵ .again имел min-height 44 и 15px — в футере это перебор */
+.m-actions button.again {
+  min-height: 44px;
+  font-size: 15px;
+}
+.m-actions .btnrow2 {
+  display: flex;
+  gap: 6px;
+  margin: 0;
+  width: 100%;
+}
+
+/* ============================================================================
+   4. КАРТИНКА — ЦЕЛИКОМ, ТЕКСТ РЯДОМ
+   ============================================================================ */
+
+.m-art {
+  display: block;
+  border-radius: 4px;
+  object-fit: contain; /* никогда не обрезаем: у картинок своя рамка */
+}
+.m-art[hidden] {
+  display: none;
+}
+
+/* ── hero: картинка и есть событие ── */
+.m-art--hero {
+  height: var(--art-hero-h);
+  width: auto;
+  aspect-ratio: var(--art-ratio);
+  margin: 0 auto 12px;
+}
+.m-head--hero {
+  padding-top: 16px;
+}
+
+/* ── aside: картинка как контекст, текст слева направо ── */
+.m-head--aside {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 14px;
+  align-items: start;
+  text-align: left;
+}
+.m-art--aside {
+  width: var(--art-aside-w);
+  height: calc(var(--art-aside-w) * 3 / 2);
+  aspect-ratio: var(--art-ratio);
+  grid-row: span 2;
+}
+.m-head--aside h3 {
+  align-self: end;
+  margin-bottom: 4px;
+}
+
+/* ⟵ заменяет .loading-logo: было image-rendering: auto, логотип мылился */
+.loading-logo {
+  width: 176px;
+  height: 264px;
+  object-fit: contain;
+  margin-bottom: 18px;
+}
+/* ⟵ фон загрузки был #1d1e3a при --ink #14161c: заметный шов на переходе */
+#loadingScreen {
+  background: var(--ink);
+}
+
+/* ============================================================================
+   5. ГЛАВНОЕ МЕНЮ — начать игру видно сразу
+   ============================================================================ */
+
+/* Выбор режима — сегментированный переключатель, а не две равные кнопки:
+   видно, что это одно решение с двумя вариантами. */
+.mode-seg {
+  display: flex;
+  width: 100%;
+  border: 1px solid #3a3e49;
+  border-radius: 6px;
+  overflow: hidden;
+}
+.mode-seg button {
+  flex: 1;
+  min-height: 34px;
+  font-size: 13px;
+  border: 0;
+  border-radius: 0;
+  background: #181b22;
+  color: var(--muted);
+  padding: 6px 8px;
+}
+.mode-seg button + button {
+  border-left: 1px solid #3a3e49;
+}
+.mode-seg button.on {
+  background: #1d2a28;
+  color: var(--ivory);
+  box-shadow: inset 0 -2px 0 var(--promo);
+}
+
+.m-actions button.start {
+  min-height: 48px;
+  font-size: 16px;
+  letter-spacing: 0.04em;
+  border-color: var(--teal);
+  background: #1d2a28;
+  color: var(--ivory);
+}
+
+/* Мелкая навигация внутри тела — не конкурирует с кнопкой старта. */
+.menu-nav {
+  display: flex;
+  gap: 6px;
+  margin-top: 10px;
+}
+.menu-nav button {
+  flex: 1;
+  min-height: 34px;
+  font-size: 12px;
+  padding: 5px 6px;
+}
+.menu-hint {
+  color: var(--muted);
+  font-size: 11.5px;
+  text-align: center;
+  margin-bottom: 8px;
+}
+
+/* ============================================================================
+   6. СТАТУСНАЯ СТРОКА
+   ============================================================================ */
+
+#topbar {
+  width: 100%;
+  max-width: 940px;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 8px;
+  margin-bottom: 8px;
+  justify-content: center;
+}
+#topbar .hudbar {
+  margin: 0;
+}
+#topbar .hunger-bar {
+  flex: 1 1 220px;
+  min-width: 180px;
+}
+
+#subbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 8px;
+  justify-content: center;
+  margin-bottom: 8px;
+}
+
+/* ============================================================================
+   7. БАННЕР ЯРУСА (banner.js)
+   ============================================================================ */
+
+.board-wrap {
+  position: relative;
+}
+.fbanner {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 0;
+  z-index: 6;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 12px;
+  background: linear-gradient(to right, rgba(10, 11, 15, 0.94), rgba(10, 11, 15, 0.72));
+  border-bottom: 1px solid var(--promo);
+  opacity: 0;
+  transform: translateY(-8px);
+  pointer-events: none;
+  transition:
+    opacity 0.35s ease-out,
+    transform 0.35s ease-out;
+}
+.fbanner.on {
+  opacity: 1;
+  transform: translateY(0);
+  pointer-events: auto;
+  cursor: pointer;
+}
+.fb-art {
+  width: 40px;
+  height: 60px;
+  object-fit: contain;
+  flex-shrink: 0;
+}
+.fb-text {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+}
+.fb-t {
+  color: var(--ivory);
+  font-size: 17px;
+  letter-spacing: 0.05em;
+}
+.fb-s {
+  color: var(--muted);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+}
+
+/* ============================================================================
+   8. МОБИЛЬНАЯ РАСКЛАДКА
+   ============================================================================ */
+
+@media (max-width: 780px) {
+  :root {
+    --modal-pad: 14px;
+    --art-hero-h: min(34dvh, 300px);
+    --art-aside-w: 82px;
+  }
+
+  body {
+    padding: 0 8px;
+    min-height: 100dvh;
+    padding-bottom: calc(112px + env(safe-area-inset-bottom, 0px));
+  }
+
+  h1,
+  .sub {
+    display: none;
+  }
+
+  #topbar {
+    position: sticky;
+    top: 0;
+    z-index: 8;
+    background: var(--ink);
+    padding: 6px 0 5px;
+    margin-bottom: 6px;
+    border-bottom: 1px solid #23262e;
+  }
+
+  .layout {
+    gap: 8px;
+  }
+  .board-wrap {
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+  canvas {
+    max-width: 100%;
+  }
+
+  /* Карточка управления становится доком в зоне большого пальца. */
+  #controlCard {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 9;
+    border-radius: 0;
+    border-left: 0;
+    border-right: 0;
+    padding: 8px 8px calc(8px + env(safe-area-inset-bottom, 0px));
+    box-shadow: 0 -6px 18px rgba(0, 0, 0, 0.45);
+    touch-action: manipulation;
+  }
+  #controlCard h2 {
+    display: none;
+  }
+  #controlCard .wheel {
+    gap: 8px;
+    margin-bottom: 5px;
+  }
+  #controlCard .slot {
+    min-height: 56px;
+    padding: 6px 4px;
+  }
+  #controlCard .slot .glyph {
+    font-size: 30px;
+  }
+  #controlCard .slot .nm {
+    font-size: 10px;
+  }
+  #controlCard .status {
+    margin: 0 0 5px;
+    justify-content: center;
+    font-size: 11px;
+    color: var(--muted);
+    min-height: 13px;
+  }
+  #controlCard .btnrow {
+    gap: 6px;
+  }
+  #controlCard .btnrow button {
+    min-height: 42px;
+    font-size: 13px;
+    padding: 6px 8px;
+  }
+
+  #log {
+    height: 88px;
+  }
+
+  .modal {
+    width: 96vw;
+    max-width: 96vw;
+    max-height: min(92dvh, 900px);
+  }
+  .m-actions {
+    padding-bottom: calc(var(--modal-pad) + env(safe-area-inset-bottom, 0px));
+  }
+  .modal h3 {
+    font-size: 17px;
+  }
+
+  .fb-art {
+    width: 32px;
+    height: 48px;
+  }
+  .fb-t {
+    font-size: 15px;
+  }
+}
+
+/* Низкие экраны: доска важнее всего остального. */
+@media (max-width: 780px) and (max-height: 700px) {
+  :root {
+    --art-hero-h: min(28dvh, 220px);
+    --art-aside-w: 64px;
+  }
+  body {
+    padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px));
+  }
+  #controlCard .slot {
+    min-height: 46px;
+  }
+  #controlCard .slot .glyph {
+    font-size: 25px;
+  }
+  #controlCard .slot .nm,
+  #controlCard .status {
+    display: none;
+  }
+  #log {
+    height: 60px;
+  }
+}
+
+/* ============================================================================
+   9. Мелочи
+   ============================================================================ */
+
+/* Рёбра пересоздаются через innerHTML каждый syncUI — transition не срабатывает
+   никогда, только грузит стиль. */
+.rib {
+  transition: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .rib-starve,
+  .loading-hint {
+    animation: none;
+  }
+  .toast,
+  #loadingScreen,
+  .fbanner {
+    transition: none;
+  }
+}
+
+.m-body button:focus-visible,
+.m-actions button:focus-visible {
+  outline-offset: -2px;
+}
+
+@media (hover: none) and (pointer: coarse) {
+  .modal .choices button.loot {
+    min-height: 54px;
+  }
+  .shoprow .buy,
+  .tab-btn {
+    min-height: 42px;
+  }
+  .m-actions button {
+    min-height: 44px;
+  }
+  .m-actions button.start {
+    min-height: 50px;
+  }
+}
+
+/* ============================================================================
+   10. РАСКЛАДКА ПО ИТОГАМ ТЕСТА
+   ============================================================================ */
+
+/* ── Карточка управления: единый ритм отступов ──
+   Строка фасинга лежала между колесом и кнопками без собственных полей,
+   а у непешечных форм схлопывалась в ноль — блок «дышал» при каждой смене
+   формы. Теперь отступы задаёт gap контейнера, а пустая строка убирается
+   целиком. */
+#controlCard {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+#controlCard h2,
+#controlCard .wheel,
+#controlCard .status,
+#controlCard .btnrow {
+  margin: 0;
+}
+#controlCard .status {
+  gap: 6px;
+  font-size: 11px;
+  color: var(--muted);
+  letter-spacing: 0.04em;
+}
+/* фасинг есть только у пешки */
+#controlCard .status:has(#faceInfo:empty) {
+  display: none;
+}
+#controlCard .slot-opts {
+  right: 4px;
+  bottom: 3px;
+}
+
+@media (max-width: 780px) {
+  .side > .card {
+    width: 100%;
+  }
+}
+
+/* ── Журнал под доской ── */
+.board-wrap > .card {
+  margin-top: 10px;
+}
+.board-wrap #log {
+  height: 128px;
+}
+
+/* ── Легенда сворачивается ── */
+.legend-details > summary {
+  list-style: none;
+  cursor: pointer;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--muted);
+  padding: 2px 0;
+  user-select: none;
+}
+.legend-details > summary::-webkit-details-marker {
+  display: none;
+}
+.legend-details > summary::after {
+  content: ' \25b8';
+  color: #5a5348;
+}
+.legend-details[open] > summary::after {
+  content: ' \25be';
+}
+.legend-details > summary:hover {
+  color: var(--txt);
+}
+.legend-details[open] > .legend {
+  margin-top: 8px;
+}
+
+@media (max-width: 780px) {
+  #controlCard {
+    gap: 6px;
+  }
+  #controlCard .wheel,
+  #controlCard .status {
+    margin: 0;
+  }
+  .board-wrap > .card {
+    margin-top: 8px;
+    width: 100%;
+  }
+  .board-wrap #log {
+    height: 92px;
+  }
+}
+
+@media (max-width: 780px) and (max-height: 700px) {
+  .board-wrap #log {
+    height: 64px;
+  }
+}
