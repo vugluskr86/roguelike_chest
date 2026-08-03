@@ -4,6 +4,7 @@ import { reset } from '../src/board.js';
 import { CFG } from '../src/config.js';
 import {
   degradePlayer,
+  death,
   endPlayerTurn,
   pass,
   tryMoveTo,
@@ -12,6 +13,8 @@ import {
 } from '../src/combat.js';
 import { enemiesTurn } from '../src/enemies.js';
 import { makeForm } from '../src/util.js';
+import { META } from '../src/meta.js';
+import { configureVisualEffects } from '../src/visual-effects.ts';
 
 const K = (x, y) => x + ',' + y;
 const mkE = (o) =>
@@ -37,6 +40,14 @@ describe('degradation ladder', () => {
     degradePlayer(mkE({ type: 'rook', x: 1, y: 1 })); // now a pawn
     expect(S.gameOver).toBe(true);
   });
+
+  it('finalizes a death only once even if two effects report it', () => {
+    const runsBefore = META.runs;
+    expect(death('poison')).toBe(true);
+    expect(death('hunger')).toBe(false);
+    expect(META.runs).toBe(runsBefore + 1);
+    META.runs = runsBefore;
+  });
 });
 
 describe('guardian armor', () => {
@@ -54,6 +65,35 @@ describe('guardian armor', () => {
     expect(S.player.x).toBe(5);
     tryMoveTo(6, 4);
     expect(S.enemies.includes(g)).toBe(false);
+  });
+});
+
+describe('movement presentation contract', () => {
+  it('sets player direction in gameplay before emitting a move command', () => {
+    const effects = [];
+    configureVisualEffects((effect) => effects.push(effect));
+    try {
+      S.player.x = 4;
+      S.player.y = 4;
+      S.player.wheel = [makeForm('rook'), null, null];
+      S.player.active = 0;
+      S.player.status = {};
+      S.enemies = [];
+
+      tryMoveTo(4, 5);
+
+      expect(S.player.lastDir).toEqual([0, 1]);
+      expect(effects).toContainEqual({
+        type: 'move',
+        unit: S.player,
+        fromX: 4,
+        fromY: 4,
+        toX: 4,
+        toY: 5,
+      });
+    } finally {
+      configureVisualEffects(null);
+    }
   });
 });
 
@@ -93,7 +133,26 @@ describe('special tile triggers', () => {
     expect(S.player.status.stun).toBe(1);
     expect(sp.has(K(4, 4))).toBe(true);
   });
+  it('door transition is emitted through the visual effect contract', () => {
+    const effects = [];
+    configureVisualEffects((effect) => effects.push(effect));
+    S.player.x = 4;
+    S.player.y = 4;
+    S.special = new Map([[K(4, 4), { type: 'door', targetRoom: 1, targetPos: { x: 2, y: 2 } }]]);
+    S.rooms = [
+      { walls: S.walls, enemies: S.enemies, special: S.special, cleared: false },
+      { walls: new Set(), enemies: [], special: new Map(), cleared: false },
+    ];
+    S.currentRoom = 0;
+    triggerSpecialForPlayer();
+    expect(S.currentRoom).toBe(1);
+    expect(S.player).toMatchObject({ x: 2, y: 2 });
+    expect(effects).toContainEqual({ type: 'transition', style: 'tunnel', durationMs: 250 });
+    configureVisualEffects(null);
+  });
   it('hunger drains every turn; at zero degrades player', () => {
+    const effects = [];
+    configureVisualEffects((effect) => effects.push(effect));
     S.player.hunger = 1;
     S.player.wheel = [makeForm('pawn'), makeForm('knight'), null];
     S.player.active = 1;
@@ -104,6 +163,8 @@ describe('special tile triggers', () => {
     // hunger already triggered degrade, player dropped to pawn
     expect(S.player.wheel[1]).toBeNull();
     expect(S.player.active).toBe(0);
+    expect(effects).toContainEqual({ type: 'vignette', color: '#8b5a16', durationMs: 420 });
+    configureVisualEffects(null);
   });
   it('pass costs extra hunger', () => {
     S.player.hunger = CFG.HUNGER.start;
@@ -125,9 +186,9 @@ describe('special tile triggers', () => {
     // capture +6, then endPlayerTurn drains -1 → net +5
     expect(S.player.hunger).toBe(5 + CFG.HUNGER.capture - CFG.HUNGER.perTurn);
   });
-  it('boss floor does not drain hunger', () => {
+  it('room rule freezes hunger', () => {
     S.player.hunger = 10;
-    S.floor = 5; // boss floor
+    S.roomRules = { freezeHunger: true };
     endPlayerTurn();
     expect(S.player.hunger).toBe(10);
   });

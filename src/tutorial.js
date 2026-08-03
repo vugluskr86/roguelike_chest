@@ -20,7 +20,9 @@ import { allThreats } from './moves.js';
 import { addSpeech, render } from './render.js';
 import { key, makeForm } from './util.js';
 import { isEnglish } from './lang.js';
-import { action, closeModal, log, mkButton, openInterlude, syncUI, toast } from './ui.js';
+import { action, closeModal, log as uiLog, mkButton, openInterlude, syncUI } from './ui.js';
+import { notify } from './feedback.ts';
+import { reportLegacyLog } from './feedback-legacy.ts';
 import { recordEvent, recordSnapshot } from './analytics.js';
 
 // ════════════════════════════════════════════════════════════════
@@ -39,6 +41,22 @@ const T = {
   snapshot: null, // позиция до хода, для отката в strict-сценах
   onDone: null,
 };
+
+/**
+ * Сохраняет завершение учебной сцены в едином журнале сообщений.
+ *
+ * @param {string} text Текст результата учебной сцены.
+ * @param {string} [tone=''] Прежний тон журнала, совместимый с существующей UI-темой.
+ */
+function log(text, tone = '') {
+  reportLegacyLog(text, tone, uiLog);
+}
+
+/** Передаёт учебную реплику в единый API, сохраняя её визуальную роль. */
+function speech(x, y, text, kind = 'enemy') {
+  if (!notify({ channel: 'speech', text, anchor: { x, y }, speechKind: kind }))
+    addSpeech(x, y, text, kind);
+}
 
 export const isTutorial = () => T.active;
 export const tutorialScene = () => T.scene;
@@ -166,7 +184,7 @@ function nextScene() {
     () => {
       if (scene.speech) {
         const e = S.enemies[0];
-        if (e) addSpeech(e.x, e.y, scene.speech.text, scene.speech.kind || 'enemy');
+        if (e) speech(e.x, e.y, scene.speech.text, scene.speech.kind || 'enemy');
       }
       render();
       syncUI();
@@ -211,7 +229,7 @@ export function tutorialNudge(what) {
     rotate: 'Rotation is not needed here.',
   };
   var msg = (isEnglish() ? msgEn : msgRu)[what];
-  if (msg) toast(msg);
+  if (msg) notify({ channel: 'hint', text: msg, dedupeKey: `tutorial-${T.idx}` });
 }
 
 /** Голод в обучении тикает только там, где его объясняют. */
@@ -225,11 +243,12 @@ export const tutorialEnemiesFrozen = () => T.active && T.scene?.freeze !== false
  */
 export function tutorialBlocksDegrade() {
   if (!T.active) return false;
-  toast(
-    isEnglish()
+  notify({
+    channel: 'hint',
+    text: isEnglish()
       ? 'You will not die in the tutorial. Try something else.'
       : 'В обучении тебя не убьют. Попробуй иначе.',
-  );
+  });
   return true;
 }
 
@@ -263,7 +282,8 @@ export function tutorialCheck() {
       S.player.x = T.snapshot.x;
       S.player.y = T.snapshot.y;
       S.player.facing = T.snapshot.facing;
-      if (sc.onFail) toast(sc.onFail);
+      if (sc.onFail)
+        notify({ channel: 'hint', text: sc.onFail, dedupeKey: `tutorial-fail-${T.idx}` });
       render();
       syncUI();
       return;
@@ -316,7 +336,7 @@ export function hint(id, after) {
   saveMeta();
 
   if (h.kind === 'toast') {
-    toast(h.text);
+    notify({ channel: 'hint', text: h.text, dedupeKey: `hint-${id}` });
     return false;
   }
   openInterlude(
@@ -333,5 +353,9 @@ export function resetHints() {
   META.hints = {};
   META.tutorialDone = false;
   saveMeta();
-  toast(isEnglish() ? 'Tutorial and hints reset.' : 'Обучение и подсказки сброшены.');
+  notify({
+    channel: 'toast',
+    text: isEnglish() ? 'Tutorial and hints reset.' : 'Обучение и подсказки сброшены.',
+    priority: 'high',
+  });
 }

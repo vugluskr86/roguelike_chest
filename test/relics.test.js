@@ -215,17 +215,16 @@ describe('relic: toxic_aura', () => {
 });
 
 describe('relic: bulwark', () => {
-  it('shield absorb stuns attacker', () => {
+  it('shield absorb in the combat path stuns attacker', () => {
     applyRelic('bulwark');
     applyStatus(S.player, 'shield', 1);
     S.enemies.push({ type: 'rook', x: 4, y: 7, status: {}, r: 6, cd: 0 });
     const enemy = S.enemies[0];
-    if (statusVal(S.player, 'shield') > 0) {
-      S.player.status.shield--;
-      if (has('bulwark')) applyStatus(enemy, 'stun', 1);
-    }
+    degradePlayer(enemy, 'enemy_capture');
     expect(statusVal(enemy, 'stun')).toBe(1);
     expect(statusVal(S.player, 'shield')).toBe(0);
+    expect(S.gameOver).toBe(false);
+    expect(enemy.cd).toBe(CFG.ENEMY_CAPTURE_CD);
   });
 });
 

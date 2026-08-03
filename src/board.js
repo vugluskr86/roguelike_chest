@@ -8,20 +8,42 @@ import { dom } from './dom.js';
 import { CFG, BIOMES, biomeFor, KEY_COLORS } from './config.js';
 import { RELICS } from './content.js';
 import { ART } from './assets.js';
-import { BOSS_CFG, dispatchBossEvents } from './bosses.js';
+import { BOSS_CFG, dispatchBossEvents } from './bosses/index.ts';
+import { createBossRoom } from './bosses/rooms.ts';
+import { chooseEndlessBoss } from './bosses/index.ts';
+import { DEFAULT_ROOM_RULES, makeRoomRules } from './room-rules.ts';
 import { applyRelic } from './loot.js';
 import { generateRoomCompat } from './gen/index.js';
 import { META, codexSeeEnemy, unlockAch } from './meta.js';
-import { allThreats, invalidateThreats, isSpawnable, necroInterval, threatCellsFrom } from './moves.js';
-import { addSpeech, clearSpeech, render, screenFade } from './render.js';
+import {
+  allThreats,
+  invalidateThreats,
+  isSpawnable,
+  necroInterval,
+  threatCellsFrom,
+} from './moves.js';
+import { addSpeech, clearSpeech, render } from './render.js';
+import { emitVisual } from './visual-effects.ts';
 import { startTutorial } from './tutorial.js';
 import { getScript } from './content/script.js';
 import { curse, enemyAt, has } from './state.js';
 import { applyStatus, cleanse } from './status.js';
-import { clearRunLog, clearToastQueue, log, openInterlude, openTitle, syncUI } from './ui.js';
+import {
+  clearRunLog,
+  clearToastQueue,
+  log as uiLog,
+  openInterlude,
+  openTitle,
+  syncUI,
+} from './ui.js';
+import { reportLegacyLog } from './feedback-legacy.ts';
+import { notify } from './feedback.ts';
 import { L } from './lang.js';
 import { updateMusic, preload } from './music.js';
 import { clearPending } from './preview.js';
+import { createRunSeed } from './run-seed';
+import { boardSizeForFloor } from './generation-config';
+import { BALANCE, enemyCountLimit, enemyThreatBudget, roomCountBounds } from './balance-config';
 import { flushAnalytics, recordSnapshot, startAnalyticsRun } from './analytics.js';
 import {
   ORTHO,
@@ -37,6 +59,26 @@ import {
   tileColor,
   bossOnFloor,
 } from './util.js';
+
+/**
+ * Совместимый вход для журнала генерации уровня.
+ *
+ * Генератор и комнаты босса исторически передавали цветовой тон `ui.log`.
+ * Адаптер сохраняет это поведение до инициализации интерфейса и в тестах, а
+ * в запущенной игре направляет запись в единый API сообщений.
+ *
+ * @param {string} text Текст записи журнала (поддерживается существующая HTML-разметка).
+ * @param {string} [tone=''] Старый визуальный тон: `r` — опасность, `g` — награда.
+ */
+function log(text, tone = '') {
+  reportLegacyLog(text, tone, uiLog);
+}
+
+/** Передаёт реплику комнаты в единый UI-канал, сохраняя ранний fallback. */
+function speech(x, y, text, kind = 'system') {
+  if (!notify({ channel: 'speech', text, anchor: { x, y }, speechKind: kind }))
+    addSpeech(x, y, text, kind);
+}
 
 export function floodReach(wset, start) {
   const seen = new Set([key(start.x, start.y)]),
@@ -62,9 +104,9 @@ export function generateRoom() {
 
 export function buildFloorEnemies(flr, share = 1) {
   const D = CFG.DIFF;
-  const maxEnemies = Math.max(2, Math.round(Math.min(5 + Math.floor(flr / 4), 10) * share));
-  let budget = (D.budgetBase + D.budgetGrow * (flr - 1)) * Math.sqrt((CFG.W * CFG.H) / 99) * share;
-  if (flr === 1 && META.upgrades.headstart) budget -= 2; // мета-апгрейд «Разведка»
+  const maxEnemies = enemyCountLimit(flr, share);
+  let budget = enemyThreatBudget(flr, CFG.W, CFG.H, share);
+  if (flr === 1 && META.upgrades.headstart) budget -= BALANCE.enemies.headstartBudgetReduction;
   const qcap = flr >= D.queenCapDeepFloor ? D.queenCapDeep : D.queenCap;
   const avail = Object.keys(D.cost).filter((t) => flr >= D.unlockFloor[t]);
   const bag = [];
@@ -80,7 +122,7 @@ export function buildFloorEnemies(flr, share = 1) {
     if (!aff.length) break;
     // уклон биома: с шансом отдаём предпочтение «любимым» типам этого биома
     const fav = ((S.biome && S.biome.favorEnemies) || []).filter((t) => aff.includes(t));
-    const t = fav.length && random() < 0.5 ? pick(fav) : pick(aff);
+    const t = fav.length && random() < BALANCE.enemies.favoriteBiomeChance ? pick(fav) : pick(aff);
     bag.push(t);
     if ((D.cost[t] || 1) >= 5) eliteCount++;
     budget -= D.cost[t];
@@ -103,7 +145,7 @@ export function spawnEnemiesForFloor(f, reach, share = 1) {
   const pk = key(S.player.x, S.player.y);
   // кандидаты: достижимые клетки в верхних ~62% доски, не вплотную к игроку
   const cand = [];
-  for (let y = 0; y < Math.ceil(CFG.H * 0.62); y++)
+  for (let y = 0; y < Math.ceil(CFG.H * BALANCE.enemies.spawnTopBoardFraction); y++)
     for (let x = 0; x < CFG.W; x++) {
       if (!reach.has(key(x, y))) continue;
       if (S.special.get(key(x, y))?.type === 'trap' || S.special.get(key(x, y))?.type === 'lava')
@@ -148,7 +190,10 @@ export function spawnEnemiesForFloor(f, reach, share = 1) {
 }
 
 /** Авторская комната босса. */
-export function generateBossRoom(bossId) {
+// Kept temporarily as a reference while historic boss behaviour is migrated;
+// new rooms are always built by the typed factory below.
+// eslint-disable-next-line no-unused-vars
+function generateBossRoomLegacy(bossId) {
   if (bossId === 'tormentor') {
     CFG.W = 15;
     CFG.H = 13;
@@ -326,6 +371,11 @@ export function generateBossRoom(bossId) {
 }
 
 /** Построить граф смежности комнат по дверям. */
+/** Public compatibility entry point; boss maps now live in src/bosses/rooms.ts. */
+export function generateBossRoom(bossId, endless) {
+  return createBossRoom(bossId, endless);
+}
+
 function buildRoomGraph(rooms, n) {
   const adj = Array.from({ length: n }, () => []);
   for (let r = 0; r < n; r++) {
@@ -366,27 +416,15 @@ export function syncCheckIndicator() {
 export function newFloor() {
   // Кэш угроз и DOM-индикатор относятся к прошлой карте и не должны переживать переход.
   invalidateThreats();
-  if (S.runMode === 'campaign') {
-    seedRNG(CFG.CAMPAIGN_SEED + S.floor * 1000000 + S.turn);
-  } else {
-    seedRNG(Math.floor(Math.random() * 0x7fffffff));
-  }
-  screenFade('#000', 350);
+  seedRNG(S.runSeed + S.floor * 1000000 + S.turn);
+  // Смена яруса — команда представления, а не прямой вызов рендера: так её
+  // можно отключить настройкой анимаций и воспроизвести в viewer реплеев.
+  emitVisual({ type: 'transition', style: 'fade', durationMs: 350 });
   S.floor++;
-  // прогрессия размера карты с этажом
-  if (S.floor <= 2) {
-    CFG.W = 11;
-    CFG.H = 9;
-  } else if (S.floor <= 4) {
-    CFG.W = 13;
-    CFG.H = 11;
-  } else if (S.floor <= 6) {
-    CFG.W = 15;
-    CFG.H = 13;
-  } else {
-    CFG.W = 17;
-    CFG.H = 15;
-  }
+  // Прогрессия размера карты задаётся в типизированном generation-config.ts.
+  const size = boardSizeForFloor(S.floor);
+  CFG.W = size.width;
+  CFG.H = size.height;
   S.biome = biomeFor(S.floor);
   S.currentRoom = 0;
   S.rooms = [];
@@ -397,90 +435,95 @@ export function newFloor() {
   S.player.y = CFG.H - 1;
   S.player.facing = [0, -1];
   // босс-ярус: авторская комната вместо процедурной
-  if (S.runMode === 'campaign' && isBossFloor(S.floor)) {
-    const bossId = bossOnFloor(S.floor);
-    if (bossId) {
-      const room = generateBossRoom(bossId);
-      S.walls = room.walls;
-      S.special = room.specials;
-      S.enemies = room.enemies;
-      S.rooms = [{ walls: room.walls, enemies: S.enemies, special: room.specials, cleared: false }];
-      loadRoom(0);
-      S.player.x = Math.floor(CFG.W / 2);
-      S.player.y = CFG.H - 1;
-      S.player.facing = [0, -1];
-      S.player.active = 0;
-      S.promotionUsed = false;
-      S.hoverEnemy = null;
-      S.selectedEnemy = null;
-      S.turn = 1;
-      S.player.freeSwapUsed = false;
-      S.player.capturedThisFloor = 0;
-      S.player.hunger = CFG.HUNGER.start;
-      S.bossPhase = 1;
-      S.chainsBroken = 0;
-      S.millTick = 0;
-      // Кукловод: состояние для millstone уже задано в generateBossRoom,
-      // но на всякий случай убедимся, что оно не потерялось
-      if (bossId === 'millstone') {
-        S.party = S.party || {
+  const campaignBossId =
+    S.runMode === 'campaign' && isBossFloor(S.floor) ? bossOnFloor(S.floor) : null;
+  const endlessBoss = S.runMode === 'infinite' ? chooseEndlessBoss(S, random) : null;
+  const bossId = campaignBossId || endlessBoss?.id;
+  if (bossId) {
+    const room = generateBossRoom(bossId, endlessBoss || undefined);
+    S.walls = room.walls;
+    S.special = room.specials;
+    S.enemies = room.enemies;
+    S.roomRules = room.rules;
+    S.specialRoom = endlessBoss || { id: bossId, difficulty: room.rules.difficulty, reward: null };
+    if (endlessBoss) S.lastSpecialRoom = { floor: S.floor, id: bossId };
+    S.rooms = [{ walls: room.walls, enemies: S.enemies, special: room.specials, cleared: false }];
+    loadRoom(0);
+    S.player.x = Math.floor(CFG.W / 2);
+    S.player.y = CFG.H - 1;
+    S.player.facing = [0, -1];
+    S.player.active = 0;
+    S.promotionUsed = false;
+    S.hoverEnemy = null;
+    S.selectedEnemy = null;
+    S.turn = 1;
+    S.player.freeSwapUsed = false;
+    S.player.capturedThisFloor = 0;
+    S.player.hunger = CFG.HUNGER.start;
+    S.bossPhase = 1;
+    S.chainsBroken = 0;
+    S.millTick = 0;
+    // Кукловод: состояние для millstone уже задано в generateBossRoom,
+    // но на всякий случай убедимся, что оно не потерялось
+    if (bossId === 'millstone') {
+      S.party = room.initialState?.party ||
+        S.party || {
           dropCd: 0,
           pullCd: BOSS_CFG.puppeteer.pullEvery,
           reserve: BOSS_CFG.puppeteer.reserve,
         };
-        S.millFed = S.millFed ?? 0;
-      }
-      clearSpeech();
-      clearPending();
-      cleanse(S.player);
-      S.player.lostFormThisFloor = false;
-      const bossNamesRu = {
-        tormentor: 'Слон-Мучитель',
-        spawnedRooks: 'Спаянные Ладьи',
-        millstone: 'Жернов',
-        redKing: 'Красный Король',
-      };
-      const bossNamesEn = {
-        tormentor: 'Tormentor Bishop',
-        spawnedRooks: 'Linked Rooks',
-        millstone: 'Millstone',
-        redKing: 'Red King',
-      };
-      const bossNames = isEnglish() ? bossNamesEn : bossNamesRu;
-      const bossScript = getScript().bosses[bossId];
-      const appear = bossScript && bossScript.appear;
-      if (appear) {
-        dispatchBossEvents(appear, {
-          log: (t) => log(t),
-          addSpeech: (x, y, t, kind) => addSpeech(x, y, t, kind),
-        });
-      } else {
-        log(
-          isEnglish()
-            ? `-- Floor ${S.floor} · Boss: ${bossNames[bossId] || bossId} ──`
-            : `── Ярус ${S.floor} · Босс: ${bossNames[bossId] || bossId} ──`,
-          'e',
-        );
-      }
-      syncCheckIndicator();
-      render();
-      syncUI();
-      return;
+      S.millFed = room.initialState?.millFed ?? S.millFed ?? 0;
     }
+    clearSpeech();
+    clearPending();
+    cleanse(S.player);
+    S.player.lostFormThisFloor = false;
+    const bossNamesRu = {
+      tormentor: 'Слон-Мучитель',
+      spawnedRooks: 'Спаянные Ладьи',
+      millstone: 'Жернов',
+      redKing: 'Красный Король',
+    };
+    const bossNamesEn = {
+      tormentor: 'Tormentor Bishop',
+      spawnedRooks: 'Linked Rooks',
+      millstone: 'Millstone',
+      redKing: 'Red King',
+    };
+    const bossNames = isEnglish() ? bossNamesEn : bossNamesRu;
+    const bossScript = getScript().bosses[bossId];
+    const appear = bossScript && bossScript.appear;
+    if (appear) {
+      dispatchBossEvents(appear, {
+        log: (t) => log(t),
+        addSpeech: (x, y, t, kind) => speech(x, y, t, kind),
+      });
+    } else {
+      log(
+        isEnglish()
+          ? `-- Floor ${S.floor} · Boss: ${bossNames[bossId] || bossId} ──`
+          : `── Ярус ${S.floor} · Босс: ${bossNames[bossId] || bossId} ──`,
+        'e',
+      );
+    }
+    syncCheckIndicator();
+    render();
+    syncUI();
+    return;
   }
 
+  S.roomRules = { ...DEFAULT_ROOM_RULES };
+  S.specialRoom = null;
   S.bossPhase = 0;
   S.chainsBroken = 0;
   S.millTick = 0;
   S.millFed = 0;
   S.party = null;
-  const C = CFG.ROOMS;
-  const maxRooms = Math.min(C.startMax + Math.floor(S.floor / C.growEvery), C.cap);
-  const minRooms = Math.min(C.startMin + Math.floor(S.floor / C.growEvery), maxRooms);
-  const nRooms = minRooms + randInt(Math.max(1, maxRooms - minRooms + 1));
+  const rooms = roomCountBounds(S.floor);
+  const nRooms = rooms.min + randInt(Math.max(1, rooms.max - rooms.min + 1));
   // бюджет врагов делится между комнатами: этаж целиком должен помещаться
   // в шкалу голода, иначе каждая комната = полноценный отдельный этаж
-  const share = Math.pow(nRooms, -(C.budgetExp ?? 0.65));
+  const share = Math.pow(nRooms, -BALANCE.rooms.budgetExp);
   for (let r = 0; r < nRooms; r++) {
     const room = generateRoom();
     S.walls = room.walls;
@@ -694,6 +737,7 @@ export function loadRoom(id) {
   S.walls = r.walls;
   S.enemies = r.enemies;
   S.special = r.special;
+  S.roomRules = r.rules || { ...DEFAULT_ROOM_RULES };
   invalidateThreats();
 }
 
@@ -723,7 +767,15 @@ export function loadLevel(data) {
           homeColor: tileColor(e.x, e.y),
           r: CFG.BASE_R[e.type] || 1,
           rb: enemyRangeBonus(S.floor),
+          ...(e.bossId ? { bossId: e.bossId } : {}),
+          ...(e.armor ? { armor: e.armor } : {}),
+          ...(e.linkedTo ? { linkedTo: e.linkedTo } : {}),
+          ...(e.passive ? { passive: true } : {}),
+          ...(e.king ? { king: true } : {}),
+          ...(e.retinue ? { retinue: e.retinue } : {}),
+          ...(e.noAttackCd ? { noAttackCd: true, attackReady: true } : {}),
         })),
+        rules: makeRoomRules(r.rules),
         cleared: false,
       };
       S.rooms.push(roomData);
@@ -775,6 +827,7 @@ export function loadLevel(data) {
         r: CFG.BASE_R[e.type] || 1,
         rb: enemyRangeBonus(S.floor),
       })),
+      rules: makeRoomRules(data.rules),
       cleared: false,
     };
     S.rooms.push(roomData);
@@ -814,6 +867,8 @@ export function loadLevel(data) {
 }
 
 export function reset() {
+  S.runSeed = S.runMode === 'campaign' ? CFG.CAMPAIGN_SEED : createRunSeed();
+  seedRNG(S.runSeed);
   startAnalyticsRun({ mode: S.runMode || 'campaign' });
   S.player = {
     x: 0,
@@ -833,6 +888,8 @@ export function reset() {
     hunger: CFG.HUNGER.start,
     hungerMark: 1,
     boneVoiceTimer: 0,
+    temporaryEffects: [],
+    greenHungerTurns: 0,
   };
   S.unlocked = new Set(['pawn', 'knight']);
   // мета-апгрейды: экзотические формы, купленные в магазине
@@ -849,12 +906,17 @@ export function reset() {
   });
   S.gameOver = false;
   S.floor = 0;
+  S.roomRules = { ...DEFAULT_ROOM_RULES };
+  S.specialRoom = null;
+  S.lastSpecialRoom = null;
+  S.scenario = null;
   S.walls = new Set(); // чтобы render() не падал во время пролога
   S.special = new Map();
   if (dom.logEl) dom.logEl.innerHTML = '';
   log(L('log.default'), '');
   clearRunLog();
   clearToastQueue();
+  log(L('summary.seed', S.runSeed), '');
   // мета-апгрейды: стартовые слоты и реликвии
   const extraSlots = META.upgrades.startSlots || 0;
   for (let i = 0; i < extraSlots; i++) if (S.player.wheel.length < 5) S.player.wheel.push(null);

@@ -678,6 +678,7 @@ export const SCRIPT_EN = {
 };
 
 import { isEnglish } from '../lang.js';
+import { random } from '../util.js';
 
 /** Return SCRIPT or SCRIPT_EN based on current language. */
 export function getScript() {
@@ -690,7 +691,7 @@ export function pickLine(pool, lastKey) {
   if (pool.length === 1) return pool[0];
   let idx;
   do {
-    idx = Math.floor(Math.random() * pool.length);
+    idx = Math.floor(random() * pool.length);
   } while (pool[idx] === lastKey && pool.length > 1);
   return pool[idx];
 }

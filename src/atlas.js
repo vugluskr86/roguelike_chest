@@ -232,8 +232,7 @@ export function warmAtlas(specialMap, T, budgetMs = 8) {
   const t0 = performance.now();
   let done = 0;
   const seen = new Set();
-  for (const [k, s] of specialMap) {
-    const [x, y] = k.split(',').map(Number);
+  for (const [, s] of specialMap) {
     const extra = KEYED[s.type] ? KEYED[s.type](s) : '';
     const tag = `${s.type}|${extra}`;
     if (seen.has(tag)) continue;

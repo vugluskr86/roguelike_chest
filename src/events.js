@@ -24,9 +24,20 @@ import { getScript } from './content/script.js';
 import { ART } from './assets.js';
 import { applyCurse, applyRelic, cursePool, relicPool, rollWeighted } from './loot.js';
 import { META, unlockAch } from './meta.js';
-import { action, closeModal, log, mkButton, shell, toast } from './ui.js';
+import { action, closeModal, log as uiLog, mkButton, shell } from './ui.js';
+import { notify } from './feedback.ts';
+import { reportLegacyLog } from './feedback-legacy.ts';
 import { playTrack } from './music.js';
-import { pick, randInt } from './util.js';
+import { pick, randInt, random } from './util.js';
+
+/**
+ * Адаптирует старые цветовые тона журнала событий к единому API сообщений.
+ * Fallback нужен для unit-тестов и ранней инициализации, когда UI-адаптер
+ * `feedback` ещё не подключён.
+ */
+function log(text, tone = '') {
+  reportLegacyLog(text, tone, uiLog);
+}
 
 export function proceed() {
   closeModal();
@@ -44,7 +55,7 @@ export function maybeEvent() {
   const events = ['shop', 'purify', 'blessing'];
   if (S.player.wheel.some((f, i) => i > 0 && f)) events.push('sanctuary');
   if (S.player.gold >= GAMBLE_COST) events.push('gamble');
-  if (events.length && Math.random() < 0.5) {
+  if (events.length && random() < 0.5) {
     playTrack('event');
     ({
       shop: openShop,
@@ -320,25 +331,33 @@ export function openGamble() {
   } else {
     bet.onclick = () => {
       S.player.gold -= GAMBLE_COST;
-      if (Math.random() < 0.55) {
+      if (random() < 0.55) {
         const r = relicPool();
         if (r.length) {
           const id = r[randInt(r.length)];
           applyRelic(id);
-          toast(
-            (isEnglish() ? 'Luck! ' : 'Удача! ') +
+          notify({
+            channel: 'toast',
+            priority: 'high',
+            dedupeKey: `gamble-relic-${id}`,
+            text:
+              (isEnglish() ? 'Luck! ' : 'Удача! ') +
               (isEnglish() ? RELICS[id].enName : RELICS[id].name),
-          );
+          });
         }
       } else {
         const c = cursePool();
         if (c.length) {
           const id = c[randInt(c.length)];
           applyCurse(id);
-          toast(
-            (isEnglish() ? 'Failure… ' : 'Провал… ') +
+          notify({
+            channel: 'toast',
+            priority: 'high',
+            dedupeKey: `gamble-curse-${id}`,
+            text:
+              (isEnglish() ? 'Failure… ' : 'Провал… ') +
               (isEnglish() ? CURSES[id].enName : CURSES[id].name),
-          );
+          });
         }
       }
       proceed();

@@ -13,9 +13,10 @@ import { CFG, KEY_COLORS, KEY_GLYPH } from './config.js';
 import { loadLevel, newFloor, generateBossRoom, loadRoom } from './board.js';
 import { META, metaSave } from './meta.js';
 import { render, clearSpeech } from './render.js';
-import { BOSS_CFG } from './bosses.js';
+import { BOSS_CFG } from './bosses/index.ts';
 import { cleanse } from './status.js';
 import { log, closeModal, syncUI } from './ui.js';
+import { openEditor } from './editor.js';
 import { makeForm, pick, tileColor } from './util.js';
 
 /**
@@ -53,7 +54,7 @@ export function openDebugMenu() {
       label: '🗺 Редактор уровней',
       fn: () => {
         closeMenu();
-        import('./editor.js').then((m) => m.openEditor());
+        openEditor();
       },
     },
     { label: '♟ Добавить случайную форму', fn: addRandomForm },

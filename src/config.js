@@ -54,9 +54,13 @@
 /** @typedef {'pawn'|'knight'|'bishop'|'rook'|'queen'|'archbishop'|'chancellor'|'beast'|'king'|'infiltrator'|'bastion'} PieceType */
 /** @typedef {{x:number,y:number}} Cell */
 /** @typedef {{type:PieceType, r:number, improved:boolean, cooldown:number, homeColor:0|1}} Form */
+import { BALANCE } from './balance-config';
+import { ENDLESS_SPECIAL_ROOMS } from './bosses/config';
 
 export const CFG = {
   CAMPAIGN_SEED: 42, // фиксированный seed для кампании (воспроизводимые забеги)
+  BALANCE,
+  ENDLESS_SPECIAL_ROOMS,
   W: 13,
   H: 11,
   VIEW_W: 11, // ширина вьюпорта в клетках
@@ -88,89 +92,21 @@ export const CFG = {
   MUSIC_ENABLED: true, // музыка включена
   MUSIC_VOLUME: 0.35, // громкость музыки (поверх LUFS-нормализации)
   LANG: 'system', // язык: 'system' | 'ru' | 'en'
-  FATIGUE_K: 2, // кулдаун формы после взятия
-  ENEMY_CAPTURE_CD: 1, // кулдаун врага после взятия игрока
+  FATIGUE_K: BALANCE.forms.fatigueAfterCapture,
+  ENEMY_CAPTURE_CD: BALANCE.forms.enemyCaptureCooldown,
   // ── интерфейс ──
   CONFIRM_MOVES: 'risky', // 'off' | 'risky' | 'all' — подтверждение хода вторым тапом
   SHOW_PREVIEW: true, // показывать угрозы, которые появятся после хода
   ANALYTICS_ENABLED: false,
   ANALYTICS_ENDPOINT: 'http://localhost:8787',
   ANALYTICS_ADMIN_TOKEN: '',
-  HUNGER: {
-    start: 20, // сытость в начале этажа
-    cap: 30, // ← новое: потолок сытости
-    perTurn: 1, // тратится каждый ход
-    passExtra: 2, // дополнительно за пас (итого 3)
-    capture: 4, // даётся за взятие
-    vein: 8, // даёт Жила (бывшая руна)
-    starveDegrade: 1, // при 0: деградация каждый ход
-    food: 10, // еда (кость) восстанавливает столько голода
-  },
+  HUNGER: BALANCE.hunger,
   EXTRA_SLOTS: 2, // слоты колеса помимо пешки
-  LADDER: {
-    king: 6,
-    infiltrator: 4,
-    bastion: 1,
-    chancellor: 10,
-    archbishop: 10,
-    beast: 8,
-    queen: 9,
-    rook: 5,
-    bishop: 3,
-    knight: 3,
-    pawn: 1,
-  },
-  // Сложность этажа: враги «покупаются» из бюджета угрозы (одна кривая вместо таблиц).
-  DIFF: {
-    budgetBase: 4, // бюджет угрозы на этаже 1
-    budgetGrow: 2.5, // прирост бюджета за каждый следующий этаж
-    minEnemies: 3,
-    maxElite: 3, // не больше 3 врагов с ценой ≥5 (guardian, queen, mimic, frost)
-    cost: {
-      pawn: 1,
-      knight: 3,
-      bishop: 3,
-      rook: 4,
-      queen: 7,
-      guardian: 5,
-      necro: 4,
-      mimic: 5,
-      assassin: 4,
-      priest: 4,
-      frost: 5,
-    }, // цена в бюджете
-    unlockFloor: {
-      pawn: 1,
-      knight: 1,
-      bishop: 2,
-      rook: 2,
-      queen: 3,
-      guardian: 3,
-      necro: 4,
-      mimic: 5,
-      assassin: 4,
-      priest: 5,
-      frost: 6,
-    }, // с какого этажа доступен
-    queenCap: 1,
-    queenCapDeep: 2,
-    queenCapDeepFloor: 7, // мягкий лимит ферзей
-    rangeBumpFloor: 4,
-    rangeBumpFloor2: 7, // +1/+2 к дальности слайдеров
-    necroEvery: 3,
-    enemyCap: 10, // некромант призывает каждые N ходов; общий потолок
-    priestEvery: 3,
-    frostEvery: 2,
-    frostRange: 3, // жрец щитует, морозный маг оглушает
-  },
-  ROOMS: {
-    startMin: 1,
-    startMax: 3,
-    growEvery: 3,
-    cap: 5,
-    budgetExp: 0.65, // доля бюджета на комнату = nRooms ^ -budgetExp
-  },
+  LADDER: BALANCE.forms.degradationLadder,
+  DIFF: BALANCE.enemies,
+  ROOMS: BALANCE.rooms,
 };
+export const APP_VERSION = '0.2.0';
 export const KEY_COLORS = ['red', 'blue', 'green', 'gold', 'purple'];
 export const KEY_GLYPH = { red: '🔴', blue: '🔵', green: '🟢', gold: '🟡', purple: '🟣' };
 export const KEY_COLOR_HEX = {

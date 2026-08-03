@@ -102,7 +102,7 @@ const TEX_TILES = 2; // одна текстура покрывает 2×2 кле
  * и вызывающий рисует обычным цветом; по готовности дёргается тот же колбэк,
  * что у тайлсетов, и кадр перерисовывается уже текстурой.
  */
-function wallPattern(c, biome, T) {
+export function wallPattern(c, biome, T) {
   const id = biome || 'default';
   const cached = patterns.get(id);
   if (cached === false) return null;

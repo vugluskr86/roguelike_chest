@@ -27,6 +27,7 @@ import { ART } from './assets.js';
 import { isEnglish, L, LContent, invalidateLang } from './lang.js';
 import { duck, syncMusicSettings } from './music.js';
 import { downloadReplay, recordSnapshot, startAnalyticsRun } from './analytics.js';
+import { resetHints } from './tutorial.js';
 
 //  Оболочка модалки
 // ════════════════════════════════════════════════════════════════
@@ -269,6 +270,9 @@ export function openRunSummary(title, subtitle, earned, opts = {}) {
     '</div>' +
     '<div class="srec">' +
     L('summary.record', META.bestFloor, META.runs) +
+    '</div>' +
+    '<div class="sseed">' +
+    L('summary.seed', S.runSeed) +
     '</div>' +
     '</div>' +
     (rids.length
@@ -1079,8 +1083,8 @@ export function openSettings() {
   const analyticsRow = mkRow(
     isEnglish() ? 'Anonymous playtest telemetry' : 'Анонимная статистика плейтеста',
     isEnglish()
-      ? 'Sends game actions and replays without personal data.'
-      : 'Отправляет игровые действия и реплеи без персональных данных.',
+      ? 'Sends game actions and replays. No fingerprint, browser storage, or raw error details are sent.'
+      : 'Отправляет игровые действия и реплеи без fingerprint, данных хранилища браузера и сырых сведений об ошибках.',
   );
   const analyticsBtn = document.createElement('button');
   analyticsBtn.className = 'buy';
@@ -1123,7 +1127,9 @@ export function openSettings() {
   dom.mChoices.appendChild(tokenRow);
 
   if (CFG.ANALYTICS_ENABLED) {
-    const exportRow = mkRow(isEnglish() ? 'Export current replay' : 'Экспортировать текущий реплей');
+    const exportRow = mkRow(
+      isEnglish() ? 'Export current replay' : 'Экспортировать текущий реплей',
+    );
     const exportBtn = document.createElement('button');
     exportBtn.className = 'buy';
     exportBtn.textContent = isEnglish() ? 'export' : 'экспорт';
@@ -1147,14 +1153,12 @@ export function openSettings() {
   cRow.appendChild(cBtn);
   dom.mChoices.appendChild(cRow);
 
-  // сброс обучения — динамический импорт, чтобы не заводить цикл ui ⇄ tutorial
+  // Сброс обучения доступен из настроек.
   const tRow = mkRow(L('settings.tutorial'), L('settings.tutorialDesc'));
   const tBtn = document.createElement('button');
   tBtn.className = 'buy';
   tBtn.textContent = L('settings.tutorialBtn');
-  tBtn.onclick = () => {
-    import('./tutorial.js').then((m) => m.resetHints && m.resetHints());
-  };
+  tBtn.onclick = resetHints;
   tRow.appendChild(tBtn);
   dom.mChoices.appendChild(tRow);
 

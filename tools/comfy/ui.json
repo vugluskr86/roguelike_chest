@@ -1,0 +1,50 @@
+{
+  "workflow": "workflows/04_scale9_ui_set.json",
+  "defaults": {
+    "ckpt": "PUT_YOUR_SDXL_CHECKPOINT.safetensors",
+    "corner_px": 32,
+    "edge_len_px": 96,
+    "seed": "random",
+    "fill_prompt": "dark cold stone surface, almost black, barely visible grain"
+  },
+  "jobs": [
+    {
+      "name": "panel_bone",
+      "prompt": "border made of fused bone and ivory, carved ribs and vertebrae, cold rim light, thick chunky outline",
+      "fill_prompt": "dark parchment, faint stains, almost flat"
+    },
+    {
+      "name": "panel_iron",
+      "prompt": "border of riveted rusted iron strips, corner bolts, chained edge",
+      "fill_prompt": "dark oiled metal, very low contrast"
+    },
+    {
+      "name": "button_idle",
+      "prompt": "small carved stone plaque border, bevelled edge, cold teal rim highlight, thick chunky outline",
+      "corner_px": 16,
+      "edge_len_px": 48,
+      "fill_prompt": "flat dark slate, uniform"
+    },
+    {
+      "name": "button_hot",
+      "prompt": "small carved stone plaque border lit by crimson ember glow, bevelled edge, hot rim highlight",
+      "corner_px": 16,
+      "edge_len_px": 48,
+      "fill_prompt": "dark slate with faint crimson wash"
+    },
+    {
+      "name": "tooltip",
+      "prompt": "thin bone splinter border, minimal ornament, one pixel crisp outline",
+      "corner_px": 12,
+      "edge_len_px": 48,
+      "fill_prompt": "near-black flat surface"
+    },
+    {
+      "name": "modal_throne",
+      "prompt": "heavy ceremonial border of black obelisk stone with bone inlay glyphs and crimson veins, ornate corners",
+      "corner_px": 48,
+      "edge_len_px": 128,
+      "fill_prompt": "deep black stone, subtle carved grid, very low contrast"
+    }
+  ]
+}

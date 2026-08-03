@@ -290,6 +290,78 @@ export const CHALLENGES = {
 };
 
 export const ACHIEVEMENTS = {
+  endless_tormentor_first: {
+    name: 'Боль пройдена',
+    enName: 'Pain Endured',
+    desc: 'Победи Мучителя в endless.',
+    enDesc: 'Defeat the Tormentor in endless.',
+  },
+  endless_tormentor_hard: {
+    name: 'Боль не сломила',
+    enName: 'Unbroken',
+    desc: 'Победи Мучителя на сложности 2+.',
+    enDesc: 'Defeat the Tormentor at difficulty 2+.',
+  },
+  endless_tormentor_mastery: {
+    name: 'Диагональ закрыта',
+    enName: 'Closed Diagonal',
+    desc: 'Одолей Мучителя.',
+    enDesc: 'Overcome the Tormentor.',
+  },
+  endless_spawnedRooks_first: {
+    name: 'Разомкнутая связка',
+    enName: 'Unlinked',
+    desc: 'Победи Спаянные Ладьи в endless.',
+    enDesc: 'Defeat the Linked Rooks in endless.',
+  },
+  endless_spawnedRooks_hard: {
+    name: 'Линия не дрогнула',
+    enName: 'Steady Line',
+    desc: 'Победи Ладьи на сложности 2+.',
+    enDesc: 'Defeat the Rooks at difficulty 2+.',
+  },
+  endless_spawnedRooks_mastery: {
+    name: 'Последняя линия',
+    enName: 'Last Line',
+    desc: 'Разорви связку ладей.',
+    enDesc: 'Break the rook link.',
+  },
+  endless_millstone_first: {
+    name: 'Жернов встал',
+    enName: 'Mill Stopped',
+    desc: 'Победи Жернов в endless.',
+    enDesc: 'Defeat the Millstone in endless.',
+  },
+  endless_millstone_hard: {
+    name: 'Тяжёлый помол',
+    enName: 'Heavy Grind',
+    desc: 'Победи Жернов на сложности 2+.',
+    enDesc: 'Defeat the Millstone at difficulty 2+.',
+  },
+  endless_millstone_mastery: {
+    name: 'Пустой механизм',
+    enName: 'Empty Mechanism',
+    desc: 'Заклини Жернов.',
+    enDesc: 'Jam the Millstone.',
+  },
+  endless_redKing_first: {
+    name: 'Король пал',
+    enName: 'King Fallen',
+    desc: 'Победи Красного Короля в endless.',
+    enDesc: 'Defeat the Red King in endless.',
+  },
+  endless_redKing_hard: {
+    name: 'Красная корона',
+    enName: 'Red Crown',
+    desc: 'Победи Короля на сложности 2+.',
+    enDesc: 'Defeat the King at difficulty 2+.',
+  },
+  endless_redKing_mastery: {
+    name: 'Все цепи',
+    enName: 'All Chains',
+    desc: 'Разорви цепи Красного Короля.',
+    enDesc: 'Break the Red King’s chains.',
+  },
   first_blood: {
     name: 'Первая кровь',
     enName: 'First Blood',

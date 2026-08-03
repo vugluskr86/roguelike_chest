@@ -15,7 +15,6 @@ import { CFG, GLYPH, KEY_GLYPH, NAME, TIER_META, relicTier } from './config.js';
 import { CURSES, RELICS } from './content.js';
 import { L, LContent } from './lang.js';
 import { threatenersAt, wheelSummary } from './preview.js';
-import { isBossFloor } from './util.js';
 
 const HUNGER_GROUP = 6; // деление шкалы — столько рёбер в группе
 
@@ -53,9 +52,10 @@ export function renderHunger() {
   if (!dom.hungerRibs || !S.player || S.player.hunger === undefined) return;
   const max = CFG.HUNGER.cap ?? CFG.HUNGER.start;
   const val = Math.max(0, Math.min(max, S.player.hunger));
-  const perTurn = CFG.HUNGER.perTurn || 1;
+  const satiety = S.player.temporaryEffects?.find((effect) => effect.id === 'satiety');
+  const perTurn = (CFG.HUNGER.perTurn || 1) * (satiety ? 0.5 : 1);
   const turns = Math.ceil(val / perTurn);
-  const frozen = S.runMode === 'campaign' && isBossFloor(S.floor);
+  const frozen = !!S.roomRules?.freezeHunger;
 
   let html = '';
   for (let i = 0; i < max; i++) {
@@ -78,7 +78,9 @@ export function renderHunger() {
       dom.hungerRibs.parentNode.insertBefore(el, dom.hungerRibs.nextSibling);
   }
   el.className = frozen ? 'hcount frozen' : turns <= HUNGER_GROUP ? 'hcount warn' : 'hcount';
-  el.textContent = frozen ? L('hud.hungerFrozen', val) : val + ' · ' + L('hud.turnsLeft', turns);
+  el.textContent = frozen
+    ? L('hud.hungerFrozen', val)
+    : val + ' · ' + L('hud.turnsLeft', turns) + (satiety ? ` · ✦ ${satiety.remainingTurns}` : '');
   el.title = frozen
     ? L('hud.hungerFrozenTTL')
     : L('hud.hungerTTL', val, max, CFG.HUNGER.capture, CFG.HUNGER.food, CFG.HUNGER.passExtra);

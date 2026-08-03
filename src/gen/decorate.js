@@ -12,6 +12,7 @@
  *   цветозона — короткий путь, доступный слону и никому больше
  */
 import { DIAG, ORTHO, key, pick, randInt, random, shuffle, tileColor } from '../util.js';
+import { GENERATION } from '../generation-config';
 import { reachFor } from './validate.js';
 
 const inB = (x, y, W, H) => x >= 0 && x < W && y >= 0 && y < H;
@@ -69,7 +70,9 @@ export function decorate(walls, o) {
     const ex = head.x + dir[0] * P.conveyorLen,
       ey = head.y + dir[1] * P.conveyorLen;
     if (inB(ex, ey, W, H) && !occupied(ex, ey)) {
-      sp.set(key(ex, ey), { type: random() < 0.55 ? 'food' : 'trap' });
+      sp.set(key(ex, ey), {
+        type: random() < GENERATION.decoration.conveyorRewardChance ? 'food' : 'trap',
+      });
     }
   }
 
@@ -150,13 +153,13 @@ export function decorate(walls, o) {
     if (!c) break;
     sp.set(key(c.x, c.y), { type: pick(hazards) });
   }
-  if (random() < 0.35) {
+  if (random() < GENERATION.decoration.lavaChance) {
     const c = take(null);
     if (c) sp.set(key(c.x, c.y), { type: 'lava' });
   }
 
   // ── 6. Порталы, Жила, еда, свитки ─────────────────────────────
-  if (random() < 0.55) {
+  if (random() < GENERATION.decoration.portalChance) {
     const a = take(null),
       b = take((c) => a && Math.abs(c.x - a.x) + Math.abs(c.y - a.y) > Math.min(W, H) * 0.6);
     if (a && b) {
@@ -164,27 +167,31 @@ export function decorate(walls, o) {
       sp.set(key(b.x, b.y), { type: 'portal', pair: { x: a.x, y: a.y } });
     }
   }
-  if (random() < 0.6) {
+  if (random() < GENERATION.decoration.veinChance) {
     const c = take(null);
     if (c) sp.set(key(c.x, c.y), { type: 'rune' });
   }
 
   // Еда обязана быть достижима, и хотя бы по одной на каждом цвете —
   // иначе слон голодает при полной карте костей.
-  const wantLight = 1 + randInt(2),
-    wantDark = 1 + randInt(2);
+  const { min: minFood, max: maxFood } = GENERATION.decoration.foodPerColour;
+  const wantLight = minFood + randInt(maxFood - minFood + 1),
+    wantDark = minFood + randInt(maxFood - minFood + 1);
   let gotL = 0,
     gotD = 0;
   for (let i = 0; i < 12 && (gotL < wantLight || gotD < wantDark); i++) {
     const needLight = gotL < wantLight;
-    const c = take((cc) => kReach.has(key(cc.x, cc.y)) && (tileColor(cc.x, cc.y) === 0) === needLight);
+    const c = take(
+      (cc) => kReach.has(key(cc.x, cc.y)) && (tileColor(cc.x, cc.y) === 0) === needLight,
+    );
     if (!c) break;
     sp.set(key(c.x, c.y), { type: 'food' });
     if (needLight) gotL++;
     else gotD++;
   }
 
-  const nScroll = 1 + randInt(2);
+  const { min: minScrolls, max: maxScrolls } = GENERATION.decoration.scrolls;
+  const nScroll = minScrolls + randInt(maxScrolls - minScrolls + 1);
   for (let s = 0; s < nScroll; s++) {
     const c = take((cc) => kReach.has(key(cc.x, cc.y)));
     if (c) sp.set(key(c.x, c.y), { type: 'scroll' });

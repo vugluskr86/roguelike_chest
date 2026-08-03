@@ -3,27 +3,42 @@ import { afterEnemies, degradePlayer } from './combat.js';
 import { CFG } from './config.js';
 import { recordKill, unlockAch } from './meta.js';
 import { effectiveForm, genMoves, necroInterval } from './moves.js';
-import { addSpeech, render, startMoveAnim, spawnParticles } from './render.js';
+import { addSpeech, render } from './render.js';
 import { enemyAt, isBossEntity } from './state.js';
 import { applyStatus, statusVal } from './status.js';
 import { playDeath } from './audio.js';
-import { log, syncUI } from './ui.js';
-import { DIAG, ORTHO, cheb, inB, key, tileColor } from './util.js';
+import { log as uiLog, syncUI } from './ui.js';
+import { DIAG, ORTHO, cheb, inB, key, pick, random, tileColor } from './util.js';
 import { getScript, actForFloor, pickLine } from './content/script.js';
-import { bossTurn, dispatchBossEvents } from './bosses.js';
+import { bossTurn, dispatchBossEvents } from './bosses/index.ts';
 import { isTutorial } from './tutorial.js';
 import { isEnglish } from './lang.js';
+import { reportLegacyLog } from './feedback-legacy.ts';
+import { emitVisual } from './visual-effects.ts';
+import { notify } from './feedback.ts';
 
+/** Единый путь сообщений хода врагов с fallback до инициализации UI. */
+function log(text, tone = '') {
+  reportLegacyLog(text, tone, uiLog);
+}
+
+/** Передаёт реплику врага в единый канал с fallback до инициализации UI. */
+function speech(x, y, text, kind = 'enemy') {
+  if (!notify({ channel: 'speech', text, anchor: { x, y }, speechKind: kind }))
+    addSpeech(x, y, text, kind);
+}
+
+/** Обрабатывает взятие от boss-event, сохраняя отдельную причину смерти. */
 function handleBossCapture(by) {
   if (!by) {
-    degradePlayer(null);
+    degradePlayer(null, 'boss_capture');
     if (S.gameOver) {
       render();
       syncUI();
     }
     return;
   }
-  degradePlayer(by);
+  degradePlayer(by, 'boss_capture');
   if (S.gameOver) {
     render();
     syncUI();
@@ -45,10 +60,10 @@ function _enemiesTurnOnce() {
   const bossEvents = bossTurn();
   dispatchBossEvents(bossEvents, {
     log: (t) => log(t),
-    addSpeech: (x, y, t, kind) => addSpeech(x, y, t, kind),
+    addSpeech: (x, y, t, kind) => speech(x, y, t, kind),
     onCapture: (by) => handleBossCapture(by),
     onCrush: () => {
-      degradePlayer(null);
+      degradePlayer(null, 'boss_crush');
       if (S.gameOver) {
         render();
         syncUI();
@@ -64,7 +79,7 @@ function _enemiesTurnOnce() {
       e.status.poison--;
       if (e.status.poison <= 0) {
         S.enemies = S.enemies.filter((v) => v !== e);
-        spawnParticles(e.x, e.y, '#d07a3f', 6);
+        emitVisual({ type: 'particles', x: e.x, y: e.y, color: '#d07a3f', count: 6 });
         playDeath();
         recordKill(e.type, true);
         log(isEnglish() ? 'dies from poison' : 'гибнет от яда');
@@ -106,7 +121,7 @@ function _enemiesTurnOnce() {
           ([ox, oy]) => inB(e.x + ox, e.y + oy) && !S.walls.has(key(e.x + ox, e.y + oy)),
         );
         if (fallback.length) {
-          const [nx, ny] = fallback[Math.floor(Math.random() * fallback.length)];
+          const [nx, ny] = pick(fallback);
           fx = nx;
           fy = ny;
         }
@@ -139,7 +154,7 @@ function _enemiesTurnOnce() {
       if (e.noAttackCd) e.attackReady = false;
       if (e.type === 'assassin') applyStatus(S.player, 'poison', 2);
       checkCellForEnemy(e);
-      degradePlayer(e);
+      degradePlayer(e, 'enemy_capture');
       if (S.gameOver) {
         render();
         syncUI();
@@ -157,17 +172,25 @@ function _enemiesTurnOnce() {
     }, opts.moves[0]);
     if (bestMove) {
       if (enemyAt(bestMove.x, bestMove.y)) continue;
-      startMoveAnim(e, e.x, e.y, bestMove.x, bestMove.y);
+      e.lastDir = [Math.sign(bestMove.x - e.x), Math.sign(bestMove.y - e.y)];
+      emitVisual({
+        type: 'move',
+        unit: e,
+        fromX: e.x,
+        fromY: e.y,
+        toX: bestMove.x,
+        toY: bestMove.y,
+      });
       e.x = bestMove.x;
       e.y = bestMove.y;
       checkCellForEnemy(e);
     }
     // редкая реплика живого врага
-    if (Math.random() < 0.08 && !isBossEntity(e)) {
+    if (random() < 0.08 && !isBossEntity(e)) {
       const act = actForFloor(S.floor);
       const pool = (getScript().enemyLines[e.type] && getScript().enemyLines[e.type][act]) || [];
       const line = pickLine(pool);
-      if (line) addSpeech(e.x, e.y, line, 'enemy');
+      if (line) speech(e.x, e.y, line, 'enemy');
     }
     if (e.status && e.status.haste > 0) e.status.haste--;
   }
@@ -184,7 +207,7 @@ function checkCellForEnemy(e) {
     recordKill(e.type, false);
     if (sp.type === 'trap') unlockAch('web_master');
     if (sp.type === 'lava') unlockAch('arsonist');
-    spawnParticles(e.x, e.y, '#c23b30', 4);
+    emitVisual({ type: 'particles', x: e.x, y: e.y, color: '#c23b30', count: 4 });
     playDeath();
     log(isEnglish() ? 'Enemy slain' : 'Враг погиб');
   }
@@ -213,7 +236,7 @@ export function necroTurn(e) {
     }
   }
   if (spots.length) {
-    const c = spots[Math.floor(Math.random() * spots.length)];
+    const c = pick(spots);
     S.enemies.push({
       type: 'pawn',
       x: c.x,

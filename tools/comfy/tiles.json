@@ -1,0 +1,29 @@
+{
+  "workflow": "workflows/01_seamless_tile.json",
+  "defaults": {
+    "ckpt": "PUT_YOUR_SDXL_CHECKPOINT.safetensors",
+    "tile_px": 64,
+    "seed": "random"
+  },
+  "jobs": [
+    { "name": "floor_halls",    "prompt": "cracked pale bone flagstones, thin dried blood in the grooves, worn checkerboard hint" },
+    { "name": "floor_corridors","prompt": "rusted iron floor plates, rivets, dark oil in seams, scratched by dragged chains" },
+    { "name": "floor_maze",     "prompt": "damp teal-green mossy cobblestone, uneven stones, standing water in cracks" },
+    { "name": "floor_lattice",  "prompt": "iron grate over black void, thin bars, faint crimson glow from below" },
+    { "name": "floor_arena",    "prompt": "packed grey sand over stone, scattered bone chips and teeth, dark stains" },
+    { "name": "floor_pylons",   "prompt": "polished black basalt slabs with carved chess notation, faint engraved lines" },
+
+    { "name": "wall_halls",     "prompt": "wall of compressed skulls and ribs packed in mortar, catacomb ossuary masonry" },
+    { "name": "wall_corridors", "prompt": "riveted rusted iron plating wall, hanging chain links, corrosion streaks" },
+    { "name": "wall_maze",      "prompt": "wet mossy dungeon brickwork, teal lichen, crumbling mortar" },
+    { "name": "wall_lattice",   "prompt": "iron bar cage wall, vertical bars, dark void behind, cold rim light" },
+    { "name": "wall_arena",     "prompt": "massive cyclopean stone blocks, deep gouges, dried crimson splatter" },
+    { "name": "wall_pylons",    "prompt": "carved black obelisk stone wall, bone inlay glyphs, faint crimson veins" },
+
+    { "name": "prop_pillar",    "prompt": "single carved bone pillar seen top-down, femur bundle column, dark base shadow" },
+    { "name": "prop_grinder",   "prompt": "iron millstone mechanism embedded in floor, toothed gear ring, top-down" },
+    { "name": "prop_web",       "prompt": "thick grey spiderweb stretched over stone, sticky strands, top-down" },
+    { "name": "prop_lava",      "prompt": "cracked stone with molten crimson glow in fissures, top-down, emissive" },
+    { "name": "prop_ice",       "prompt": "pale teal frozen floor, frost crystals, cracked ice sheet, top-down" }
+  ]
+}

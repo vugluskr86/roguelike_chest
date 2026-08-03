@@ -7,11 +7,25 @@ import { relicTier, tierWeight } from './config.js';
 import { CURSES, RELICS } from './content.js';
 import { maybeEvent } from './events.js';
 import { codexSeeCurse, codexSeeRelic, unlockAch } from './meta.js';
-import { log, openLoot } from './ui.js';
+import { log as uiLog, openLoot } from './ui.js';
+import { reportLegacyLog } from './feedback-legacy.ts';
 import { playLoot } from './audio.js';
 import { isEnglish } from './lang.js';
-import { shuffle } from './util.js';
+import { random, shuffle } from './util.js';
 import { recordEvent } from './analytics.js';
+
+/**
+ * Записывает выбор награды через единый API сообщений.
+ *
+ * При ранней инициализации или в изолированном тесте применяется прежний
+ * интерфейс `ui.log`, поэтому выбор реликвий и проклятий не теряет сообщения.
+ *
+ * @param {string} text Текст полученной реликвии или проклятия.
+ * @param {string} [tone=''] Старый визуальный тон журнала.
+ */
+function log(text, tone = '') {
+  reportLegacyLog(text, tone, uiLog);
+}
 
 export const relicPool = () =>
   Object.keys(RELICS).filter((id) => {
@@ -35,7 +49,7 @@ export function rollWeighted(poolFn, n, used, biasHigh) {
       total += w;
       return w;
     });
-    let r = Math.random() * total,
+    let r = random() * total,
       idx = 0;
     while (idx < avail.length - 1 && (r -= weights[idx]) > 0) idx++;
     const id = avail.splice(idx, 1)[0];
@@ -63,7 +77,7 @@ export function buildLootOptions() {
   for (let i = 0; i < 2; i++) {
     const rLeft = relicPool().filter((id) => !usedR.has(id)).length;
     const cLeft = cursePool().filter((id) => !usedC.has(id)).length;
-    const roll = Math.random();
+    const roll = random();
     if (roll < 0.45 && rLeft >= 2 && cLeft >= 1) {
       opts.push({
         kind: 'faust',
@@ -112,6 +126,11 @@ export function applyCurse(id) {
   S.player.curses.add(id);
   codexSeeCurse(id);
   if (S.player.curses.size >= 3) unlockAch('cursed');
+  if (id === 'glass' && S.player.status) {
+    // «Хрупкое тело» действует немедленно: нельзя сохранить щит, полученный
+    // до выбора проклятия, и обойти его ограничение до следующего этажа.
+    S.player.status.shield = 0;
+  }
   if (id === 'rusted' && S.player.wheel.length > 1) {
     // −1 слот: теряем последний непустой
     const idx = S.player.wheel.findLastIndex((s) => s !== null);

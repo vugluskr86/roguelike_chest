@@ -3,6 +3,6 @@ export default defineConfig({
   test: {
     environment: 'node',
     setupFiles: ['./test/setup.js'],
-    include: ['test/**/*.test.js'],
+    include: ['test/**/*.test.{js,ts}'],
   },
 });

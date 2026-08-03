@@ -130,15 +130,18 @@ function stopSource(node, fade = FADE) {
   gain.gain.cancelScheduledValues(ctx.currentTime);
   gain.gain.setTargetAtTime(0, ctx.currentTime, fade / 3);
   // останавливаем с запасом, иначе обрежется хвост затухания
-  setTimeout(() => {
-    try {
-      src.stop();
-      src.disconnect();
-      gain.disconnect();
-    } catch {
-      /* уже остановлен */
-    }
-  }, fade * 1000 + 200);
+  setTimeout(
+    () => {
+      try {
+        src.stop();
+        src.disconnect();
+        gain.disconnect();
+      } catch {
+        /* уже остановлен */
+      }
+    },
+    fade * 1000 + 200,
+  );
 }
 
 /**

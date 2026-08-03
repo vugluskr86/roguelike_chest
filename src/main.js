@@ -9,7 +9,7 @@ import { S } from './state.js';
 import { dom, initDom } from './dom.js';
 import { reset } from './board.js';
 import { pass, rotate, switchForm, tryMoveTo } from './combat.js';
-import { CFG, loadSettings } from './config.js';
+import { APP_VERSION, CFG, loadSettings } from './config.js';
 import { metaLoad } from './meta.js';
 import { playerOptions } from './moves.js';
 import {
@@ -19,20 +19,54 @@ import {
   setCameraDrag,
   snapBackCamera,
   startRenderLoop,
+  addSpeech,
+  applyVisualEffect,
 } from './render.js';
 import { enemyAt } from './state.js';
-import { closeModal, dismissModal, openHelp, openSettings, openTitle } from './ui.js';
+import {
+  closeModal,
+  dismissModal,
+  log,
+  openHelp,
+  openModal,
+  openSettings,
+  openTitle,
+  toast,
+} from './ui.js';
+import { configureFeedback } from './feedback.ts';
+import { configureVisualEffects } from './visual-effects.ts';
 import { installAnalyticsLifecycle } from './analytics.js';
 import { isTutorial } from './tutorial.js';
-import { inB, key, seedRNG } from './util.js';
+import { inB, key } from './util.js';
 import { editorActive, handleEditorClick, isBrushActive, openEditor } from './editor.js';
-import { feedDebugChar } from './debug.js';
+import { feedDebugChar, openDebugMenu } from './debug.js';
 import { getAudioContext, initAudio } from './audio.js';
 import { initMusic, playTrack } from './music.js';
 import { isEnglish, L } from './lang.js';
 import { setPreviewCell } from './preview.js';
 import { attachKeyNav } from './keynav.js';
 import { ART } from './assets.js';
+
+/** Подключает UI-адаптеры к независимым шинам сообщений и визуальных эффектов. */
+function configurePresentationServices() {
+  configureFeedback({
+    toast: (text) => toast(text),
+    log: (text, priority) =>
+      log(text, priority === 'critical' ? 'r' : priority === 'high' ? 'g' : ''),
+    speech: (x, y, text, kind) => addSpeech(x, y, text, kind || 'system'),
+    hint: (text) => toast(text),
+    modal: (text, action) =>
+      openModal(
+        L('app.title'),
+        text,
+        action
+          ? [{ text: action.label, onClick: action.run }]
+          : [{ text: 'OK', onClick: closeModal }],
+      ),
+    translate: (key, params) => L(key, ...params),
+  });
+  configureVisualEffects(applyVisualEffect);
+}
 
 // ===== экран загрузки =====
 function loreArray() {
@@ -103,7 +137,7 @@ function showLoadingScreen() {
 
 function applyPageTitle() {
   var t = document.getElementById('gameTitle');
-  if (t) t.innerHTML = L('app.title') + ' <span class="v">v1.0</span>';
+  if (t) t.innerHTML = L('app.title') + ` <span class="v">v${APP_VERSION}</span>`;
   var s = document.getElementById('gameSub');
   if (s) s.textContent = L('app.sub');
   var pt = document.getElementById('pageTitle');
@@ -182,7 +216,7 @@ function renderLegend() {
 }
 
 function startGame() {
-  seedRNG(Math.floor(Date.now()));
+  configurePresentationServices();
   applyPageTitle();
   renderLegend();
   metaLoad();
@@ -287,7 +321,6 @@ document.addEventListener('keydown', (ev) => {
       break;
     case 'r':
     case 'к':
-      seedRNG(S.runMode === 'campaign' ? CFG.CAMPAIGN_SEED : Date.now());
       closeModal();
       reset();
       break;
@@ -309,14 +342,12 @@ document.getElementById('btnPass').onclick = () => {
 document.getElementById('btnSettings').onclick = () => openSettings();
 document.getElementById('btnHelp').onclick = () => openHelp();
 document.getElementById('btnDebug').onclick = () => {
-  // динамический импорт — debug.js не грузится в прод-сборку без кнопки
-  import('./debug.js').then((m) => m.openDebugMenu());
+  openDebugMenu();
 };
 document.getElementById('btnEditor').onclick = () => {
   openEditor();
 };
 document.getElementById('btnRestart').onclick = () => {
-  seedRNG(S.runMode === 'campaign' ? CFG.CAMPAIGN_SEED : Date.now());
   closeModal();
   reset();
 };

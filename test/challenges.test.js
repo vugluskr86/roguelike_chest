@@ -12,6 +12,7 @@ import {
 } from '../src/combat.js';
 import { enemiesTurn } from '../src/enemies.js';
 import { endRunMeta } from '../src/meta.js';
+import { applyRelic } from '../src/loot.js';
 import { activeForm, playerOptions } from '../src/moves.js';
 import { seedRNG, randInt } from '../src/util.js';
 
@@ -54,6 +55,18 @@ describe('lone_figure challenge', () => {
     S.enemies.push({ type: 'rook', x: 4, y: 7, status: {}, r: 6 });
     const prevActive = S.player.active;
     degradePlayer(S.enemies[0]);
+    expect(S.gameOver).toBe(true);
+  });
+
+  it('allows the pawn talisman once before the challenge ends the run', () => {
+    applyRelic('pawn_shield');
+    const enemy = { type: 'rook', x: 4, y: 7, status: {}, r: 6, cd: 0 };
+    S.enemies.push(enemy);
+    degradePlayer(enemy, 'enemy_capture');
+    expect(S.gameOver).toBe(false);
+    expect(S.player.pawnShieldUsed).toBe(true);
+    expect(enemy.cd).toBeGreaterThan(0);
+    degradePlayer(enemy, 'enemy_capture');
     expect(S.gameOver).toBe(true);
   });
 });

@@ -6,7 +6,6 @@ import { CFG } from './config.js';
 import { S } from './state.js';
 import { createAnalyticsTransport } from './analytics-transport.js';
 import { ANALYTICS_EVENT } from './analytics-events.js';
-import { browserFingerprint } from './browser-fingerprint.js';
 import { serializeGameState, toReplayValue } from './replay-state.js';
 
 const SCHEMA = 1;
@@ -37,11 +36,6 @@ export function startAnalyticsRun(extra = {}) {
   };
   uploadedThrough = 0;
   recordEvent(ANALYTICS_EVENT.RUN_STARTED, extra, true);
-  void browserFingerprint().then((fingerprint) => {
-    if (!run || !fingerprint) return;
-    run.extra.browserFingerprint = fingerprint;
-    void flushAnalytics();
-  });
   return run.runId;
 }
 
@@ -68,7 +62,8 @@ export function recordEvent(type, data = {}, snapshot = false) {
   }
 }
 
-export const recordSnapshot = (type = ANALYTICS_EVENT.SNAPSHOT, data = {}) => recordEvent(type, data, true);
+export const recordSnapshot = (type = ANALYTICS_EVENT.SNAPSHOT, data = {}) =>
+  recordEvent(type, data, true);
 
 export function currentReplay() {
   return run ? { ...run, endedAt: new Date().toISOString() } : null;
@@ -120,7 +115,11 @@ export function installAnalyticsLifecycle() {
   });
   document.addEventListener('click', (event) => {
     const control = event.target?.closest?.('button[id], [data-analytics-action]');
-    if (control) recordEvent(ANALYTICS_EVENT.CLIENT_ACTION, { action: 'click', control: control.dataset.analyticsAction || control.id });
+    if (control)
+      recordEvent(ANALYTICS_EVENT.CLIENT_ACTION, {
+        action: 'click',
+        control: control.dataset.analyticsAction || control.id,
+      });
   });
   document.addEventListener('keydown', (event) => {
     const key = event.key.toLowerCase();
@@ -129,13 +128,11 @@ export function installAnalyticsLifecycle() {
     }
   });
   const errorData = (value) => ({
-    message: String(value?.message || value || 'Unknown browser error').slice(0, 2000),
-    stack: String(value?.stack || '').slice(0, 4000),
+    name: String(value?.name || 'BrowserError').slice(0, 80),
   });
   window.addEventListener('error', (event) => {
     recordEvent(ANALYTICS_EVENT.BROWSER_ERROR, {
-      ...errorData(event.error || event.message), line: event.lineno || null, column: event.colno || null,
-      source: String(event.filename || '').split('?')[0].slice(-300),
+      ...errorData(event.error || event.message),
     });
   });
   window.addEventListener('unhandledrejection', (event) => {

@@ -1,15 +1,3 @@
-//#region \0rolldown/runtime.js
-var __defProp = Object.defineProperty;
-var __exportAll = (all, no_symbols) => {
-	let target = {};
-	for (var name in all) __defProp(target, name, {
-		get: all[name],
-		enumerable: true
-	});
-	if (!no_symbols) __defProp(target, Symbol.toStringTag, { value: "Module" });
-	return target;
-};
-//#endregion
 //#region \0vite/modulepreload-polyfill.js
 (function polyfill() {
 	const relList = document.createElement("link").relList;
@@ -46,7 +34,7 @@ var __exportAll = (all, no_symbols) => {
 * src/state.js — глобальное мутабельное состояние игры S и хелперы.
 * Экспорты: S (объект), has(), curse(), enemyAt(), isBossEntity().
 */
-var S$1 = {
+var S$7 = {
 	walls: null,
 	player: null,
 	enemies: [],
@@ -54,6 +42,7 @@ var S$1 = {
 	promotionUsed: false,
 	unlocked: null,
 	gameOver: false,
+	runSeed: 0,
 	floor: 0,
 	hoverEnemy: null,
 	selectedEnemy: null,
@@ -69,14 +58,18 @@ var S$1 = {
 	millTick: 0,
 	millFed: 0,
 	party: null,
+	roomRules: null,
+	specialRoom: null,
+	lastSpecialRoom: null,
+	scenario: null,
 	runMode: "campaign",
 	currentRoom: 0,
 	rooms: [],
 	keys: /* @__PURE__ */ new Set()
 };
-var has = (id) => S$1.player && S$1.player.relics && S$1.player.relics.has(id);
-var curse = (id) => S$1.player && S$1.player.curses && S$1.player.curses.has(id);
-var enemyAt = (x, y) => S$1.enemies.find((e) => e.x === x && e.y === y);
+var has = (id) => S$7.player && S$7.player.relics && S$7.player.relics.has(id);
+var curse = (id) => S$7.player && S$7.player.curses && S$7.player.curses.has(id);
+var enemyAt = (x, y) => S$7.enemies.find((e) => e.x === x && e.y === y);
 /** Пропустить сущность в общем цикле врагов — её обслуживает bossTurn(). */
 var isBossEntity = (e) => e.bossId || e.king || e.linkedTo || e.fleeing || e.puppet || e.retinue;
 //#endregion
@@ -218,6 +211,28 @@ var en_default = {
 	"loading.tip.9": "Degradation saves you from death: you lose a form, but continue the run.",
 	"log.default": "Move or be taken.",
 	"meta.achievements": "Achievements {0}/{1}",
+	"achievement.log": "Achievement: <b>{0}</b>",
+	"editor.scenario.ready": "Scenario ready: {0} steps. Press ▶ to preview.",
+	"editor.scenario.preview": "Scenario preview: {0}",
+	"editor.scenario.prompt": "Edit the scenario. It is validated before saving and can be previewed with ▶.",
+	"editor.scenario.saved": "Scenario saved: {0} steps. Press ▶ to preview.",
+	"editor.scenario.error": "Scenario error: {0}",
+	"editor.scenario.formTitle": "Scenario Step Editor",
+	"editor.scenario.formHelp": "The board is taken from the current room. Choose a step, edit its text and completion rule, then save it.",
+	"editor.scenario.id": "Scenario ID",
+	"editor.scenario.messageRu": "Message (RU)",
+	"editor.scenario.messageEn": "Message (EN)",
+	"editor.scenario.completion": "Completion",
+	"editor.scenario.clear": "Clear all enemies",
+	"editor.scenario.reach": "Reach cell",
+	"editor.scenario.targetX": "Target X",
+	"editor.scenario.targetY": "Target Y",
+	"editor.scenario.addStep": "Add Step from Room",
+	"editor.scenario.saveStep": "Save Step",
+	"editor.scenario.deleteStep": "Delete Step",
+	"editor.scenario.deleteOnlyStep": "The only scenario step cannot be deleted.",
+	"editor.scenario.advanced": "Advanced JSON",
+	"editor.scenario.cancel": "Cancel",
 	"meta.bestiary": "Bestiary {0}/{1}",
 	"meta.campDesc": "18 floors, four bosses, three endings",
 	"meta.campaign": "⚔ Campaign",
@@ -283,6 +298,7 @@ var en_default = {
 	"summary.formsOnlyPawnKnight": "pawn and knight only",
 	"summary.journal": "Journal",
 	"summary.record": "record: floor {0} · runs {1}",
+	"summary.seed": "run seed: {0}",
 	"summary.runOver": "Run Over",
 	"summary.seams": "Seams",
 	"summary.title": "Run Ended",
@@ -429,6 +445,28 @@ var ru_default = {
 	"loading.tip.9": "Деградация спасает от смерти: теряешь форму, но продолжаешь забег.",
 	"log.default": "Двигайся или будь съеден.",
 	"meta.achievements": "Достижения {0}/{1}",
+	"achievement.log": "Достижение: <b>{0}</b>",
+	"editor.scenario.ready": "Сценарий готов: шагов {0}. Нажмите ▶ для предпросмотра.",
+	"editor.scenario.preview": "Предпросмотр сценария: {0}",
+	"editor.scenario.prompt": "Отредактируйте сценарий. Перед сохранением он проверяется; ▶ запускает предпросмотр.",
+	"editor.scenario.saved": "Сценарий сохранён: шагов {0}. Нажмите ▶ для предпросмотра.",
+	"editor.scenario.error": "Ошибка сценария: {0}",
+	"editor.scenario.formTitle": "Редактор шагов сценария",
+	"editor.scenario.formHelp": "Карта берётся из текущей комнаты. Выберите шаг, задайте текст и условие завершения, затем сохраните.",
+	"editor.scenario.id": "ID сценария",
+	"editor.scenario.messageRu": "Сообщение (RU)",
+	"editor.scenario.messageEn": "Сообщение (EN)",
+	"editor.scenario.completion": "Условие завершения",
+	"editor.scenario.clear": "Победить всех врагов",
+	"editor.scenario.reach": "Дойти до клетки",
+	"editor.scenario.targetX": "Цель X",
+	"editor.scenario.targetY": "Цель Y",
+	"editor.scenario.addStep": "Добавить шаг из комнаты",
+	"editor.scenario.saveStep": "Сохранить шаг",
+	"editor.scenario.deleteStep": "Удалить шаг",
+	"editor.scenario.deleteOnlyStep": "Нельзя удалить единственный шаг сценария.",
+	"editor.scenario.advanced": "Расширенный JSON",
+	"editor.scenario.cancel": "Отмена",
 	"meta.bestiary": "Бестиарий {0}/{1}",
 	"meta.campDesc": "18 ярусов, четыре босса, три финала",
 	"meta.campaign": "⚔ Кампания",
@@ -494,6 +532,7 @@ var ru_default = {
 	"summary.formsOnlyPawnKnight": "только пешка и конь",
 	"summary.journal": "Журнал",
 	"summary.record": "рекорд: ярус {0} · забегов {1}",
+	"summary.seed": "seed забега: {0}",
 	"summary.runOver": "Run Over",
 	"summary.seams": "Швы",
 	"summary.title": "Забег окончен",
@@ -529,63 +568,13 @@ var ru_default = {
 	"wheel.switch": "Сменить (тратит ход)"
 };
 //#endregion
-//#region src/config.js
+//#region src/balance-config.ts
 /**
-* src/config.js — константы, настройки, биомы (6), статусы, JSDoc-typedefs.
-* Экспорты: CFG, CFG.HUNGER, CFG.ROOMS, GLYPH, NAME, BIOMES, STATUS_META, loadSettings(), saveSettings().
+* Typed source of truth for runtime balance. CFG exposes these values to legacy
+* JavaScript; new systems should import BALANCE and its curve helpers directly.
 */
-/** @param {object|null} byEnemy — null при аварийной деградации (мат §6.3) */
-/**
-* @param {{x:number,y:number,facing:number[]}} piece
-* @param {Form|{type:PieceType,r?:number,homeColor:0|1}} form
-* @param {(x:number,y:number)=>boolean} isEnemyCell  — клетки, которые можно ВЗЯТЬ
-* @param {(x:number,y:number)=>boolean} isBlocked    — прочие занятые клетки
-* @returns {{moves:Cell[], captures:Cell[]}}
-*/
-/** @typedef {'pawn'|'knight'|'bishop'|'rook'|'queen'|'archbishop'|'chancellor'|'beast'|'king'|'infiltrator'|'bastion'} PieceType */
-/** @typedef {{x:number,y:number}} Cell */
-/** @typedef {{type:PieceType, r:number, improved:boolean, cooldown:number, homeColor:0|1}} Form */
-var CFG = {
-	CAMPAIGN_SEED: 42,
-	W: 13,
-	H: 11,
-	VIEW_W: 11,
-	VIEW_H: 9,
-	TILE: 56,
-	BASE_R: {
-		pawn: 1,
-		knight: 1,
-		bishop: 3,
-		rook: 3,
-		queen: 2,
-		archbishop: 3,
-		chancellor: 4,
-		beast: 1,
-		king: 1,
-		infiltrator: 1,
-		bastion: 1,
-		guardian: 1,
-		necro: 1,
-		mimic: 1,
-		assassin: 1,
-		priest: 3,
-		frost: 3
-	},
-	MOVE_ANIM_MS: 300,
-	TILE_ANIM_SPEED: 1,
-	SFX_ENABLED: true,
-	ANIM_ENABLED: true,
-	MUSIC_ENABLED: true,
-	MUSIC_VOLUME: .35,
-	LANG: "system",
-	FATIGUE_K: 2,
-	ENEMY_CAPTURE_CD: 1,
-	CONFIRM_MOVES: "risky",
-	SHOW_PREVIEW: true,
-	ANALYTICS_ENABLED: false,
-	ANALYTICS_ENDPOINT: "http://localhost:8787",
-	ANALYTICS_ADMIN_TOKEN: "",
-	HUNGER: {
+var BALANCE = {
+	hunger: {
 		start: 20,
 		cap: 30,
 		perTurn: 1,
@@ -595,21 +584,32 @@ var CFG = {
 		starveDegrade: 1,
 		food: 10
 	},
-	EXTRA_SLOTS: 2,
-	LADDER: {
-		king: 6,
-		infiltrator: 4,
-		bastion: 1,
-		chancellor: 10,
-		archbishop: 10,
-		beast: 8,
-		queen: 9,
-		rook: 5,
-		bishop: 3,
-		knight: 3,
-		pawn: 1
+	temporaryEffects: { satiety: {
+		greenRatio: .7,
+		yellowRatio: .4,
+		consecutiveGreenTurns: 5,
+		durationTurns: 10,
+		hungerDrainMultiplier: .5,
+		armor: 1
+	} },
+	forms: {
+		fatigueAfterCapture: 2,
+		enemyCaptureCooldown: 1,
+		degradationLadder: {
+			king: 6,
+			infiltrator: 4,
+			bastion: 1,
+			chancellor: 10,
+			archbishop: 10,
+			beast: 8,
+			queen: 9,
+			rook: 5,
+			bishop: 3,
+			knight: 3,
+			pawn: 1
+		}
 	},
-	DIFF: {
+	enemies: {
 		budgetBase: 4,
 		budgetGrow: 2.5,
 		minEnemies: 3,
@@ -649,9 +649,17 @@ var CFG = {
 		enemyCap: 10,
 		priestEvery: 3,
 		frostEvery: 2,
-		frostRange: 3
+		frostRange: 3,
+		favoriteBiomeChance: .5,
+		boardAreaReference: 99,
+		headstartBudgetReduction: 2,
+		countBase: 5,
+		countGrowEvery: 4,
+		countCap: 10,
+		countMinimum: 2,
+		spawnTopBoardFraction: .62
 	},
-	ROOMS: {
+	rooms: {
 		startMin: 1,
 		startMax: 3,
 		growEvery: 3,
@@ -659,6 +667,206 @@ var CFG = {
 		budgetExp: .65
 	}
 };
+function enemyCountLimit(floor, share = 1) {
+	const { enemies } = BALANCE;
+	const base = Math.min(enemies.countBase + Math.floor(floor / enemies.countGrowEvery), enemies.countCap);
+	return Math.max(enemies.countMinimum, Math.round(base * share));
+}
+function enemyThreatBudget(floor, width, height, share = 1) {
+	const { enemies } = BALANCE;
+	return (enemies.budgetBase + enemies.budgetGrow * (floor - 1)) * Math.sqrt(width * height / enemies.boardAreaReference) * share;
+}
+function roomCountBounds(floor) {
+	const { rooms } = BALANCE;
+	const max = Math.min(rooms.startMax + Math.floor(floor / rooms.growEvery), rooms.cap);
+	return {
+		min: Math.min(rooms.startMin + Math.floor(floor / rooms.growEvery), max),
+		max
+	};
+}
+//#endregion
+//#region src/bosses/config.ts
+var BOSS_DEFINITIONS = Object.freeze({
+	tormentor: {
+		id: "tormentor",
+		name: "Слон-Мучитель",
+		description: "Фазовый слон: теряет броню и в конце распадается на бегущих.",
+		counterplay: "Используйте укрытия и не оставляйте диагонали открытыми.",
+		achievement: "endless_tormentor_first",
+		reward: "tormentor_guard"
+	},
+	spawnedRooks: {
+		id: "spawnedRooks",
+		name: "Спаянные Ладьи",
+		description: "Две связанные ладьи мстят за уничтоженную пару.",
+		counterplay: "Не завершайте взятие на линии оставшейся ладьи.",
+		achievement: "endless_rooks_first",
+		reward: "rooks_momentum"
+	},
+	millstone: {
+		id: "millstone",
+		name: "Жернов и Кукловод",
+		description: "Жернов движется по коридору, а Кукловод подаёт в него фигуры.",
+		counterplay: "Контролируйте коридор и используйте разворот жернова.",
+		achievement: "endless_millstone_first",
+		reward: "millstone_feast"
+	},
+	redKing: {
+		id: "redKing",
+		name: "Красный Король",
+		description: "Непробиваемый король с цепями и свитой.",
+		counterplay: "Сначала разорвите четыре цепи, затем разбирайте свиту.",
+		achievement: "endless_red_king_first",
+		reward: "red_king_haste"
+	}
+});
+/**
+* Числовые параметры боевых механик боссов.
+*
+* Конфигурация намеренно отделена от обработчиков ходов: балансировщик может
+* менять значения, не затрагивая правила движения, а симулятор — подменять
+* конфиг при проведении воспроизводимого прогона.  Все поля описывают базовую
+* сложность комнаты; модификаторы endless добавляются при её создании.
+*/
+var BOSS_CONFIG = Object.freeze({
+	/** Слон-Мучитель: фазовый диагональный противник. */
+	tormentor: {
+		armor: 3,
+		range: 4,
+		stunEvery: 3,
+		stunRadius: 2,
+		stunDur: 1,
+		diagsByPhase: [
+			4,
+			3,
+			2
+		],
+		keepDistance: 2,
+		splitCount: 3,
+		fleeSpeed: 1
+	},
+	/** Спаянные ладьи: общая линия атаки и ответ за уничтоженную пару. */
+	linkedRooks: {
+		range: 6,
+		revenge: true,
+		bickerEvery: 3,
+		breakAfterStuck: 2
+	},
+	/** Жернов: передвижная опасность комнаты Кукловода. */
+	millstone: {
+		speed: 1,
+		moveEvery: 1,
+		bounce: true,
+		count: 2
+	},
+	/** Кукловод: правила поступления и победы над куклами. */
+	puppeteer: {
+		jamQuota: 3,
+		pullEvery: 4,
+		dropEvery: 3,
+		maxPuppets: 6,
+		reserve: 14,
+		protects: true
+	},
+	/** Красный Король и его свита. */
+	redKing: {
+		chains: 4,
+		orderEvery: 1,
+		queenShield: 1,
+		queenShieldEvery: 2,
+		rookFireEvery: 2,
+		knightChaos: .5,
+		knightRestTurns: 1,
+		kingArmorAfterChains: 1
+	}
+});
+//#endregion
+//#region src/config.js
+/**
+* src/config.js — константы, настройки, биомы (6), статусы, JSDoc-typedefs.
+* Экспорты: CFG, CFG.HUNGER, CFG.ROOMS, GLYPH, NAME, BIOMES, STATUS_META, loadSettings(), saveSettings().
+*/
+/** @param {object|null} byEnemy — null при аварийной деградации (мат §6.3) */
+/**
+* @param {{x:number,y:number,facing:number[]}} piece
+* @param {Form|{type:PieceType,r?:number,homeColor:0|1}} form
+* @param {(x:number,y:number)=>boolean} isEnemyCell  — клетки, которые можно ВЗЯТЬ
+* @param {(x:number,y:number)=>boolean} isBlocked    — прочие занятые клетки
+* @returns {{moves:Cell[], captures:Cell[]}}
+*/
+/** @typedef {'pawn'|'knight'|'bishop'|'rook'|'queen'|'archbishop'|'chancellor'|'beast'|'king'|'infiltrator'|'bastion'} PieceType */
+/** @typedef {{x:number,y:number}} Cell */
+/** @typedef {{type:PieceType, r:number, improved:boolean, cooldown:number, homeColor:0|1}} Form */
+var CFG = {
+	CAMPAIGN_SEED: 42,
+	BALANCE,
+	ENDLESS_SPECIAL_ROOMS: Object.freeze({
+		enabled: true,
+		minimumFloor: 5,
+		chance: .18,
+		cooldownFloors: 4,
+		weights: {
+			tormentor: 3,
+			spawnedRooks: 3,
+			millstone: 2,
+			redKing: 1
+		},
+		difficulty: {
+			base: 1,
+			everyFloors: 5,
+			maximum: 3
+		},
+		parameterRanges: {
+			armorBonus: [0, 1],
+			minionBonus: [0, 1],
+			mechanicSpeedBonus: [0, 1]
+		}
+	}),
+	W: 13,
+	H: 11,
+	VIEW_W: 11,
+	VIEW_H: 9,
+	TILE: 56,
+	BASE_R: {
+		pawn: 1,
+		knight: 1,
+		bishop: 3,
+		rook: 3,
+		queen: 2,
+		archbishop: 3,
+		chancellor: 4,
+		beast: 1,
+		king: 1,
+		infiltrator: 1,
+		bastion: 1,
+		guardian: 1,
+		necro: 1,
+		mimic: 1,
+		assassin: 1,
+		priest: 3,
+		frost: 3
+	},
+	MOVE_ANIM_MS: 300,
+	TILE_ANIM_SPEED: 1,
+	SFX_ENABLED: true,
+	ANIM_ENABLED: true,
+	MUSIC_ENABLED: true,
+	MUSIC_VOLUME: .35,
+	LANG: "system",
+	FATIGUE_K: BALANCE.forms.fatigueAfterCapture,
+	ENEMY_CAPTURE_CD: BALANCE.forms.enemyCaptureCooldown,
+	CONFIRM_MOVES: "risky",
+	SHOW_PREVIEW: true,
+	ANALYTICS_ENABLED: false,
+	ANALYTICS_ENDPOINT: "http://localhost:8787",
+	ANALYTICS_ADMIN_TOKEN: "",
+	HUNGER: BALANCE.hunger,
+	EXTRA_SLOTS: 2,
+	LADDER: BALANCE.forms.degradationLadder,
+	DIFF: BALANCE.enemies,
+	ROOMS: BALANCE.rooms
+};
+var APP_VERSION = "0.2.0";
 var KEY_COLORS = [
 	"red",
 	"blue",
@@ -1345,6 +1553,78 @@ var CHALLENGES = {
 	}
 };
 var ACHIEVEMENTS = {
+	endless_tormentor_first: {
+		name: "Боль пройдена",
+		enName: "Pain Endured",
+		desc: "Победи Мучителя в endless.",
+		enDesc: "Defeat the Tormentor in endless."
+	},
+	endless_tormentor_hard: {
+		name: "Боль не сломила",
+		enName: "Unbroken",
+		desc: "Победи Мучителя на сложности 2+.",
+		enDesc: "Defeat the Tormentor at difficulty 2+."
+	},
+	endless_tormentor_mastery: {
+		name: "Диагональ закрыта",
+		enName: "Closed Diagonal",
+		desc: "Одолей Мучителя.",
+		enDesc: "Overcome the Tormentor."
+	},
+	endless_spawnedRooks_first: {
+		name: "Разомкнутая связка",
+		enName: "Unlinked",
+		desc: "Победи Спаянные Ладьи в endless.",
+		enDesc: "Defeat the Linked Rooks in endless."
+	},
+	endless_spawnedRooks_hard: {
+		name: "Линия не дрогнула",
+		enName: "Steady Line",
+		desc: "Победи Ладьи на сложности 2+.",
+		enDesc: "Defeat the Rooks at difficulty 2+."
+	},
+	endless_spawnedRooks_mastery: {
+		name: "Последняя линия",
+		enName: "Last Line",
+		desc: "Разорви связку ладей.",
+		enDesc: "Break the rook link."
+	},
+	endless_millstone_first: {
+		name: "Жернов встал",
+		enName: "Mill Stopped",
+		desc: "Победи Жернов в endless.",
+		enDesc: "Defeat the Millstone in endless."
+	},
+	endless_millstone_hard: {
+		name: "Тяжёлый помол",
+		enName: "Heavy Grind",
+		desc: "Победи Жернов на сложности 2+.",
+		enDesc: "Defeat the Millstone at difficulty 2+."
+	},
+	endless_millstone_mastery: {
+		name: "Пустой механизм",
+		enName: "Empty Mechanism",
+		desc: "Заклини Жернов.",
+		enDesc: "Jam the Millstone."
+	},
+	endless_redKing_first: {
+		name: "Король пал",
+		enName: "King Fallen",
+		desc: "Победи Красного Короля в endless.",
+		enDesc: "Defeat the Red King in endless."
+	},
+	endless_redKing_hard: {
+		name: "Красная корона",
+		enName: "Red Crown",
+		desc: "Победи Короля на сложности 2+.",
+		enDesc: "Defeat the King at difficulty 2+."
+	},
+	endless_redKing_mastery: {
+		name: "Все цепи",
+		enName: "All Chains",
+		desc: "Разорви цепи Красного Короля.",
+		enDesc: "Break the Red King’s chains."
+	},
 	first_blood: {
 		name: "Первая кровь",
 		enName: "First Blood",
@@ -2001,6 +2281,142 @@ var ART = {
 		blessing: pick$1("altar-blessing", "blessing")
 	}
 };
+//#endregion
+//#region src/bosses/dispatcher.ts
+/**
+* Выполняет фазы в стабильном порядке: механизм → Кукловод → пары Ладей →
+* индивидуальные боссы. Стабильный порядок важен для реплеев и тестов.
+*/
+function dispatchBossTurn(state, logic) {
+	let events = [...logic.millstoneTurn()];
+	if (state.party || state.enemies.some((enemy) => enemy.puppet)) events.push(...logic.partyTurn());
+	const groups = /* @__PURE__ */ new Map();
+	for (const enemy of state.enemies) if (enemy.linkedTo) groups.set(enemy.linkedTo, [...groups.get(enemy.linkedTo) ?? [], enemy]);
+	for (const group of groups.values()) if (group.length === 2) events.push(...logic.linkedRooksTurn(group));
+	for (const enemy of [...state.enemies]) {
+		if (!state.enemies.includes(enemy) || enemy.linkedTo) continue;
+		if (enemy.fleeing) events.push(...logic.fleeingTurn(enemy));
+		else if (enemy.puppet) continue;
+		else if (enemy.bossId === "tormentor") events.push(...logic.tormentorTurn(enemy));
+		else if (enemy.king) events.push(...logic.redKingTurn(enemy));
+		else if (enemy.retinue === "queen") events.push(...logic.queenTurn(enemy));
+		else if (enemy.retinue === "rook") events.push(...logic.blindRookTurn(enemy));
+		else if (enemy.retinue === "knight") events.push(...logic.madKnightTurn(enemy));
+	}
+	return events;
+}
+//#endregion
+//#region src/util.js
+/**
+* src/util.js — хелперы: направления, проверки границ, Mersenne Twister, RNG.
+* Основные экспорты: ORTHO, DIAG, KNIGHT_J, key(), inB(), tileColor(), cheb(),
+* makeForm(), randInt(), pick(), shuffle(), seedRNG(), random(), isBossFloor(), isFinalFloor().
+*/
+var ORTHO = [
+	[0, -1],
+	[1, 0],
+	[0, 1],
+	[-1, 0]
+];
+var DIAG = [
+	[1, -1],
+	[1, 1],
+	[-1, 1],
+	[-1, -1]
+];
+var KNIGHT_J = [
+	[1, -2],
+	[2, -1],
+	[2, 1],
+	[1, 2],
+	[-1, 2],
+	[-2, 1],
+	[-2, -1],
+	[-1, -2]
+];
+var key = (x, y) => x + "," + y;
+var inB$1 = (x, y) => x >= 0 && x < CFG.W && y >= 0 && y < CFG.H;
+var tileColor = (x, y) => (x + y) % 2;
+var cheb = (a, b) => Math.max(Math.abs(a.x - b.x), Math.abs(a.y - b.y));
+function makeForm(type, homeColor = 0, improved = false) {
+	return {
+		type,
+		r: (CFG.BASE_R[type] ?? 1) + (improved && (type === "bishop" || type === "rook" || type === "queen") ? 1 : 0),
+		improved,
+		cooldown: 0,
+		homeColor
+	};
+}
+/** Этаж → id босса. Единственное место, где это знание живёт. */
+var BOSS_FLOORS = {
+	5: "tormentor",
+	8: "spawnedRooks",
+	11: "millstone",
+	18: "redKing"
+};
+function MersenneTwister(seed) {
+	const N = 624, M = 397, MATRIX_A = 2567483615, UPPER_MASK = 2147483648, LOWER_MASK = 2147483647;
+	const mt = new Uint32Array(N);
+	let mti = 625;
+	mt[0] = seed >>> 0;
+	for (mti = 1; mti < N; mti++) mt[mti] = 1812433253 * (mt[mti - 1] ^ mt[mti - 1] >>> 30) + mti >>> 0;
+	function twist() {
+		for (let i = 0; i < N; i++) {
+			const y = (mt[i] & UPPER_MASK) + (mt[(i + 1) % N] & LOWER_MASK);
+			mt[i] = mt[(i + M) % N] ^ y >>> 1;
+			if (y % 2 !== 0) mt[i] ^= MATRIX_A;
+		}
+		mti = 0;
+	}
+	return {
+		/** Возвращает случайное целое [0, 2^32). */
+		int32() {
+			if (mti >= N) twist();
+			let y = mt[mti++];
+			y ^= y >>> 11;
+			y ^= y << 7 & 2636928640;
+			y ^= y << 15 & 4022730752;
+			y ^= y >>> 18;
+			return y >>> 0;
+		},
+		/** Возвращает случайное число в [0, 1). */
+		random() {
+			return this.int32() * (1 / 4294967296);
+		}
+	};
+}
+/** Глобальный RNG, переустанавливается через seedRNG(). */
+var rng = MersenneTwister(Date.now());
+/** Установить seed и пересоздать RNG. */
+function seedRNG(seed) {
+	rng = MersenneTwister(seed);
+}
+/** Возвращает случайное число [0, 1). */
+var random = () => rng.random();
+function randInt(n) {
+	return Math.floor(rng.random() * n);
+}
+var pick = (a) => a[randInt(a.length)];
+var isBossFloor = (f) => Object.prototype.hasOwnProperty.call(BOSS_FLOORS, f);
+var isFinalFloor = (f) => f === 18;
+var bossOnFloor = (f) => BOSS_FLOORS[f] || null;
+/** Преобразует координаты (x, y) в алгебраическую нотацию: "e4", "a8". */
+function xyToAlgebraic(x, y) {
+	return String.fromCharCode(97 + x) + (CFG.H - y);
+}
+/** Сдвиг от (fx,fy) до (tx,ty) — применяется в логе ходов. */
+function moveNotation(fx, fy, tx, ty, glyph, enemyGlyph) {
+	const from = xyToAlgebraic(fx, fy);
+	const to = xyToAlgebraic(tx, ty);
+	return enemyGlyph ? `${glyph} ${from}×${enemyGlyph} ${to}` : `${glyph} ${from}-${to}`;
+}
+function shuffle(a) {
+	for (let i = a.length - 1; i > 0; i--) {
+		const j = randInt(i + 1);
+		[a[i], a[j]] = [a[j], a[i]];
+	}
+	return a;
+}
 //#endregion
 //#region src/content/script.js
 /**
@@ -3127,7 +3543,7 @@ function pickLine(pool, lastKey) {
 	if (pool.length === 1) return pool[0];
 	let idx;
 	do
-		idx = Math.floor(Math.random() * pool.length);
+		idx = Math.floor(random() * pool.length);
 	while (pool[idx] === lastKey && pool.length > 1);
 	return pool[idx];
 }
@@ -3148,7 +3564,7 @@ function statusVal(u, k) {
 	return u && u.status && u.status[k] || 0;
 }
 function applyStatus(u, k, n) {
-	if (k === "shield" && u === S$1.player && curse("glass")) return;
+	if (k === "shield" && u === S$7.player && curse("glass")) return;
 	if (!u.status) u.status = {};
 	u.status[k] = k === "shield" ? (u.status[k] || 0) + n : Math.max(u.status[k] || 0, n);
 }
@@ -3156,603 +3572,266 @@ function cleanse(u) {
 	if (u) u.status = {};
 }
 //#endregion
-//#region src/util.js
-/**
-* src/util.js — хелперы: направления, проверки границ, Mersenne Twister, RNG.
-* Основные экспорты: ORTHO, DIAG, KNIGHT_J, key(), inB(), tileColor(), cheb(),
-* makeForm(), randInt(), pick(), shuffle(), seedRNG(), random(), isBossFloor(), isFinalFloor().
-*/
-var ORTHO = [
-	[0, -1],
-	[1, 0],
-	[0, 1],
-	[-1, 0]
-];
-var DIAG = [
-	[1, -1],
-	[1, 1],
-	[-1, 1],
-	[-1, -1]
-];
-var KNIGHT_J = [
-	[1, -2],
-	[2, -1],
-	[2, 1],
-	[1, 2],
-	[-1, 2],
-	[-2, 1],
-	[-2, -1],
-	[-1, -2]
-];
-var key = (x, y) => x + "," + y;
-var inB$1 = (x, y) => x >= 0 && x < CFG.W && y >= 0 && y < CFG.H;
-var tileColor = (x, y) => (x + y) % 2;
-var cheb = (a, b) => Math.max(Math.abs(a.x - b.x), Math.abs(a.y - b.y));
-function makeForm(type, homeColor = 0, improved = false) {
-	return {
-		type,
-		r: (CFG.BASE_R[type] ?? 1) + (improved && (type === "bishop" || type === "rook" || type === "queen") ? 1 : 0),
-		improved,
-		cooldown: 0,
-		homeColor
-	};
-}
-/** Этаж → id босса. Единственное место, где это знание живёт. */
-var BOSS_FLOORS = {
-	5: "tormentor",
-	8: "spawnedRooks",
-	11: "millstone",
-	18: "redKing"
-};
-function MersenneTwister(seed) {
-	const N = 624, M = 397, MATRIX_A = 2567483615, UPPER_MASK = 2147483648, LOWER_MASK = 2147483647;
-	const mt = new Uint32Array(N);
-	let mti = 625;
-	mt[0] = seed >>> 0;
-	for (mti = 1; mti < N; mti++) mt[mti] = 1812433253 * (mt[mti - 1] ^ mt[mti - 1] >>> 30) + mti >>> 0;
-	function twist() {
-		for (let i = 0; i < N; i++) {
-			const y = (mt[i] & UPPER_MASK) + (mt[(i + 1) % N] & LOWER_MASK);
-			mt[i] = mt[(i + M) % N] ^ y >>> 1;
-			if (y % 2 !== 0) mt[i] ^= MATRIX_A;
-		}
-		mti = 0;
-	}
-	return {
-		/** Возвращает случайное целое [0, 2^32). */
-		int32() {
-			if (mti >= N) twist();
-			let y = mt[mti++];
-			y ^= y >>> 11;
-			y ^= y << 7 & 2636928640;
-			y ^= y << 15 & 4022730752;
-			y ^= y >>> 18;
-			return y >>> 0;
-		},
-		/** Возвращает случайное число в [0, 1). */
-		random() {
-			return this.int32() * (1 / 4294967296);
-		}
-	};
-}
-/** Глобальный RNG, переустанавливается через seedRNG(). */
-var rng = MersenneTwister(Date.now());
-/** Установить seed и пересоздать RNG. */
-function seedRNG(seed) {
-	rng = MersenneTwister(seed);
-}
-/** Возвращает случайное число [0, 1). */
-var random = () => rng.random();
-function randInt(n) {
-	return Math.floor(rng.random() * n);
-}
-var pick = (a) => a[randInt(a.length)];
-var isBossFloor = (f) => Object.prototype.hasOwnProperty.call(BOSS_FLOORS, f);
-var isFinalFloor = (f) => f === 18;
-var bossOnFloor = (f) => BOSS_FLOORS[f] || null;
-/** Преобразует координаты (x, y) в алгебраическую нотацию: "e4", "a8". */
-function xyToAlgebraic(x, y) {
-	return String.fromCharCode(97 + x) + (CFG.H - y);
-}
-/** Сдвиг от (fx,fy) до (tx,ty) — применяется в логе ходов. */
-function moveNotation(fx, fy, tx, ty, glyph, enemyGlyph) {
-	const from = xyToAlgebraic(fx, fy);
-	const to = xyToAlgebraic(tx, ty);
-	return enemyGlyph ? `${glyph} ${from}×${enemyGlyph} ${to}` : `${glyph} ${from}-${to}`;
-}
-function shuffle(a) {
-	for (let i = a.length - 1; i > 0; i--) {
-		const j = randInt(i + 1);
-		[a[i], a[j]] = [a[j], a[i]];
-	}
-	return a;
-}
-//#endregion
-//#region src/bosses.js
-/**
-* src/bosses.js — AI четырёх боссов: Мучитель (tormentor), Спаянные Ладьи (linkedRooks),
-* Жернов (millstone), Кукловод (puppeteer), Красный Король (redKing).
-* Конфигурация в BOSS_CFG, логика ходов возвращает массив событий для dispatchBossEvents().
-*/
-/**
-* AI боссов трёх актов.
-*
-* Все функции хода возвращают массив «событий» — [{ch,kind,text,x,y}], — а не
-* зовут log/addSpeech напрямую. Так их можно гонять в тестах и в sandbox без
-* канваса, а в игре достаточно прокинуть результат в dispatchBossEvents().
-*
-* Параметры вынесены в BOSS_CFG: подбираются на глаз в sandbox.
-*/
-var BOSS_CFG = {
-	tormentor: {
-		armor: 3,
-		range: 4,
-		stunEvery: 3,
-		stunRadius: 2,
-		stunDur: 1,
-		diagsByPhase: [
-			4,
-			3,
-			2
-		],
-		keepDistance: 2,
-		splitCount: 3,
-		fleeSpeed: 1
-	},
-	linkedRooks: {
-		range: 6,
-		revenge: true,
-		bickerEvery: 3,
-		breakAfterStuck: 2
-	},
-	millstone: {
-		speed: 1,
-		moveEvery: 1,
-		bounce: true,
-		count: 2
-	},
-	puppeteer: {
-		jamQuota: 3,
-		pullEvery: 4,
-		dropEvery: 3,
-		maxPuppets: 6,
-		reserve: 14,
-		protects: true
-	},
-	redKing: {
-		chains: 4,
-		orderEvery: 1,
-		queenShield: 1,
-		queenShieldEvery: 2,
-		rookFireEvery: 2,
-		knightChaos: .5,
-		knightRestTurns: 1,
-		kingArmorAfterChains: 1
-	}
-};
-var ev = {
+//#region src/bosses/tormentor.ts
+/** Логика Мучителя: фазы диагоналей, оглушение, распад и бегущие пешки. */
+var S$6 = S$7;
+var event$3 = {
 	log: (text) => ({
 		ch: "log",
 		text
 	}),
 	say: (x, y, text, kind = "boss") => ({
 		ch: "speech",
-		kind,
-		text,
 		x,
-		y
+		y,
+		text,
+		kind
 	})
 };
-/** Свободна ли клетка для фигуры (стены/враги/игрок). */
+/** Проверяет, может ли сущность занять клетку без столкновения со стеной, игроком или механизмом. */
 function freeCell(x, y, self) {
-	if (!inB$1(x, y) || S$1.walls.has(key(x, y))) return false;
-	const o = enemyAt(x, y);
-	if (o && o !== self) return false;
-	if (S$1.player.x === x && S$1.player.y === y) return false;
-	const sp = S$1.special && S$1.special.get(key(x, y));
-	if (sp && sp.type === "millstone" && !sp.jammed) return false;
-	if (sp && sp.type === "pillar") return false;
-	return true;
+	if (!inB$1(x, y) || S$6.walls.has(key(x, y))) return false;
+	const occupant = enemyAt(x, y);
+	if (occupant && occupant !== self) return false;
+	if (S$6.player.x === x && S$6.player.y === y) return false;
+	const special = S$6.special?.get(key(x, y));
+	return !(special?.type === "pillar" || special?.type === "millstone" && !special.jammed);
 }
-/** Диагонали, доступные боссу на текущей фазе. Теряет их по мере отслаивания тел. */
-function tormentorDiags(e) {
-	const n = BOSS_CFG.tormentor.diagsByPhase[Math.min(e.phase - 1, 2)] ?? 2;
-	return [...DIAG].sort((a, b) => {
-		return cheb({
-			x: e.x + a[0] * 2,
-			y: e.y + a[1] * 2
-		}, S$1.player) - cheb({
-			x: e.x + b[0] * 2,
-			y: e.y + b[1] * 2
-		}, S$1.player);
-	}).slice(0, n);
+/** Возвращает активные диагонали текущей фазы: с каждой фазой сектор Мучителя сужается. */
+function tormentorDiags(enemy) {
+	const count = BOSS_CONFIG.tormentor.diagsByPhase[Math.min((enemy.phase ?? 1) - 1, 2)] ?? 2;
+	return [...DIAG].sort((a, b) => cheb({
+		x: enemy.x + a[0] * 2,
+		y: enemy.y + a[1] * 2
+	}, S$6.player) - cheb({
+		x: enemy.x + b[0] * 2,
+		y: enemy.y + b[1] * 2
+	}, S$6.player)).slice(0, count);
 }
-/** Клетки, которые Мучитель бьёт из позиции (px,py). */
-function tormentorAttacks(e, px = e.x, py = e.y) {
-	const out = /* @__PURE__ */ new Set();
-	for (const [dx, dy] of tormentorDiags(e)) for (let s = 1; s <= BOSS_CFG.tormentor.range; s++) {
-		const x = px + dx * s, y = py + dy * s;
-		if (!inB$1(x, y) || S$1.walls.has(key(x, y))) break;
-		out.add(key(x, y));
+/** Строит клетки атаки Мучителя из указанной позиции, учитывая стены и другие фигуры. */
+function tormentorAttacks(enemy, px = enemy.x, py = enemy.y) {
+	const attacked = /* @__PURE__ */ new Set();
+	for (const [dx, dy] of tormentorDiags(enemy)) for (let step = 1; step <= BOSS_CONFIG.tormentor.range; step++) {
+		const x = px + dx * step, y = py + dy * step;
+		if (!inB$1(x, y) || S$6.walls.has(key(x, y))) break;
+		attacked.add(key(x, y));
 		if (enemyAt(x, y)) break;
 	}
-	return out;
+	return attacked;
 }
-/** Ход Мучителя. */
-function tormentorTurn(e) {
-	const C = BOSS_CFG.tormentor;
-	const out = [];
-	e.phase = e.phase || 1;
-	e.stunCd = e.stunCd ?? C.stunEvery;
-	if (e.stunCd <= 0) {
-		if (cheb(S$1.player, e) <= C.stunRadius) {
-			applyStatus(S$1.player, "stun", C.stunDur);
-			const p1 = getScript().bosses.tormentor.phase1;
-			if (p1) p1.forEach((l) => l.ch === "log" ? out.push(ev.log(l.text)) : out.push(ev.say(e.x, e.y, l.text, l.kind || "boss")));
-			else {
-				out.push(ev.say(e.x, e.y, isEnglish() ? "I burned." : "Я жёг."));
-				out.push(ev.log(isEnglish() ? "Three voices scream at once. You go deaf." : "Три голоса кричат одновременно. Ты глохнешь."));
-			}
+/** Выполняет ход Мучителя: крик, проверка взятия и поиск позиции для диагональной угрозы. */
+function tormentorTurn(enemy) {
+	const config = BOSS_CONFIG.tormentor;
+	const events = [];
+	enemy.phase ?? (enemy.phase = 1);
+	enemy.stunCd ?? (enemy.stunCd = config.stunEvery);
+	if (enemy.stunCd-- <= 0) {
+		enemy.stunCd = config.stunEvery;
+		if (cheb(S$6.player, enemy) <= config.stunRadius) {
+			applyStatus(S$6.player, "stun", config.stunDur);
+			events.push(event$3.say(enemy.x, enemy.y, isEnglish() ? "I burned." : "Я жёг."));
 		}
-		e.stunCd = C.stunEvery;
-	} else e.stunCd--;
-	if (tormentorAttacks(e).has(key(S$1.player.x, S$1.player.y))) return [...out, { ch: "capture" }];
-	let best = null, bestScore = -Infinity;
-	for (const [dx, dy] of DIAG) for (let s = 1; s <= C.range; s++) {
-		const x = e.x + dx * s, y = e.y + dy * s;
-		if (!freeCell(x, y, e)) break;
-		const hits = tormentorAttacks(e, x, y).has(key(S$1.player.x, S$1.player.y));
-		const d = cheb({
+	}
+	if (tormentorAttacks(enemy).has(key(S$6.player.x, S$6.player.y))) return [...events, {
+		ch: "capture",
+		by: enemy
+	}];
+	let best = null, score = -Infinity;
+	for (const [dx, dy] of DIAG) for (let step = 1; step <= config.range; step++) {
+		const x = enemy.x + dx * step, y = enemy.y + dy * step;
+		if (!freeCell(x, y, enemy)) break;
+		const next = (tormentorAttacks(enemy, x, y).has(key(S$6.player.x, S$6.player.y)) ? 100 : 0) - Math.abs(cheb({
 			x,
 			y
-		}, S$1.player);
-		const score = (hits ? 100 : 0) - Math.abs(d - C.keepDistance) * 3;
-		if (score > bestScore) {
-			bestScore = score;
+		}, S$6.player) - config.keepDistance) * 3;
+		if (next > score) {
+			score = next;
 			best = {
 				x,
 				y
 			};
 		}
 	}
-	if (best && bestScore > -Infinity) {
-		e.x = best.x;
-		e.y = best.y;
-	}
-	return out;
+	if (best) Object.assign(enemy, best);
+	return events;
 }
-/** Урон боссу: смена фазы, при нуле — распад на бегущие пешки. */
-function tormentorHit(e) {
-	const C = BOSS_CFG.tormentor;
-	e.armor--;
-	if (e.armor > 0) {
-		e.phase = Math.min(e.phase + 1, C.diagsByPhase.length);
-		const phaseKey = e.phase <= 2 ? "phase2" : "phase3";
-		const script = getScript().bosses.tormentor[phaseKey];
-		if (script) return script.map((l) => l.ch === "log" ? ev.log(l.text) : ev.say(e.x, e.y, l.text, l.kind || "boss"));
-		const saidRu = ["Нас двое.", "Я всё записал."][Math.min(e.phase - 2, 1)] || "Нас меньше.";
-		const saidEn = ["Two of us.", "I wrote it down."][Math.min(e.phase - 2, 1)] || "Fewer of us.";
-		const said = isEnglish() ? saidEn : saidRu;
-		return [ev.log(isEnglish() ? "One body sloughs off. It still twitches." : "Одно тело отваливается. Оно ещё шевелится."), ev.say(e.x, e.y, said)];
+/** Обрабатывает попадание: переключает фазу или заменяет Мучителя бегущими пешками. */
+function tormentorHit(enemy) {
+	const config = BOSS_CONFIG.tormentor;
+	enemy.armor--;
+	if (enemy.armor > 0) {
+		enemy.phase = Math.min((enemy.phase ?? 1) + 1, config.diagsByPhase.length);
+		return [event$3.log(isEnglish() ? "One body sloughs off. It still twitches." : "Одно тело отваливается. Оно ещё шевелится.")];
 	}
-	S$1.enemies = S$1.enemies.filter((v) => v !== e);
-	const spots = [];
-	for (const [dx, dy] of [...ORTHO, ...DIAG]) {
-		const x = e.x + dx, y = e.y + dy;
-		if (freeCell(x, y, null)) spots.push({
-			x,
-			y
-		});
-	}
-	const born = [];
-	for (let i = 0; i < C.splitCount && spots.length; i++) {
-		const c = spots.splice(Math.floor(Math.random() * spots.length), 1)[0];
-		const p = {
+	S$6.enemies = S$6.enemies.filter((current) => current !== enemy);
+	const cells = [];
+	for (const [dx, dy] of [...ORTHO, ...DIAG]) if (freeCell(enemy.x + dx, enemy.y + dy, null)) cells.push({
+		x: enemy.x + dx,
+		y: enemy.y + dy
+	});
+	for (let index = 0; index < config.splitCount && cells.length; index++) {
+		const cell = cells.splice(Math.floor(random() * cells.length), 1)[0];
+		S$6.enemies.push({
 			type: "pawn",
-			x: c.x,
-			y: c.y,
+			x: cell.x,
+			y: cell.y,
 			facing: [0, 1],
 			cd: 0,
 			status: {},
 			r: 1,
 			fleeing: true,
 			fromBoss: "tormentor"
-		};
-		S$1.enemies.push(p);
-		born.push(p);
+		});
 	}
-	return [...(getScript().bosses.tormentor.death || []).map((l) => {
-		if (l.ch === "speech") {
-			const target = born.shift();
-			return target ? ev.say(target.x, target.y, l.text, l.kind || "boss") : ev.log(l.text);
-		}
-		return ev.log(l.text);
-	})].filter(Boolean);
+	return (getScript().bosses.tormentor.death ?? []).map((line) => event$3.log(line.text));
 }
-/**
-* Бегство: инверсия обычного AI. Пешка максимизирует расстояние до игрока
-* и стремится к краю карты. Дошла до края — ушла (милосердие игрока по умолчанию).
-*/
-function fleeingTurn(e) {
-	const out = [];
-	if (e.x <= 0 || e.y <= 0 || e.x >= CFG.W - 1 || e.y >= CFG.H - 1) {
-		S$1.enemies = S$1.enemies.filter((v) => v !== e);
-		S$1.mercy = (S$1.mercy || 0) + 1;
-		return [ev.log(isEnglish() ? "She slipped into a crack. You let her go." : "Она ушла в трещину. Ты её отпустил.")];
+/** Двигает бегущую пешку от игрока к краю карты; дошедшая до края исчезает. */
+function fleeingTurn(enemy) {
+	if (enemy.x <= 0 || enemy.y <= 0 || enemy.x >= CFG.W - 1 || enemy.y >= CFG.H - 1) {
+		S$6.enemies = S$6.enemies.filter((current) => current !== enemy);
+		S$6.mercy = (S$6.mercy ?? 0) + 1;
+		return [event$3.log(isEnglish() ? "She slipped into a crack. You let her go." : "Она ушла в трещину. Ты её отпустил.")];
 	}
-	let best = null, bestScore = -Infinity;
+	let best = null, score = -Infinity;
 	for (const [dx, dy] of [...ORTHO, ...DIAG]) {
-		const x = e.x + dx, y = e.y + dy;
-		if (!freeCell(x, y, e)) continue;
-		const distFromPlayer = cheb({
+		const x = enemy.x + dx, y = enemy.y + dy;
+		if (!freeCell(x, y, enemy)) continue;
+		const next = cheb({
 			x,
 			y
-		}, S$1.player);
-		const distToEdge = Math.min(x, y, CFG.W - 1 - x, CFG.H - 1 - y);
-		const score = distFromPlayer * 2 - distToEdge * 3;
-		if (score > bestScore) {
-			bestScore = score;
+		}, S$6.player) * 2 - Math.min(x, y, CFG.W - 1 - x, CFG.H - 1 - y) * 3;
+		if (next > score) {
+			score = next;
 			best = {
 				x,
 				y
 			};
 		}
 	}
-	if (best) {
-		e.x = best.x;
-		e.y = best.y;
-	}
-	return out;
+	if (best) Object.assign(enemy, best);
+	return [];
 }
-/** Клетки, которые ладья бьёт по прямым. */
-function rookAttacks(e, px = e.x, py = e.y) {
-	const out = /* @__PURE__ */ new Set();
-	for (const [dx, dy] of ORTHO) for (let s = 1; s <= BOSS_CFG.linkedRooks.range; s++) {
-		const x = px + dx * s, y = py + dy * s;
-		if (!inB$1(x, y) || S$1.walls.has(key(x, y))) break;
-		out.add(key(x, y));
+//#endregion
+//#region src/bosses/linked-rooks.ts
+/** Логика Спаянных Ладей: линии атаки, парный ход и немедленная месть. */
+var S$5 = S$7;
+var event$2 = {
+	log: (text) => ({
+		ch: "log",
+		text
+	}),
+	say: (x, y, text, kind = "boss") => ({
+		ch: "speech",
+		x,
+		y,
+		text,
+		kind
+	})
+};
+/** Возвращает клетки четырёх ортогональных линий Ладьи до первой преграды. */
+function rookAttacks(enemy, px = enemy.x, py = enemy.y) {
+	const attacked = /* @__PURE__ */ new Set();
+	for (const [dx, dy] of ORTHO) for (let step = 1; step <= BOSS_CONFIG.linkedRooks.range; step++) {
+		const x = px + dx * step, y = py + dy * step;
+		if (!inB$1(x, y) || S$5.walls.has(key(x, y))) break;
+		attacked.add(key(x, y));
 		if (enemyAt(x, y)) break;
 	}
-	return out;
+	return attacked;
 }
-/**
-* Ход пары. Обе идут на ОДИН вектор. Если вектор ведёт одну в другую —
-* связь рвётся: это и есть решение пазла, игрок ищет такую позицию.
-*/
+/** Ищет один безопасный ортогональный шаг, сокращающий расстояние до игрока. */
+function advance(enemy, sibling) {
+	let best = null, distance = cheb(enemy, S$5.player);
+	for (const [dx, dy] of ORTHO) {
+		const x = enemy.x + dx, y = enemy.y + dy;
+		if (!inB$1(x, y) || S$5.walls.has(key(x, y)) || enemyAt(x, y)) continue;
+		if (x === S$5.player.x && y === S$5.player.y) continue;
+		const next = cheb({
+			x,
+			y
+		}, S$5.player);
+		if (next < distance && cheb({
+			x,
+			y
+		}, sibling) > 1) {
+			best = {
+				x,
+				y
+			};
+			distance = next;
+		}
+	}
+	if (best) Object.assign(enemy, best);
+}
+/** Выполняет общий ход пары: приоритет — немедленная линия атаки, затем сближение. */
 function linkedRooksTurn(pair) {
-	const C = BOSS_CFG.linkedRooks;
-	const [a, b] = pair;
-	const out = [];
-	if (!S$1.enemies.includes(a) || !S$1.enemies.includes(b)) return out;
-	for (const r of pair) if (rookAttacks(r).has(key(S$1.player.x, S$1.player.y))) return [{
+	const [first, second] = pair;
+	if (!first || !second) return [];
+	if (rookAttacks(first).has(key(S$5.player.x, S$5.player.y))) return [{
 		ch: "capture",
-		by: r
+		by: first
 	}];
-	const dx = S$1.player.x - a.x, dy = S$1.player.y - a.y;
-	const vec = Math.abs(dx) >= Math.abs(dy) ? [Math.sign(dx) || 0, 0] : [0, Math.sign(dy) || 0];
-	const na = {
-		x: a.x + vec[0],
-		y: a.y + vec[1]
-	};
-	const nb = {
-		x: b.x + vec[0],
-		y: b.y + vec[1]
-	};
-	const okCell = (x, y) => {
-		if (!inB$1(x, y) || S$1.walls.has(key(x, y))) return false;
-		if (S$1.player.x === x && S$1.player.y === y) return false;
-		const sp = S$1.special && S$1.special.get(key(x, y));
-		if (sp && (sp.type === "pillar" || sp.type === "millstone" && !sp.jammed)) return false;
-		const o = enemyAt(x, y);
-		if (o && o !== a && o !== b) return false;
-		return true;
-	};
-	if (vec[0] === 0 && vec[1] === 0 || !okCell(na.x, na.y) || !okCell(nb.x, nb.y)) {
-		a.stuck = (a.stuck || 0) + 1;
-		b.stuck = a.stuck;
-		if (a.stuck >= C.breakAfterStuck) {
-			delete a.linkedTo;
-			delete b.linkedTo;
-			return (getScript().bosses.spawnedRooks && getScript().bosses.spawnedRooks.blocked || [
-				{
-					ch: "log",
-					text: isEnglish() ? "They jam against each other. For the first time in ages — they stop." : "Они упёрлись друг в друга. Впервые за века — стоят."
-				},
-				{
-					ch: "speech",
-					kind: "boss",
-					text: isEnglish() ? "Let me go." : "Отпусти меня."
-				},
-				{
-					ch: "speech",
-					kind: "boss",
-					text: isEnglish() ? "Let me go." : "Отпусти меня."
-				}
-			]).map((l) => {
-				if (l.ch === "log") return ev.log(l.text);
-				if (l.ch === "speech") {
-					const speaker = l.speaker === "b" ? b : a;
-					return ev.say(speaker.x, speaker.y, l.text, l.kind || "boss");
-				}
-				return null;
-			}).filter(Boolean);
+	if (rookAttacks(second).has(key(S$5.player.x, S$5.player.y))) return [{
+		ch: "capture",
+		by: second
+	}];
+	advance(first, second);
+	advance(second, first);
+	const every = BOSS_CONFIG.linkedRooks.bickerEvery;
+	if (every > 0 && S$5.turn % every === 0) {
+		const banter = getScript().bosses.spawnedRooks?.banter;
+		if (banter?.length) {
+			const index = Math.floor(random() * (banter.length / 2)) * 2;
+			return [event$2.say(first.x, first.y, banter[index].text), event$2.say(second.x, second.y, banter[index + 1].text)];
 		}
-		out.push(ev.log(isEnglish() ? `Spine does not bend. The Rooks stop (${a.stuck}/${C.breakAfterStuck}).` : `Спина не гнётся. Ладьи встали (${a.stuck}/${C.breakAfterStuck}).`));
-		const banter = getScript().bosses.spawnedRooks && getScript().bosses.spawnedRooks.banter || (isEnglish() ? [
-			{
-				ch: "speech",
-				kind: "boss",
-				text: "You opened the gate."
-			},
-			{
-				ch: "speech",
-				kind: "boss",
-				text: "You spoke my name."
-			},
-			{
-				ch: "speech",
-				kind: "boss",
-				text: "I held the left flank."
-			},
-			{
-				ch: "speech",
-				kind: "boss",
-				text: "You held the knife."
-			},
-			{
-				ch: "speech",
-				kind: "boss",
-				text: "We could have left."
-			},
-			{
-				ch: "speech",
-				kind: "boss",
-				text: "We did leave. Here."
-			}
-		] : [
-			{
-				ch: "speech",
-				kind: "boss",
-				text: "Ты открыл ворота."
-			},
-			{
-				ch: "speech",
-				kind: "boss",
-				text: "Ты назвал моё имя."
-			},
-			{
-				ch: "speech",
-				kind: "boss",
-				text: "Я держал левый край."
-			},
-			{
-				ch: "speech",
-				kind: "boss",
-				text: "Ты держал нож."
-			},
-			{
-				ch: "speech",
-				kind: "boss",
-				text: "Мы могли уйти."
-			},
-			{
-				ch: "speech",
-				kind: "boss",
-				text: "Мы и ушли. Сюда."
-			}
-		]);
-		const i = Math.floor(Math.random() * (banter.length / 2)) * 2;
-		out.push(ev.say(a.x, a.y, banter[i].text, banter[i].kind || "boss"), ev.say(b.x, b.y, banter[i + 1].text, banter[i + 1].kind || "boss"));
-		return out;
 	}
-	a.stuck = 0;
-	b.stuck = 0;
-	a.x = na.x;
-	a.y = na.y;
-	b.x = nb.x;
-	b.y = nb.y;
-	return out;
+	return [];
 }
-/** Месть выжившей ладьи: бьёт вне очереди, если связь была цела. */
+/** Реакция выжившей Ладьи на взятие связанной: линия даёт внеочередное взятие. */
 function linkedRookRevenge(killed) {
-	if (!BOSS_CFG.linkedRooks.revenge || !killed.linkedTo) return [];
-	const other = S$1.enemies.find((e) => e.linkedTo === killed.linkedTo && e !== killed);
-	if (!other) return [];
-	const firstDeath = getScript().bosses.spawnedRooks && getScript().bosses.spawnedRooks.firstDeath || {
-		ch: "speech",
-		kind: "boss",
-		text: isEnglish() ? "Quiet at last." : "Наконец тихо."
-	};
-	if (rookAttacks(other).has(key(S$1.player.x, S$1.player.y))) return [ev.say(other.x, other.y, firstDeath.text, firstDeath.kind), {
+	if (!killed.linkedTo || !BOSS_CONFIG.linkedRooks.revenge) return [];
+	const survivor = S$5.enemies.find((enemy) => enemy.linkedTo === killed.linkedTo);
+	if (!survivor) return [];
+	if (rookAttacks(survivor).has(key(S$5.player.x, S$5.player.y))) return [{
 		ch: "capture",
-		by: other
+		by: survivor
 	}];
-	return [ev.say(other.x, other.y, firstDeath.text, firstDeath.kind)];
+	return [event$2.log(isEnglish() ? "The remaining Rook screams along the line." : "Оставшаяся Ладья кричит вдоль линии.")];
 }
-/** Ход всех жерновов. Механизм не видит игрока — просто едет. */
-function millstoneTurn() {
-	const C = BOSS_CFG.millstone;
-	const out = [];
-	if (!S$1.special) return out;
-	S$1.millTick = (S$1.millTick || 0) + 1;
-	if (S$1.millTick % C.moveEvery !== 0) return out;
-	if (S$1.millFed >= BOSS_CFG.puppeteer.jamQuota) return out;
-	let reachedQuota = false;
-	const keys = [...S$1.special.keys()].filter((k) => S$1.special.get(k)?.type === "millstone");
-	for (const mk of keys) {
-		const ms = S$1.special.get(mk);
-		if (!ms || ms.jammed) continue;
-		let [x, y] = mk.split(",").map(Number);
-		let [dx, dy] = ms.dir;
-		S$1.special.delete(mk);
-		for (let step = 0; step < C.speed; step++) {
-			const nx = x + dx, ny = y + dy;
-			if (!inB$1(nx, ny) || S$1.walls.has(key(nx, ny)) || S$1.special.get(key(nx, ny))?.type === "pillar") {
-				if (!C.bounce) {
-					x = null;
-					break;
-				}
-				dx = -dx;
-				dy = -dy;
-				continue;
-			}
-			x = nx;
-			y = ny;
-			const e = enemyAt(x, y);
-			if (e) {
-				S$1.enemies = S$1.enemies.filter((v) => v !== e);
-				S$1.millFed = (S$1.millFed || 0) + 1;
-				const q = BOSS_CFG.puppeteer.jamQuota;
-				out.push(ev.log(isEnglish() ? `The millstone grinds a body. Jammed: ${S$1.millFed}/${q}.` : `Жернов перемалывает тело. Забито: ${S$1.millFed}/${q}.`));
-				if (S$1.millFed >= q) reachedQuota = true;
-			}
-			if (S$1.player.x === x && S$1.player.y === y) out.push({ ch: "crush" });
-		}
-		if (x !== null) S$1.special.set(key(x, y), {
-			type: "millstone",
-			dir: [dx, dy]
-		});
-	}
-	if (reachedQuota) {
-		const md = getScript().bosses.millstone && getScript().bosses.millstone.death;
-		if (md) out.push(ev.log(md.text));
-		else {
-			out.push(ev.log(isEnglish() ? "The millstone stops. Inside — bones. Many." : "Жернов встал. Внутри — кости. Много."));
-			out.push(ev.log(isEnglish() ? "Some still clutch others." : "Некоторые ещё сжимают чужие."));
-		}
-		out.push({
-			ch: "bossDown",
-			boss: "puppeteer"
-		});
-		for (const k2 of [...S$1.special.keys()]) {
-			const s2 = S$1.special.get(k2);
-			if (s2 && s2.type === "millstone") S$1.special.set(k2, {
-				...s2,
-				jammed: true
-			});
-		}
-	}
-	return out;
-}
-/** Клетки, куда жернова встанут следующим ходом. Кукловод их учитывает. */
+//#endregion
+//#region src/bosses/millstone.ts
+/** Жернов и Кукловод: движение механизма, прогноз угроз и управление куклами. */
+var S$4 = S$7;
+var event$1 = {
+	log: (text) => ({
+		ch: "log",
+		text
+	}),
+	say: (x, y, text) => ({
+		ch: "speech",
+		x,
+		y,
+		text,
+		kind: "boss"
+	})
+};
+/** Возвращает клетки, куда механизм сможет попасть на следующем тике, включая отражение. */
 function millDanger() {
 	const danger = /* @__PURE__ */ new Set();
-	if (!S$1.special) return danger;
-	const C = BOSS_CFG.millstone;
-	for (const [k, s] of S$1.special) {
-		if (s.type !== "millstone" || s.jammed) continue;
-		let [x, y] = k.split(",").map(Number);
-		let [dx, dy] = s.dir;
-		for (let step = 0; step < C.speed; step++) {
+	if (!S$4.special) return danger;
+	for (const [cell, special] of S$4.special) {
+		if (special.type !== "millstone" || special.jammed) continue;
+		let [x, y] = cell.split(",").map(Number), [dx, dy] = special.dir;
+		for (let step = 0; step < BOSS_CONFIG.millstone.speed; step++) {
 			let nx = x + dx, ny = y + dy;
-			if (!inB$1(nx, ny) || S$1.walls.has(key(nx, ny)) || S$1.special.get(key(nx, ny))?.type === "pillar") {
-				if (!C.bounce) break;
+			if (!inB$1(nx, ny) || S$4.walls.has(key(nx, ny)) || S$4.special.get(key(nx, ny))?.type === "pillar") {
+				if (!BOSS_CONFIG.millstone.bounce) break;
 				dx = -dx;
 				dy = -dy;
 				nx = x + dx;
 				ny = y + dy;
-				if (!inB$1(nx, ny) || S$1.walls.has(key(nx, ny))) break;
 			}
+			if (!inB$1(nx, ny) || S$4.walls.has(key(nx, ny))) break;
 			x = nx;
 			y = ny;
 			danger.add(key(x, y));
@@ -3760,246 +3839,204 @@ function millDanger() {
 	}
 	return danger;
 }
-/** Один шаг куклы к игроку. Куклы слепы: путь выбирают только по дистанции. */
-function puppetStep(e, avoid) {
-	let best = null, bestD = cheb(e, S$1.player);
+/** Двигает каждый жернов, давит фигуры на пути и отмечает победу при заполнении квоты. */
+function millstoneTurn() {
+	const config = BOSS_CONFIG.millstone;
+	if ((S$4.millTick = (S$4.millTick ?? 0) + 1) % config.moveEvery !== 0) return [];
+	const events = [];
+	for (const cell of [...S$4.special.keys()]) {
+		const special = S$4.special.get(cell);
+		if (special?.type !== "millstone" || special.jammed) continue;
+		let [x, y] = cell.split(",").map(Number), [dx, dy] = special.dir;
+		S$4.special.delete(cell);
+		for (let step = 0; step < config.speed; step++) {
+			let nx = x + dx, ny = y + dy;
+			if (!inB$1(nx, ny) || S$4.walls.has(key(nx, ny)) || S$4.special.get(key(nx, ny))?.type === "pillar") {
+				if (!config.bounce) break;
+				dx = -dx;
+				dy = -dy;
+				nx = x + dx;
+				ny = y + dy;
+			}
+			if (!inB$1(nx, ny) || S$4.walls.has(key(nx, ny))) break;
+			x = nx;
+			y = ny;
+			const victim = enemyAt(x, y);
+			if (victim) {
+				S$4.enemies = S$4.enemies.filter((enemy) => enemy !== victim);
+				S$4.millFed = (S$4.millFed ?? 0) + 1;
+				events.push(event$1.log(isEnglish() ? "The millstone grinds a body." : "Жернов перемалывает тело."));
+			}
+			if (S$4.player.x === x && S$4.player.y === y) events.push({ ch: "crush" });
+		}
+		S$4.special.set(key(x, y), {
+			type: "millstone",
+			dir: [dx, dy],
+			...S$4.millFed >= BOSS_CONFIG.puppeteer.jamQuota ? { jammed: true } : {}
+		});
+	}
+	if (S$4.millFed >= BOSS_CONFIG.puppeteer.jamQuota) events.push({
+		ch: "bossDown",
+		boss: "puppeteer"
+	});
+	return events;
+}
+/** Проверяет свободную клетку для куклы, с опциональным запретом клеток будущей угрозы. */
+function puppetStep(enemy, avoid) {
+	let target = null, distance = cheb(enemy, S$4.player);
 	for (const [dx, dy] of [...ORTHO, ...DIAG]) {
-		const x = e.x + dx, y = e.y + dy;
-		if (!freeCell(x, y, e)) continue;
-		if (avoid && avoid.has(key(x, y))) continue;
-		const d = cheb({
+		const x = enemy.x + dx, y = enemy.y + dy;
+		if (!inB$1(x, y) || S$4.walls.has(key(x, y)) || enemyAt(x, y) || avoid?.has(key(x, y))) continue;
+		const next = cheb({
 			x,
 			y
-		}, S$1.player);
-		if (d < bestD) {
-			bestD = d;
-			best = {
+		}, S$4.player);
+		if (next < distance) {
+			distance = next;
+			target = {
 				x,
 				y
 			};
 		}
 	}
-	if (best) {
-		e.x = best.x;
-		e.y = best.y;
-		return true;
-	}
-	return false;
+	if (target) Object.assign(enemy, target);
+	return !!target;
 }
-/**
-* Ход Кукловода. Он не на доске — он дёргает нити сверху.
-* Обычный ход: двигает ОДНУ куклу и обходит жернов (бережёт материал).
-* Рывок раз в pullEvery: дёргает все нити разом, на потери не смотрит —
-* именно в этот момент игрок и скармливает механизму его же фигуры.
-*/
+/** Выполняет ход Кукловода: сбрасывает тела, периодически дёргает все нити и бережёт их от Жернова. */
 function partyTurn() {
-	const C = BOSS_CFG.puppeteer;
-	const out = [];
-	const P = S$1.party = S$1.party || {
+	const config = BOSS_CONFIG.puppeteer;
+	const party = S$4.party ?? (S$4.party = {
 		dropCd: 0,
-		pullCd: C.pullEvery,
-		reserve: C.reserve
-	};
-	const puppets = S$1.enemies.filter((e) => e.puppet);
-	if (P.dropCd <= 0 && puppets.length < C.maxPuppets && P.reserve > 0) {
-		const spots = [];
-		for (let x = 1; x < CFG.W - 1; x++) if (freeCell(x, 0, null)) spots.push({
-			x,
+		pullCd: config.pullEvery,
+		reserve: config.reserve
+	});
+	const puppets = S$4.enemies.filter((enemy) => enemy.puppet);
+	const events = [];
+	if (party.dropCd-- <= 0 && puppets.length < config.maxPuppets && party.reserve > 0) {
+		const spots = Array.from({ length: Math.max(0, CFG.W - 2) }, (_, index) => ({
+			x: index + 1,
 			y: 0
-		});
+		})).filter((cell) => !enemyAt(cell.x, cell.y) && !S$4.walls.has(key(cell.x, cell.y)));
 		if (spots.length) {
-			const c = pick(spots);
-			S$1.enemies.push({
+			const cell = pick(spots);
+			S$4.enemies.push({
 				type: "pawn",
-				x: c.x,
-				y: c.y,
+				x: cell.x,
+				y: cell.y,
 				facing: [0, 1],
 				cd: 0,
 				status: {},
 				r: 1,
 				puppet: true
 			});
-			P.reserve--;
-			P.dropCd = C.dropEvery;
-			out.push(ev.log(isEnglish() ? "A body drops from above. The thread tightens." : "Сверху падает тело. Нить натягивается."));
+			party.reserve--;
+			party.dropCd = config.dropEvery;
 		}
-	} else P.dropCd--;
-	P.pullCd--;
-	const pulling = P.pullCd <= 0;
-	if (pulling) P.pullCd = C.pullEvery;
-	const danger = C.protects && !pulling ? millDanger() : null;
-	if (pulling) {
-		out.push(ev.say(S$1.player.x, S$1.player.y, isEnglish() ? "Order." : "Приказ.", "boss"));
-		for (const p of puppets) {
-			if (rookLikeCapture(p)) return [...out, {
-				ch: "capture",
-				by: p
-			}];
-			puppetStep(p, null);
-		}
-	} else if (puppets.length) {
-		const sorted = [...puppets].sort((a, b) => cheb(a, S$1.player) - cheb(b, S$1.player));
-		for (const p of sorted) if (rookLikeCapture(p)) return [...out, {
+	}
+	const pulling = --party.pullCd <= 0;
+	if (pulling) party.pullCd = config.pullEvery;
+	const danger = pulling ? null : millDanger();
+	for (const puppet of puppets) {
+		if (cheb(puppet, S$4.player) === 1) return [...events, {
 			ch: "capture",
-			by: p
+			by: puppet
 		}];
-		if (!sorted.find((p) => puppetStep(p, danger))) out.push(ev.log(isEnglish() ? "The threads go slack. No one moved." : "Нити провисли. Никто не двинулся."));
+		puppetStep(puppet, danger);
 	}
-	return out;
+	if (pulling) events.push(event$1.say(S$4.player.x, S$4.player.y, isEnglish() ? "Order." : "Приказ."));
+	return events;
 }
-/** Кукла берёт игрока, если стоит вплотную. */
-function rookLikeCapture(p) {
-	return cheb(p, S$1.player) === 1;
-}
-/** Король: неподвижен, приказывает, чинит щит королеве. */
+//#endregion
+//#region src/bosses/red-king.ts
+/** Красный Король и свита: цепи, приказы, щит ферзя, залпы ладей и кони. */
+var S$3 = S$7;
+var event = {
+	log: (text) => ({
+		ch: "log",
+		text
+	}),
+	say: (x, y, text) => ({
+		ch: "speech",
+		x,
+		y,
+		text,
+		kind: "boss"
+	})
+};
+/** Выполняет ход Короля: чинит щит ферзя, отдаёт приказ и открывается после цепей. */
 function redKingTurn(king) {
-	const C = BOSS_CFG.redKing;
-	const out = [];
-	const retinue = S$1.enemies.filter((e) => e !== king && e.retinue);
-	king.qsCd = (king.qsCd ?? C.queenShieldEvery) - 1;
+	const config = BOSS_CONFIG.redKing, events = [];
+	const retinue = S$3.enemies.filter((enemy) => enemy !== king && enemy.retinue);
+	king.qsCd = (king.qsCd ?? config.queenShieldEvery) - 1;
 	if (king.qsCd <= 0) {
-		king.qsCd = C.queenShieldEvery;
-		const q = retinue.find((e) => e.retinue === "queen");
-		if (q) {
-			applyStatus(q, "shield", C.queenShield);
-			out.push(ev.log(isEnglish() ? "The Queen is shielded again." : "Королева снова под щитом."));
-		}
+		king.qsCd = config.queenShieldEvery;
+		const queen = retinue.find((enemy) => enemy.retinue === "queen");
+		if (queen) applyStatus(queen, "shield", config.queenShield);
 	}
-	king.orderCd = (king.orderCd ?? C.orderEvery) - 1;
+	king.orderCd = (king.orderCd ?? config.orderEvery) - 1;
 	if (king.orderCd <= 0 && retinue.length) {
-		king.orderCd = C.orderEvery;
-		const target = pick(retinue);
-		target.kingOrder = true;
-		const orders = getScript().bosses.redKing && getScript().bosses.redKing.orders || (isEnglish() ? [
-			{
-				ch: "speech",
-				kind: "boss",
-				text: "Go."
-			},
-			{
-				ch: "speech",
-				kind: "boss",
-				text: "Not him. You."
-			},
-			{
-				ch: "speech",
-				kind: "boss",
-				text: "Forgive me."
-			}
-		] : [
-			{
-				ch: "speech",
-				kind: "boss",
-				text: "Иди."
-			},
-			{
-				ch: "speech",
-				kind: "boss",
-				text: "Не он. Ты."
-			},
-			{
-				ch: "speech",
-				kind: "boss",
-				text: "Простите."
-			}
-		]);
-		const ord = target.retinue === "knight" ? orders.find((o) => o.text === (isEnglish() ? "Forgive me." : "Простите.")) || {
-			ch: "speech",
-			kind: "boss",
-			text: "Простите."
-		} : pick(orders.filter((o) => o.text !== (isEnglish() ? "Forgive me." : "Простите.")));
-		out.push(ev.say(king.x, king.y, ord.text, ord.kind || "boss"));
+		king.orderCd = config.orderEvery;
+		pick(retinue).kingOrder = true;
+		events.push(event.say(king.x, king.y, isEnglish() ? "Go." : "Иди."));
 	}
-	king.armor = S$1.chainsBroken >= C.chains ? C.kingArmorAfterChains : 99;
-	if (S$1.chainsBroken >= C.chains && !king.exposed) {
+	king.armor = S$3.chainsBroken >= config.chains ? config.kingArmorAfterChains : 99;
+	if (S$3.chainsBroken >= config.chains && !king.exposed) {
 		king.exposed = true;
-		out.push(ev.log(isEnglish() ? "The chains fell. He is exposed." : "Цепи пали. Он открыт."));
-		if (!retinue.length) (getScript().bosses.redKing && getScript().bosses.redKing.alone || [{
-			ch: "speech",
-			kind: "boss",
-			text: isEnglish() ? "All of them." : "Все."
-		}, {
-			ch: "speech",
-			kind: "boss",
-			text: isEnglish() ? "No one left to send." : "Больше некого послать."
-		}]).forEach((l) => out.push(l.ch === "speech" ? ev.say(king.x, king.y, l.text, l.kind || "boss") : ev.log(l.text)));
+		events.push(event.log(isEnglish() ? "The chains fell. He is exposed." : "Цепи пали. Он открыт."));
 	}
-	return out;
+	return events;
 }
-/** Королева: обычный ферзь, но со щитом от короля. */
-function queenTurn(e) {
-	const out = [];
+/** Ферзь сначала ищет линию взятия, затем сдвигается к игроку по восьми направлениям. */
+function queenTurn(queen) {
 	const dirs = [...ORTHO, ...DIAG];
-	for (const [dx, dy] of dirs) for (let s = 1; s <= 8; s++) {
-		const x = e.x + dx * s, y = e.y + dy * s;
-		if (!inB$1(x, y) || S$1.walls.has(key(x, y))) break;
-		if (S$1.player.x === x && S$1.player.y === y) return [{
+	for (const [dx, dy] of dirs) for (let step = 1; step <= 8; step++) {
+		const x = queen.x + dx * step, y = queen.y + dy * step;
+		if (!inB$1(x, y) || S$3.walls.has(key(x, y))) break;
+		if (x === S$3.player.x && y === S$3.player.y) return [{
 			ch: "capture",
-			by: e
+			by: queen
 		}];
 		if (enemyAt(x, y)) break;
 	}
-	let best = null, bestD = cheb(e, S$1.player);
-	for (const [dx, dy] of dirs) for (let s = 1; s <= 3; s++) {
-		const x = e.x + dx * s, y = e.y + dy * s;
-		if (!freeCell(x, y, e)) break;
-		const d = cheb({
+	let target = null, distance = cheb(queen, S$3.player);
+	for (const [dx, dy] of dirs) for (let step = 1; step <= 3; step++) {
+		const x = queen.x + dx * step, y = queen.y + dy * step;
+		if (!inB$1(x, y) || S$3.walls.has(key(x, y)) || enemyAt(x, y)) break;
+		const next = cheb({
 			x,
 			y
-		}, S$1.player);
-		if (d < bestD) {
-			bestD = d;
-			best = {
+		}, S$3.player);
+		if (next < distance) {
+			distance = next;
+			target = {
 				x,
 				y
 			};
 		}
 	}
-	if (best) {
-		e.x = best.x;
-		e.y = best.y;
-	}
-	return out;
+	if (target) Object.assign(queen, target);
+	return [];
 }
-/**
-* Слепые Ладьи: не преследуют. Простреливают линию по расписанию.
-* Если игрок на линии в момент залпа — взятие.
-*/
-function blindRookTurn(e) {
-	const C = BOSS_CFG.redKing;
-	const out = [];
-	e.fireCd = (e.fireCd ?? C.rookFireEvery) - 1;
-	if (e.fireCd > 0) return out;
-	e.fireCd = C.rookFireEvery;
-	if (e.x !== S$1.player.x && e.y !== S$1.player.y) {
-		const rf = getScript().bosses.redKing.rooks && getScript().bosses.redKing.rooks.fight || {
-			ch: "log",
-			text: isEnglish() ? "They strike along lines. Not at you. Just the lines." : "Они бьют по линиям. Не по тебе. Просто по линиям."
-		};
-		out.push(rf.ch === "speech" ? ev.say(e.x, e.y, rf.text, rf.kind) : ev.log(rf.text));
-		return out;
-	}
-	const sx = Math.sign(S$1.player.x - e.x), sy = Math.sign(S$1.player.y - e.y);
-	let cx = e.x + sx, cy = e.y + sy;
-	while (cx !== S$1.player.x || cy !== S$1.player.y) {
-		if (S$1.walls.has(key(cx, cy)) || enemyAt(cx, cy)) return out;
-		cx += sx;
-		cy += sy;
-	}
+/** Ладья свиты периодически простреливает ортогональную линию, оставаясь на позиции. */
+function blindRookTurn(rook) {
+	rook.fireCd = (rook.fireCd ?? BOSS_CONFIG.redKing.rookFireEvery) - 1;
+	if (rook.fireCd > 0) return [];
+	rook.fireCd = BOSS_CONFIG.redKing.rookFireEvery;
+	if (rook.x !== S$3.player.x && rook.y !== S$3.player.y) return [event.log(isEnglish() ? "They strike along lines." : "Они бьют по линиям.")];
+	const dx = Math.sign(S$3.player.x - rook.x), dy = Math.sign(S$3.player.y - rook.y);
+	for (let x = rook.x + dx, y = rook.y + dy; x !== S$3.player.x || y !== S$3.player.y; x += dx, y += dy) if (S$3.walls.has(key(x, y)) || enemyAt(x, y)) return [];
 	return [{
 		ch: "capture",
-		by: e
+		by: rook
 	}];
 }
-/** Безумные Кони: полуслучайные прыжки, не бьют два хода подряд. */
-function madKnightTurn(e) {
-	const C = BOSS_CFG.redKing;
-	const out = [];
-	if (e.resting > 0) {
-		e.resting--;
-		return out;
+/** Конь свиты прыгает к игроку с регулируемой долей случайности и паузой после взятия. */
+function madKnightTurn(knight) {
+	if (knight.resting > 0) {
+		knight.resting--;
+		return [];
 	}
-	const JUMPS = [
+	const jumps = [
 		[1, 2],
 		[2, 1],
 		[-1, 2],
@@ -4009,64 +4046,529 @@ function madKnightTurn(e) {
 		[-1, -2],
 		[-2, -1]
 	];
-	for (const [dx, dy] of JUMPS) if (e.x + dx === S$1.player.x && e.y + dy === S$1.player.y) {
-		e.resting = C.knightRestTurns;
+	for (const [dx, dy] of jumps) if (knight.x + dx === S$3.player.x && knight.y + dy === S$3.player.y) {
+		knight.resting = BOSS_CONFIG.redKing.knightRestTurns;
 		return [{
 			ch: "capture",
-			by: e
+			by: knight
 		}];
 	}
-	const opts = JUMPS.map(([dx, dy]) => ({
-		x: e.x + dx,
-		y: e.y + dy
-	})).filter((c) => freeCell(c.x, c.y, e));
-	if (!opts.length) return out;
-	let target;
-	if (Math.random() < C.knightChaos) target = pick(opts);
-	else target = opts.reduce((a, b) => cheb(b, S$1.player) < cheb(a, S$1.player) ? b : a);
-	e.x = target.x;
-	e.y = target.y;
-	return out;
+	const options = jumps.map(([dx, dy]) => ({
+		x: knight.x + dx,
+		y: knight.y + dy
+	})).filter((cell) => inB$1(cell.x, cell.y) && !S$3.walls.has(key(cell.x, cell.y)) && !enemyAt(cell.x, cell.y));
+	if (!options.length) return [];
+	const target = random() < BOSS_CONFIG.redKing.knightChaos ? pick(options) : options.reduce((a, b) => cheb(a, S$3.player) <= cheb(b, S$3.player) ? a : b);
+	Object.assign(knight, target);
+	return [];
 }
-/** Один ход всех боссовых сущностей. Возвращает события. */
+//#endregion
+//#region src/bosses/turn.ts
+var S$2 = S$7;
+/**
+* Выполняет все фазы боссов текущего хода и возвращает декларативные события.
+* Правила не обращаются к DOM: полученный список обрабатывает `dispatchBossEvents`
+* на клиенте либо серверный адаптер симуляции.
+*/
 function bossTurn() {
-	let out = [];
-	out = out.concat(millstoneTurn());
-	if (S$1.party || S$1.enemies.some((e) => e.puppet)) out = out.concat(partyTurn());
-	const groups = /* @__PURE__ */ new Map();
-	for (const e of S$1.enemies) if (e.linkedTo) {
-		const g = groups.get(e.linkedTo) || [];
-		g.push(e);
-		groups.set(e.linkedTo, g);
-	}
-	for (const [, g] of groups) if (g.length === 2) out = out.concat(linkedRooksTurn(g));
-	for (const e of [...S$1.enemies]) {
-		if (!S$1.enemies.includes(e)) continue;
-		if (e.linkedTo) continue;
-		if (e.fleeing) {
-			out = out.concat(fleeingTurn(e));
-			continue;
-		}
-		if (e.puppet) continue;
-		if (e.bossId === "tormentor") out = out.concat(tormentorTurn(e));
-		else if (e.king) out = out.concat(redKingTurn(e));
-		else if (e.retinue === "queen") out = out.concat(queenTurn(e));
-		else if (e.retinue === "rook") out = out.concat(blindRookTurn(e));
-		else if (e.retinue === "knight") out = out.concat(madKnightTurn(e));
-	}
-	return out;
+	return dispatchBossTurn(S$2, {
+		millstoneTurn,
+		partyTurn,
+		linkedRooksTurn,
+		fleeingTurn,
+		tormentorTurn,
+		redKingTurn,
+		queenTurn,
+		blindRookTurn,
+		madKnightTurn
+	});
 }
-/** Прокинуть события в игру. В sandbox используется свой обработчик. */
-function dispatchBossEvents(events, { log, addSpeech, onCapture, onCrush } = {}) {
-	for (const e of events) {
-		if (!e) continue;
-		if (e.ch === "log" && log) log(e.text);
-		else if (e.ch === "speech" && addSpeech) {
-			addSpeech(e.x, e.y, e.text, e.kind || "boss");
-			if (log) log(e.text);
-		} else if (e.ch === "capture" && onCapture) onCapture(e.by);
-		else if (e.ch === "crush" && onCrush) onCrush();
+//#endregion
+//#region src/bosses/events.ts
+/**
+* Применяет события боссов в стабильном порядке, не импортируя игровой UI.
+* @param events Результат `bossTurn()` или обработчика попадания по боссу.
+* @param handlers Побочные эффекты конкретного окружения; отсутствующий канал
+* безопасно игнорируется, что позволяет использовать функцию в unit-тестах.
+*/
+function dispatchBossEvents(events, handlers = {}) {
+	for (const event of events) {
+		if (!event) continue;
+		if (event.ch === "log") handlers.log?.(event.text);
+		else if (event.ch === "speech") {
+			handlers.addSpeech?.(event.x, event.y, event.text, event.kind ?? "boss");
+			handlers.log?.(event.text);
+		} else if (event.ch === "capture") handlers.onCapture?.(event.by);
+		else if (event.ch === "crush") handlers.onCrush?.();
 	}
+}
+//#endregion
+//#region src/bosses/index.ts
+/**
+* Выбирает босс-комнату для текущего endless-этажа.
+* @param state Номер этажа и последняя special-комната для кулдауна.
+* @param random Детерминированный генератор текущего забега, не Math.random.
+* @returns Выбор с параметрами или null для обычного процедурного этажа.
+*/
+function chooseEndlessBoss(state, random) {
+	const cfg = CFG.ENDLESS_SPECIAL_ROOMS;
+	if (!cfg.enabled || state.floor < cfg.minimumFloor || random() >= cfg.chance) return null;
+	const last = state.lastSpecialRoom;
+	if (last && state.floor - last.floor <= cfg.cooldownFloors) return null;
+	const choices = Object.keys(cfg.weights).filter((id) => id !== last?.id);
+	const total = choices.reduce((sum, id) => sum + cfg.weights[id], 0);
+	let cursor = random() * total;
+	const id = choices.find((candidate) => (cursor -= cfg.weights[candidate]) < 0) ?? choices[0];
+	const difficulty = Math.min(cfg.difficulty.maximum, cfg.difficulty.base + Math.floor(state.floor / cfg.difficulty.everyFloors));
+	const roll = (range) => range[0] + Math.floor(random() * (range[1] - range[0] + 1));
+	return {
+		id,
+		difficulty,
+		armorBonus: roll(cfg.parameterRanges.armorBonus),
+		minionBonus: roll(cfg.parameterRanges.minionBonus),
+		mechanicSpeedBonus: roll(cfg.parameterRanges.mechanicSpeedBonus),
+		reward: BOSS_DEFINITIONS[id].reward
+	};
+}
+//#endregion
+//#region src/room-rules.ts
+var DEFAULT_ROOM_RULES = Object.freeze({
+	freezeHunger: false,
+	itemSpawn: "normal",
+	difficulty: 1,
+	allowedEvents: true,
+	music: null
+});
+function makeRoomRules(overrides = {}) {
+	return {
+		...DEFAULT_ROOM_RULES,
+		...overrides
+	};
+}
+//#endregion
+//#region src/bosses/rooms.ts
+var rulesFor = (id, difficulty) => makeRoomRules({
+	freezeHunger: true,
+	itemSpawn: "disabled",
+	difficulty,
+	allowedEvents: false,
+	music: `boss-${id}`,
+	entryMessage: `boss.${id}.entry`,
+	exitMessage: `boss.${id}.exit`
+});
+/** Declarative room factory; optional endless parameters stay inside replay state. */
+function createBossRoom(id, endless) {
+	const difficulty = endless?.difficulty ?? 1;
+	const armorBonus = endless?.armorBonus ?? 0;
+	const minionBonus = endless?.minionBonus ?? 0;
+	const speedBonus = endless?.mechanicSpeedBonus ?? 0;
+	const rules = rulesFor(id, difficulty);
+	if (id === "tormentor") {
+		CFG.W = 15;
+		CFG.H = 13;
+		const walls = /* @__PURE__ */ new Set();
+		[
+			[4, 4],
+			[7, 6],
+			[10, 8]
+		].forEach(([cx, cy]) => {
+			for (let dx = 0; dx < 2; dx++) for (let dy = 0; dy < 2; dy++) walls.add(key(cx + dx, cy + dy));
+		});
+		return {
+			walls,
+			specials: /* @__PURE__ */ new Map(),
+			rules,
+			enemies: [{
+				type: "bishop",
+				x: 7,
+				y: 3,
+				status: {},
+				armor: BOSS_CONFIG.tormentor.armor + armorBonus,
+				r: BOSS_CONFIG.tormentor.range,
+				phase: 1,
+				stunCd: Math.max(1, BOSS_CONFIG.tormentor.stunEvery - speedBonus),
+				bossId: id
+			}]
+		};
+	}
+	if (id === "spawnedRooks") {
+		CFG.W = 13;
+		CFG.H = 11;
+		const specials = /* @__PURE__ */ new Map();
+		[
+			[4, 5],
+			[5, 5],
+			[8, 5],
+			[9, 5],
+			[3, 7],
+			[10, 7]
+		].forEach(([x, y]) => specials.set(key(x, y), { type: "pillar" }));
+		const enemies = [5, 6].map((x) => ({
+			type: "rook",
+			x,
+			y: 2,
+			r: BOSS_CONFIG.linkedRooks.range + armorBonus,
+			linkedTo: "rookPair",
+			status: {}
+		}));
+		return {
+			walls: /* @__PURE__ */ new Set(),
+			specials,
+			rules,
+			enemies
+		};
+	}
+	if (id === "redKing") {
+		CFG.W = 17;
+		CFG.H = 15;
+		const specials = /* @__PURE__ */ new Map();
+		[
+			[2, 2],
+			[14, 2],
+			[2, 12],
+			[14, 12]
+		].forEach(([x, y]) => specials.set(key(x, y), {
+			type: "plate",
+			chain: true,
+			broken: false
+		}));
+		const enemies = [
+			{
+				type: "king",
+				x: 8,
+				y: 7,
+				status: {},
+				r: 1,
+				armor: 99,
+				bossId: id,
+				king: true
+			},
+			{
+				type: "queen",
+				x: 4,
+				y: 5,
+				status: { shield: 1 },
+				r: 8 + armorBonus,
+				bossId: id,
+				retinue: "queen"
+			},
+			{
+				type: "rook",
+				x: 3,
+				y: 7,
+				status: {},
+				r: 8 + armorBonus,
+				bossId: id,
+				retinue: "rook",
+				passive: true
+			},
+			{
+				type: "rook",
+				x: 13,
+				y: 7,
+				status: {},
+				r: 8 + armorBonus,
+				bossId: id,
+				retinue: "rook",
+				passive: true
+			},
+			{
+				type: "knight",
+				x: 11,
+				y: 3,
+				status: {},
+				r: 1,
+				bossId: id,
+				retinue: "knight",
+				noAttackCd: true,
+				attackReady: true
+			},
+			{
+				type: "knight",
+				x: 5,
+				y: 3,
+				status: {},
+				r: 1,
+				bossId: id,
+				retinue: "knight",
+				noAttackCd: true,
+				attackReady: true
+			}
+		];
+		for (let i = 0; i < minionBonus; i++) enemies.push({
+			type: "pawn",
+			x: 7 + i * 2,
+			y: 4,
+			status: {},
+			r: 1,
+			bossId: id,
+			retinue: "pawn"
+		});
+		return {
+			walls: /* @__PURE__ */ new Set(),
+			specials,
+			rules,
+			enemies
+		};
+	}
+	CFG.W = 15;
+	CFG.H = 13;
+	const walls = /* @__PURE__ */ new Set();
+	for (let x = 0; x < CFG.W; x++) for (let y = 0; y < CFG.H; y++) if (x < 3 || x > 7) walls.add(key(x, y));
+	for (let y = 0; y < CFG.H; y++) for (let x = 3; x <= 7; x++) walls.delete(key(x, y));
+	walls.delete(key(7, 12));
+	const specials = /* @__PURE__ */ new Map();
+	specials.set(key(7, 2), {
+		type: "millstone",
+		dir: [0, 1]
+	});
+	for (let x = 3; x <= 7; x++) specials.set(key(x, 0), { type: "pillar" });
+	return {
+		walls,
+		specials,
+		rules,
+		enemies: [],
+		initialState: {
+			party: {
+				dropCd: 0,
+				pullCd: Math.max(1, BOSS_CONFIG.puppeteer.pullEvery - speedBonus),
+				reserve: BOSS_CONFIG.puppeteer.reserve + minionBonus
+			},
+			millFed: 0
+		}
+	};
+}
+//#endregion
+//#region src/feedback.ts
+var rank = {
+	low: 0,
+	normal: 1,
+	high: 2,
+	critical: 3
+};
+var dedupe = /* @__PURE__ */ new Map();
+var TOAST_COOLDOWN_MS = 900;
+/** Максимум ожидающих обычных подтверждений: старые теряют смысл быстрее новых. */
+var MAX_TOAST_QUEUE = 4;
+var lastToastAt = 0;
+var handlers = null;
+var toastQueue = [];
+var toastTimer = null;
+/** Запускает следующий обычный toast после защитного интервала. */
+function scheduleQueuedToast() {
+	if (toastTimer || !toastQueue.length || !handlers) return;
+	const delay = Math.max(0, TOAST_COOLDOWN_MS - (Date.now() - lastToastAt));
+	toastTimer = setTimeout(() => {
+		toastTimer = null;
+		const next = toastQueue.shift();
+		if (!next || !handlers) return;
+		lastToastAt = Date.now();
+		handlers.toast(next.text, next.duration);
+		scheduleQueuedToast();
+	}, delay);
+}
+/** Очищает отложенные toast вместе с активным таймером. */
+function clearToastQueue$1() {
+	toastQueue.length = 0;
+	if (toastTimer) clearTimeout(toastTimer);
+	toastTimer = null;
+}
+/** Подключает единственный UI-адаптер приложения или тестовую заглушку. */
+function configureFeedback(next) {
+	handlers = next;
+	dedupe.clear();
+	lastToastAt = 0;
+	clearToastQueue$1();
+}
+/**
+* Отправляет сообщение в выбранный канал.
+*
+* @param message.channel Канал доставки: toast/log/speech/hint/modal.
+* @param message.priority Важность; критическое сообщение не подавляется.
+* @param message.dedupeKey Идентификатор, запрещающий повтор в течение 1.5 с.
+* @returns `true`, если сообщение было передано UI, иначе `false`.
+*/
+function notify$1(message) {
+	if (!handlers) return false;
+	const priority = message.priority ?? "normal";
+	const now = Date.now();
+	if (message.dedupeKey) {
+		const previous = dedupe.get(message.dedupeKey);
+		if (previous && now - previous < 1500 && rank[priority] < rank.critical) return false;
+		dedupe.set(message.dedupeKey, now);
+	}
+	const text = message.text ?? (message.textKey ? handlers.translate?.(message.textKey, message.params ?? []) : "") ?? "";
+	if (!text) return false;
+	if (message.channel === "toast" && rank[priority] < rank.high && lastToastAt && now - lastToastAt < TOAST_COOLDOWN_MS) {
+		if (toastQueue.length >= MAX_TOAST_QUEUE) toastQueue.shift();
+		toastQueue.push({
+			text,
+			duration: message.duration
+		});
+		scheduleQueuedToast();
+		return false;
+	}
+	if (message.channel === "toast") {
+		lastToastAt = now;
+		handlers.toast(text, message.duration);
+	} else if (message.channel === "log") handlers.log(text, priority);
+	else if (message.channel === "speech") handlers.speech(message.anchor?.x ?? 0, message.anchor?.y ?? 0, text, message.speechKind);
+	else if (message.channel === "hint") handlers.hint(text);
+	else handlers.modal(text, message.action);
+	return true;
+}
+//#endregion
+//#region src/meta.js
+/**
+* src/meta.js — мета-прогрессия: осколки (Пепел), достижения, бестиарий, сохранения.
+* Основные экспорты: META, metaLoad(), metaSave(), unlockAch(), codexSeeEnemy(), recordKill(), endRunMeta().
+*/
+var META_KEY = "chessrogue_meta_v1";
+function defaultMeta() {
+	return {
+		bestFloor: 0,
+		runs: 0,
+		totalCaptures: 0,
+		shards: 0,
+		upgrades: {
+			startSlots: 0,
+			startRelics: 0,
+			headstart: 0
+		},
+		codex: {
+			enemies: {},
+			relics: {},
+			curses: {},
+			kills: {}
+		},
+		achievements: {},
+		tutorialDone: false,
+		hints: {}
+	};
+}
+var saveMeta = metaSave;
+var META = defaultMeta();
+function metaLoad() {
+	try {
+		const raw = window.localStorage && localStorage.getItem("chessrogue_meta_v1");
+		if (raw) {
+			const o = JSON.parse(raw);
+			const d = defaultMeta();
+			META = Object.assign(d, o);
+			META.upgrades = Object.assign(d.upgrades, o.upgrades || {});
+			const c = o.codex || {};
+			META.codex = {
+				enemies: c.enemies || {},
+				relics: c.relics || {},
+				curses: c.curses || {},
+				kills: c.kills || {}
+			};
+			META.achievements = o.achievements || {};
+		}
+	} catch (e) {
+		console.error("meta load error", e);
+	}
+}
+function metaSave() {
+	try {
+		if (window.localStorage) localStorage.setItem(META_KEY, JSON.stringify(META));
+	} catch (e) {
+		console.error(e);
+	}
+}
+function upgradeCost(id) {
+	const u = META_UPGRADES[id], lvl = META.upgrades[id] || 0;
+	return lvl >= u.max ? null : u.costs[lvl];
+}
+function buyUpgrade(id) {
+	const cost = upgradeCost(id);
+	if (cost == null || META.shards < cost) return false;
+	META.shards -= cost;
+	META.upgrades[id] = (META.upgrades[id] || 0) + 1;
+	metaSave();
+	return true;
+}
+function codexSeeEnemy(t) {
+	if (!META.codex.enemies[t]) {
+		META.codex.enemies[t] = true;
+		metaSave();
+		if (BESTIARY_TRIO.every((id) => META.codex.enemies[id])) unlockAch("bestiary");
+	}
+}
+function codexSeeRelic(id) {
+	if (!META.codex.relics[id]) {
+		META.codex.relics[id] = true;
+		metaSave();
+	}
+}
+function codexSeeCurse(id) {
+	if (!META.codex.curses[id]) {
+		META.codex.curses[id] = true;
+		metaSave();
+	}
+}
+function recordKill(t, byPoison) {
+	META.codex.kills[t] = (META.codex.kills[t] || 0) + 1;
+	metaSave();
+	if (S$7.player) S$7.player.gold = (S$7.player.gold || 0) + (GOLD_DROP[t] || 1);
+	if (byPoison) unlockAch("toxin");
+}
+function unlockAch(id) {
+	if (!ACHIEVEMENTS[id] || META.achievements[id]) return;
+	META.achievements[id] = true;
+	metaSave();
+	const name = LContent(ACHIEVEMENTS[id], "name");
+	notify$1({
+		channel: "toast",
+		priority: "high",
+		text: `🏆 ${name}`,
+		dedupeKey: `achievement-${id}`
+	});
+	notify$1({
+		channel: "log",
+		priority: "high",
+		text: L("achievement.log", name),
+		dedupeKey: `achievement-log-${id}`
+	});
+}
+function endRunMeta() {
+	META.runs++;
+	META.bestFloor = Math.max(META.bestFloor, S$7.floor);
+	META.totalCaptures += S$7.player.totalCaptures;
+	let earned = S$7.floor * 3 + S$7.player.totalCaptures;
+	if (S$7.challenge === "storm") earned = Math.round(earned * 1.5);
+	if (S$7.challenge === "escalation" && S$7.floor >= 5) earned *= 2;
+	META.shards += earned;
+	metaSave();
+	if (META.shards >= 100) unlockAch("wealthy");
+	return earned;
+}
+function codexProgress() {
+	const allE = [
+		"pawn",
+		"knight",
+		"bishop",
+		"rook",
+		"queen",
+		"guardian",
+		"necro",
+		"mimic",
+		"assassin",
+		"priest",
+		"frost"
+	];
+	const total = allE.length + Object.keys(RELICS).length + Object.keys(CURSES).length;
+	return {
+		have: allE.filter((t) => META.codex.enemies[t]).length + Object.keys(RELICS).filter((id) => META.codex.relics[id]).length + Object.keys(CURSES).filter((id) => META.codex.curses[id]).length,
+		total
+	};
+}
+function achProgress() {
+	const total = Object.keys(ACHIEVEMENTS).length;
+	return {
+		have: Object.keys(ACHIEVEMENTS).filter((id) => META.achievements[id]).length,
+		total
+	};
 }
 //#endregion
 //#region src/moves.js
@@ -4078,7 +4580,7 @@ function invalidateThreats() {
 	threatCacheKey = "";
 }
 function cachedThreats(insp) {
-	const k = insp ? "e" + S$1.enemies.indexOf(insp) : "all";
+	const k = insp ? "e" + S$7.enemies.indexOf(insp) : "all";
 	if (threatCache && threatCacheKey === k) return threatCache;
 	threatCacheKey = k;
 	threatCache = insp ? enemyThreat(insp) : allThreats();
@@ -4086,11 +4588,11 @@ function cachedThreats(insp) {
 }
 function genMoves(piece, form, isEnemyCell, isBlocked) {
 	const moves = [], captures = [];
-	const mine = piece === S$1.player;
+	const mine = piece === S$7.player;
 	const hasteOn = statusVal(piece, "haste") > 0;
-	const free = (x, y) => inB$1(x, y) && !S$1.walls.has(key(x, y)) && !isBlocked(x, y) && !isEnemyCell(x, y);
+	const free = (x, y) => inB$1(x, y) && !S$7.walls.has(key(x, y)) && !isBlocked(x, y) && !isEnemyCell(x, y);
 	const blk = (x, y, dir) => {
-		const s = S$1.special && S$1.special.get(key(x, y));
+		const s = S$7.special && S$7.special.get(key(x, y));
 		if (!s) return false;
 		if (s.type === "colorzone") return form.type !== "bishop";
 		if (s.type === "gate") {
@@ -4105,7 +4607,7 @@ function genMoves(piece, form, isEnemyCell, isBlocked) {
 	const slide = (dirs, R) => {
 		for (const [dx, dy] of dirs) for (let s = 1; s <= R; s++) {
 			const x = piece.x + dx * s, y = piece.y + dy * s;
-			if (!inB$1(x, y) || S$1.walls.has(key(x, y))) break;
+			if (!inB$1(x, y) || S$7.walls.has(key(x, y))) break;
 			if (blk(x, y, [dx, dy])) break;
 			if (isEnemyCell(x, y)) {
 				captures.push({
@@ -4151,7 +4653,7 @@ function genMoves(piece, form, isEnemyCell, isBlocked) {
 		case "knight":
 			for (const [dx, dy] of KNIGHT_J) {
 				const x = piece.x + dx, y = piece.y + dy;
-				if (!inB$1(x, y) || S$1.walls.has(key(x, y)) || blk(x, y, null)) continue;
+				if (!inB$1(x, y) || S$7.walls.has(key(x, y)) || blk(x, y, null)) continue;
 				if (isEnemyCell(x, y)) captures.push({
 					x,
 					y
@@ -4189,7 +4691,7 @@ function genMoves(piece, form, isEnemyCell, isBlocked) {
 			slide(DIAG, Math.max(1, (form.r ?? CFG.BASE_R.archbishop) + reachBonus));
 			for (const [dx, dy] of KNIGHT_J) {
 				const x = piece.x + dx, y = piece.y + dy;
-				if (!inB$1(x, y) || S$1.walls.has(key(x, y)) || blk(x, y, null)) continue;
+				if (!inB$1(x, y) || S$7.walls.has(key(x, y)) || blk(x, y, null)) continue;
 				if (isEnemyCell(x, y)) captures.push({
 					x,
 					y
@@ -4204,7 +4706,7 @@ function genMoves(piece, form, isEnemyCell, isBlocked) {
 			slide(ORTHO, Math.max(1, (form.r ?? CFG.BASE_R.chancellor) + reachBonus));
 			for (const [dx, dy] of KNIGHT_J) {
 				const x = piece.x + dx, y = piece.y + dy;
-				if (!inB$1(x, y) || S$1.walls.has(key(x, y)) || blk(x, y, null)) continue;
+				if (!inB$1(x, y) || S$7.walls.has(key(x, y)) || blk(x, y, null)) continue;
 				if (isEnemyCell(x, y)) captures.push({
 					x,
 					y
@@ -4231,7 +4733,7 @@ function genMoves(piece, form, isEnemyCell, isBlocked) {
 				[-1, -2]
 			]) {
 				const x = piece.x + dx, y = piece.y + dy;
-				if (!inB$1(x, y) || S$1.walls.has(key(x, y)) || blk(x, y, null)) continue;
+				if (!inB$1(x, y) || S$7.walls.has(key(x, y)) || blk(x, y, null)) continue;
 				if (isEnemyCell(x, y)) captures.push({
 					x,
 					y
@@ -4245,7 +4747,7 @@ function genMoves(piece, form, isEnemyCell, isBlocked) {
 		case "infiltrator":
 			for (const [dx, dy] of ORTHO) {
 				const nx = piece.x + dx, ny = piece.y + dy;
-				if (!inB$1(nx, ny) || S$1.walls.has(key(nx, ny))) continue;
+				if (!inB$1(nx, ny) || S$7.walls.has(key(nx, ny))) continue;
 				if (blk(nx, ny)) continue;
 				if (isEnemyCell(nx, ny)) captures.push({
 					x: nx,
@@ -4258,7 +4760,7 @@ function genMoves(piece, form, isEnemyCell, isBlocked) {
 			}
 			for (const [dx, dy] of DIAG) {
 				const nx = piece.x + dx, ny = piece.y + dy;
-				if (!inB$1(nx, ny) || S$1.walls.has(key(nx, ny))) continue;
+				if (!inB$1(nx, ny) || S$7.walls.has(key(nx, ny))) continue;
 				if (blk(nx, ny)) continue;
 				if (isEnemyCell(nx, ny)) captures.push({
 					x: nx,
@@ -4269,7 +4771,7 @@ function genMoves(piece, form, isEnemyCell, isBlocked) {
 		case "bastion":
 			for (const [dx, dy] of ORTHO) {
 				const nx = piece.x + dx, ny = piece.y + dy;
-				if (!inB$1(nx, ny) || S$1.walls.has(key(nx, ny))) continue;
+				if (!inB$1(nx, ny) || S$7.walls.has(key(nx, ny))) continue;
 				if (blk(nx, ny)) continue;
 				if (isEnemyCell(nx, ny)) captures.push({
 					x: nx,
@@ -4284,7 +4786,7 @@ function genMoves(piece, form, isEnemyCell, isBlocked) {
 		case "king":
 			for (const [dx, dy] of [...ORTHO, ...DIAG]) {
 				const x = piece.x + dx, y = piece.y + dy;
-				if (!inB$1(x, y) || S$1.walls.has(key(x, y)) || blk(x, y, [dx, dy])) continue;
+				if (!inB$1(x, y) || S$7.walls.has(key(x, y)) || blk(x, y, [dx, dy])) continue;
 				if (isEnemyCell(x, y)) captures.push({
 					x,
 					y
@@ -4308,7 +4810,7 @@ function effectiveForm(e) {
 			r: 1,
 			homeColor: e.homeColor
 		};
-		const t = (S$1.player.wheel[S$1.player.active] || { type: "pawn" }).type;
+		const t = (S$7.player.wheel[S$7.player.active] || { type: "pawn" }).type;
 		return {
 			type: t,
 			r: (CFG.BASE_R[t] || 1) + (e.rb || 0) + (curse("mimic_reach") ? 1 : 0),
@@ -4334,11 +4836,11 @@ function enemyThreat(e) {
 		const [fx, fy] = e.facing;
 		(fx === 0 ? [[-1, fy], [1, fy]] : [[fx, -1], [fx, 1]]).forEach(([dx, dy]) => {
 			const x = e.x + dx, y = e.y + dy;
-			if (inB$1(x, y) && !S$1.walls.has(key(x, y))) set.add(key(x, y));
+			if (inB$1(x, y) && !S$7.walls.has(key(x, y))) set.add(key(x, y));
 		});
 		return set;
 	}
-	const { moves, captures } = genMoves(e, ef, (x, y) => S$1.player.x === x && S$1.player.y === y, (x, y) => {
+	const { moves, captures } = genMoves(e, ef, (x, y) => S$7.player.x === x && S$7.player.y === y, (x, y) => {
 		const o = enemyAt(x, y);
 		return !!o && o !== e;
 	});
@@ -4348,15 +4850,15 @@ function enemyThreat(e) {
 }
 function allThreats() {
 	const set = /* @__PURE__ */ new Set();
-	S$1.enemies.forEach((e) => enemyThreat(e).forEach((k) => set.add(k)));
+	S$7.enemies.forEach((e) => enemyThreat(e).forEach((k) => set.add(k)));
 	return set;
 }
 function activeForm() {
-	return S$1.player.wheel[S$1.player.active];
+	return S$7.player.wheel[S$7.player.active];
 }
 function playerOptions() {
 	const f = activeForm();
-	return genMoves(S$1.player, f, (x, y) => !!enemyAt(x, y), () => false);
+	return genMoves(S$7.player, f, (x, y) => !!enemyAt(x, y), () => false);
 }
 function threatCellsFrom(e, x, y) {
 	const sx = e.x, sy = e.y;
@@ -4383,7 +4885,7 @@ function isSpawnable(t, x, y) {
 		r: CFG.BASE_R[t] || 1,
 		rb: 0
 	};
-	return genMoves(dummy, effectiveForm(dummy), () => false, (nx, ny) => S$1.walls.has(key(nx, ny))).moves.length > 0;
+	return genMoves(dummy, effectiveForm(dummy), () => false, (nx, ny) => S$7.walls.has(key(nx, ny))).moves.length > 0;
 }
 //#endregion
 //#region src/content/tutorial.js
@@ -4773,6 +5275,28 @@ var OUTRO_EN = {
 	button: "Descend"
 };
 //#endregion
+//#region src/feedback-legacy.ts
+/** Преобразует оформление старого журнала в семантический приоритет сообщения. */
+function priorityFromLegacyTone(tone) {
+	if (tone === "r") return "critical";
+	if (tone === "g" || tone === "e") return "high";
+	return "normal";
+}
+/**
+* Отправляет legacy-запись журнала через `notify()` с совместимым fallback.
+*
+* @param text Текст, уже подготовленный игровым модулем.
+* @param tone Старый CSS-тон (`r`, `g`, `p`, `e`); он переводится в приоритет.
+* @param fallback Прежняя функция `ui.log`, необходимая до подключения UI-адаптера.
+*/
+function reportLegacyLog(text, tone, fallback) {
+	if (!notify$1({
+		channel: "log",
+		priority: priorityFromLegacyTone(tone),
+		text
+	})) fallback(text, tone);
+}
+//#endregion
 //#region src/analytics-transport.js
 /** HTTP transport kept separate from replay recording for easy replacement/testing. */
 function createAnalyticsTransport(endpoint, adminToken = "") {
@@ -4820,34 +5344,6 @@ var ANALYTICS_EVENT = Object.freeze({
 	SNAPSHOT: "snapshot"
 });
 //#endregion
-//#region src/browser-fingerprint.js
-var cachedFingerprint = null;
-var text = (value) => String(value || "").slice(0, 160);
-var hex = (buffer) => [...new Uint8Array(buffer)].map((byte) => byte.toString(16).padStart(2, "0")).join("");
-/**
-* Opt-in, pseudonymous browser grouping key. No raw user-agent/IP is sent;
-* only a SHA-256 digest of coarse browser/device characteristics is recorded.
-*/
-async function browserFingerprint() {
-	if (cachedFingerprint) return cachedFingerprint;
-	if (typeof navigator === "undefined" || !globalThis.crypto?.subtle) return null;
-	const screenInfo = globalThis.screen || {};
-	const payload = [
-		"chess-roguelike-fingerprint-v1",
-		navigator.userAgent,
-		navigator.platform,
-		navigator.language,
-		Intl.DateTimeFormat().resolvedOptions().timeZone,
-		screenInfo.width,
-		screenInfo.height,
-		screenInfo.colorDepth,
-		globalThis.devicePixelRatio,
-		navigator.hardwareConcurrency
-	].map(text).join("|");
-	cachedFingerprint = `v1-${hex(await globalThis.crypto.subtle.digest("SHA-256", new globalThis.TextEncoder().encode(payload))).slice(0, 32)}`;
-	return cachedFingerprint;
-}
-//#endregion
 //#region src/replay-state.js
 function toReplayValue(value) {
 	if (value instanceof Set) return [...value].map(toReplayValue);
@@ -4865,23 +5361,27 @@ function serializeGameState() {
 		cleared: !!item.cleared
 	});
 	return {
-		floor: S$1.floor,
-		turn: S$1.turn,
-		runMode: S$1.runMode,
-		challenge: S$1.challenge || null,
-		currentRoom: S$1.currentRoom,
-		biome: S$1.biome?.id || null,
+		runSeed: S$7.runSeed,
+		floor: S$7.floor,
+		turn: S$7.turn,
+		runMode: S$7.runMode,
+		challenge: S$7.challenge || null,
+		currentRoom: S$7.currentRoom,
+		biome: S$7.biome?.id || null,
+		roomRules: toReplayValue(S$7.roomRules),
+		specialRoom: toReplayValue(S$7.specialRoom),
+		lastSpecialRoom: toReplayValue(S$7.lastSpecialRoom),
 		board: {
 			width: CFG.W,
 			height: CFG.H,
-			walls: toReplayValue(S$1.walls),
-			special: toReplayValue(S$1.special)
+			walls: toReplayValue(S$7.walls),
+			special: toReplayValue(S$7.special)
 		},
-		player: toReplayValue(S$1.player),
-		enemies: toReplayValue(S$1.enemies),
-		rooms: (S$1.rooms || []).map(room),
-		keys: toReplayValue(S$1.keys),
-		gameOver: !!S$1.gameOver
+		player: toReplayValue(S$7.player),
+		enemies: toReplayValue(S$7.enemies),
+		rooms: (S$7.rooms || []).map(room),
+		keys: toReplayValue(S$7.keys),
+		gameOver: !!S$7.gameOver
 	};
 }
 //#endregion
@@ -4911,11 +5411,6 @@ function startAnalyticsRun(extra = {}) {
 	};
 	uploadedThrough = 0;
 	recordEvent(ANALYTICS_EVENT.RUN_STARTED, extra, true);
-	browserFingerprint().then((fingerprint) => {
-		if (!run || !fingerprint) return;
-		run.extra.browserFingerprint = fingerprint;
-		flushAnalytics();
-	});
 	return run.runId;
 }
 function recordEvent(type, data = {}, snapshot = false) {
@@ -4926,9 +5421,9 @@ function recordEvent(type, data = {}, snapshot = false) {
 		n: run.events.length + 1,
 		type,
 		t: Math.max(0, Date.now() - Date.parse(run.startedAt)),
-		floor: S$1.floor,
-		turn: S$1.turn,
-		room: S$1.currentRoom,
+		floor: S$7.floor,
+		turn: S$7.turn,
+		room: S$7.currentRoom,
 		data: toReplayValue(data),
 		...snapshot ? { state: serializeGameState() } : {}
 	});
@@ -5011,17 +5506,9 @@ function installAnalyticsLifecycle() {
 			key
 		});
 	});
-	const errorData = (value) => ({
-		message: String(value?.message || value || "Unknown browser error").slice(0, 2e3),
-		stack: String(value?.stack || "").slice(0, 4e3)
-	});
+	const errorData = (value) => ({ name: String(value?.name || "BrowserError").slice(0, 80) });
 	window.addEventListener("error", (event) => {
-		recordEvent(ANALYTICS_EVENT.BROWSER_ERROR, {
-			...errorData(event.error || event.message),
-			line: event.lineno || null,
-			column: event.colno || null,
-			source: String(event.filename || "").split("?")[0].slice(-300)
-		});
+		recordEvent(ANALYTICS_EVENT.BROWSER_ERROR, { ...errorData(event.error || event.message) });
 	});
 	window.addEventListener("unhandledrejection", (event) => {
 		recordEvent(ANALYTICS_EVENT.BROWSER_REJECTION, errorData(event.reason));
@@ -5040,22 +5527,6 @@ function downloadReplay() {
 }
 //#endregion
 //#region src/tutorial.js
-var tutorial_exports = /* @__PURE__ */ __exportAll({
-	compile: () => compile,
-	isTutorial: () => isTutorial,
-	resetHints: () => resetHints,
-	skipTutorial: () => skipTutorial,
-	startTutorial: () => startTutorial,
-	tutorialAllowsMove: () => tutorialAllowsMove,
-	tutorialAllowsRotate: () => tutorialAllowsRotate,
-	tutorialAllowsSwitch: () => tutorialAllowsSwitch,
-	tutorialCheck: () => tutorialCheck,
-	tutorialEnemiesFrozen: () => tutorialEnemiesFrozen,
-	tutorialMark: () => tutorialMark,
-	tutorialNudge: () => tutorialNudge,
-	tutorialSnapshot: () => tutorialSnapshot,
-	tutorialTargets: () => tutorialTargets
-});
 var T$1 = {
 	active: false,
 	idx: -1,
@@ -5068,6 +5539,27 @@ var T$1 = {
 	snapshot: null,
 	onDone: null
 };
+/**
+* Сохраняет завершение учебной сцены в едином журнале сообщений.
+*
+* @param {string} text Текст результата учебной сцены.
+* @param {string} [tone=''] Прежний тон журнала, совместимый с существующей UI-темой.
+*/
+function log$7(text, tone = "") {
+	reportLegacyLog(text, tone, log$3);
+}
+/** Передаёт учебную реплику в единый API, сохраняя её визуальную роль. */
+function speech$4(x, y, text, kind = "enemy") {
+	if (!notify$1({
+		channel: "speech",
+		text,
+		anchor: {
+			x,
+			y
+		},
+		speechKind: kind
+	})) addSpeech(x, y, text, kind);
+}
 var isTutorial = () => T$1.active;
 var tutorialTargets = () => T$1.active ? T$1.targets : [];
 /**
@@ -5137,8 +5629,8 @@ function startTutorial(onFinish) {
 	T$1.active = true;
 	T$1.idx = -1;
 	T$1.onDone = onFinish;
-	S$1.gameOver = false;
-	S$1.challenge = null;
+	S$7.gameOver = false;
+	S$7.challenge = null;
 	closeModal();
 	nextScene();
 }
@@ -5177,15 +5669,15 @@ function nextScene() {
 	T$1.switched = false;
 	T$1.snapshot = null;
 	loadLevel(level);
-	S$1.player.wheel = (scene.wheel || ["pawn"]).map((t) => makeForm(t));
-	while (S$1.player.wheel.length < 3) S$1.player.wheel.push(null);
-	S$1.player.active = 0;
-	S$1.player.facing = scene.facing || [0, -1];
-	S$1.player.relics = /* @__PURE__ */ new Set();
-	S$1.player.curses = /* @__PURE__ */ new Set();
-	S$1.unlocked = new Set(scene.wheel || ["pawn"]);
-	S$1.player.hunger = scene.hunger ? scene.hungerStart ?? CFG.HUNGER.start : CFG.HUNGER.start;
-	S$1.keys = /* @__PURE__ */ new Set();
+	S$7.player.wheel = (scene.wheel || ["pawn"]).map((t) => makeForm(t));
+	while (S$7.player.wheel.length < 3) S$7.player.wheel.push(null);
+	S$7.player.active = 0;
+	S$7.player.facing = scene.facing || [0, -1];
+	S$7.player.relics = /* @__PURE__ */ new Set();
+	S$7.player.curses = /* @__PURE__ */ new Set();
+	S$7.unlocked = new Set(scene.wheel || ["pawn"]);
+	S$7.player.hunger = scene.hunger ? scene.hungerStart ?? CFG.HUNGER.start : CFG.HUNGER.start;
+	S$7.keys = /* @__PURE__ */ new Set();
 	openInterlude({
 		title: scene.title,
 		lines: [
@@ -5197,8 +5689,8 @@ function nextScene() {
 		button: isEnglish() ? "Continue" : "Дальше"
 	}, () => {
 		if (scene.speech) {
-			const e = S$1.enemies[0];
-			if (e) addSpeech(e.x, e.y, scene.speech.text, scene.speech.kind || "enemy");
+			const e = S$7.enemies[0];
+			if (e) speech$4(e.x, e.y, scene.speech.text, scene.speech.kind || "enemy");
 		}
 		render();
 		syncUI();
@@ -5230,7 +5722,11 @@ function tutorialNudge(what) {
 		pass: "Пасовать пока незачем.",
 		rotate: "Поворот здесь не нужен."
 	})[what];
-	if (msg) toast(msg);
+	if (msg) notify$1({
+		channel: "hint",
+		text: msg,
+		dedupeKey: `tutorial-${T$1.idx}`
+	});
 }
 /** Враги в обучении стоят, пока сцена не сказала иначе. */
 var tutorialEnemiesFrozen = () => T$1.active && T$1.scene?.freeze !== false;
@@ -5238,9 +5734,9 @@ var tutorialEnemiesFrozen = () => T$1.active && T$1.scene?.freeze !== false;
 function tutorialSnapshot() {
 	if (!T$1.active) return;
 	T$1.snapshot = {
-		x: S$1.player.x,
-		y: S$1.player.y,
-		facing: [...S$1.player.facing]
+		x: S$7.player.x,
+		y: S$7.player.y,
+		facing: [...S$7.player.facing]
 	};
 }
 function tutorialMark(event) {
@@ -5259,37 +5755,45 @@ function tutorialCheck() {
 	const sc = T$1.scene;
 	if (sc.strict && T$1.snapshot) {
 		if (threatenedNow()) {
-			S$1.player.x = T$1.snapshot.x;
-			S$1.player.y = T$1.snapshot.y;
-			S$1.player.facing = T$1.snapshot.facing;
-			if (sc.onFail) toast(sc.onFail);
+			S$7.player.x = T$1.snapshot.x;
+			S$7.player.y = T$1.snapshot.y;
+			S$7.player.facing = T$1.snapshot.facing;
+			if (sc.onFail) notify$1({
+				channel: "hint",
+				text: sc.onFail,
+				dedupeKey: `tutorial-fail-${T$1.idx}`
+			});
 			render();
 			syncUI();
 			return;
 		}
 	}
-	if (T$1.targets.some((c) => c.x === S$1.player.x && c.y === S$1.player.y)) T$1.reached = true;
+	if (T$1.targets.some((c) => c.x === S$7.player.x && c.y === S$7.player.y)) T$1.reached = true;
 	const d = sc.done || {};
 	let ok = true;
 	if (d.reachTarget && !T$1.reached) ok = false;
-	if (d.clear && S$1.enemies.length > 0) ok = false;
+	if (d.clear && S$7.enemies.length > 0) ok = false;
 	if (d.ate && !T$1.ate) ok = false;
 	if (d.switched && !T$1.switched) ok = false;
 	if (d.rotated && !T$1.rotated) ok = false;
 	if (!ok) return;
-	log(isEnglish() ? "Tutorial: «" + sc.title + "» completed." : "Обучение: «" + sc.title + "» пройдено.", "g");
+	log$7(isEnglish() ? "Tutorial: «" + sc.title + "» completed." : "Обучение: «" + sc.title + "» пройдено.", "g");
 	setTimeout(() => nextScene(), 350);
 }
 /** Стоит ли игрок под боем прямо сейчас. */
 function threatenedNow() {
-	return allThreats().has(key(S$1.player.x, S$1.player.y));
+	return allThreats().has(key(S$7.player.x, S$7.player.y));
 }
 /** Сброс всех подсказок — кнопка в настройках «Показать обучение заново». */
 function resetHints() {
 	META.hints = {};
 	META.tutorialDone = false;
 	saveMeta();
-	toast(isEnglish() ? "Tutorial and hints reset." : "Обучение и подсказки сброшены.");
+	notify$1({
+		channel: "toast",
+		text: isEnglish() ? "Tutorial and hints reset." : "Обучение и подсказки сброшены.",
+		priority: "high"
+	});
 }
 //#endregion
 //#region src/preview.js
@@ -5306,8 +5810,8 @@ var cache$2 = /* @__PURE__ */ new Map();
 var cacheKey = "";
 /** Ключ состояния: пока он не изменился, предпросмотр валиден. */
 function stateKey() {
-	const p = S$1.player;
-	return `${p.x},${p.y},${p.active},${p.facing[0]},${p.facing[1]},r${S$1.currentRoom},t${S$1.turn},e${S$1.enemies.length}`;
+	const p = S$7.player;
+	return `${p.x},${p.y},${p.active},${p.facing[0]},${p.facing[1]},r${S$7.currentRoom},t${S$7.turn},e${S$7.enemies.length}`;
 }
 /**
 * Куда развернётся вражеская пешка на игрока в (px,py).
@@ -5325,26 +5829,26 @@ function facingToward(e, px, py) {
 * вражеские пешки развёрнуты на новую позицию. Состояние восстанавливается всегда.
 */
 function withPlayerAt(x, y, fn) {
-	const ox = S$1.player.x, oy = S$1.player.y;
-	const savedEnemies = S$1.enemies;
+	const ox = S$7.player.x, oy = S$7.player.y;
+	const savedEnemies = S$7.enemies;
 	const victim = enemyAt(x, y);
-	if (victim) S$1.enemies = S$1.enemies.filter((e) => e !== victim);
+	if (victim) S$7.enemies = S$7.enemies.filter((e) => e !== victim);
 	const facings = [];
-	for (const e of S$1.enemies) {
+	for (const e of S$7.enemies) {
 		if (!e.facing || effectiveForm(e).type !== "pawn") continue;
 		facings.push([e, e.facing]);
 		e.facing = facingToward(e, x, y);
 	}
-	S$1.player.x = x;
-	S$1.player.y = y;
+	S$7.player.x = x;
+	S$7.player.y = y;
 	invalidateThreats();
 	try {
 		return fn();
 	} finally {
-		S$1.player.x = ox;
-		S$1.player.y = oy;
+		S$7.player.x = ox;
+		S$7.player.y = oy;
 		for (const [e, f] of facings) e.facing = f;
-		S$1.enemies = savedEnemies;
+		S$7.enemies = savedEnemies;
 		invalidateThreats();
 	}
 }
@@ -5365,7 +5869,7 @@ function threatsAfterMove(x, y) {
 /** Кто именно достанет игрока в клетке (x,y). Для тултипа «под ударом: ♞ ♜». */
 function threatenersAt(x, y) {
 	const k = key(x, y);
-	return withPlayerAt(x, y, () => S$1.enemies.filter((e) => enemyThreat(e).has(k)));
+	return withPlayerAt(x, y, () => S$7.enemies.filter((e) => enemyThreat(e).has(k)));
 }
 var RISK = {
 	SAFE: 0,
@@ -5374,11 +5878,11 @@ var RISK = {
 };
 /** Переживёт ли игрок взятие в текущей форме. */
 function survivesCapture() {
-	if (S$1.godMode) return true;
-	if (S$1.challenge === "lone_figure") return false;
-	if (statusVal(S$1.player, "shield") > 0) return true;
+	if (S$7.godMode) return true;
+	if (S$7.challenge === "lone_figure") return false;
+	if (statusVal(S$7.player, "shield") > 0) return true;
 	if (activeForm().type !== "pawn") return true;
-	return !!(has("pawn_shield") && !S$1.player.pawnShieldUsed);
+	return !!(has("pawn_shield") && !S$7.player.pawnShieldUsed);
 }
 /**
 * SAFE — после хода клетка не бита.
@@ -5396,15 +5900,15 @@ function riskOf(x, y) {
 */
 function wheelSummary() {
 	const out = [];
-	const orig = S$1.player.active;
+	const orig = S$7.player.active;
 	try {
-		for (let i = 0; i < S$1.player.wheel.length; i++) {
-			const f = S$1.player.wheel[i];
+		for (let i = 0; i < S$7.player.wheel.length; i++) {
+			const f = S$7.player.wheel[i];
 			if (!f) {
 				out.push(null);
 				continue;
 			}
-			S$1.player.active = i;
+			S$7.player.active = i;
 			invalidateThreats();
 			const { moves, captures } = playerOptions();
 			out.push({
@@ -5414,7 +5918,7 @@ function wheelSummary() {
 			});
 		}
 	} finally {
-		S$1.player.active = orig;
+		S$7.player.active = orig;
 		invalidateThreats();
 	}
 	return out;
@@ -6393,6 +6897,27 @@ function floorTile(color, x, y, T) {
 * Основные экспорты: render(), resizeBoard(), drawPiece(), drawSpecial(), addSpeech(),
 * clearSpeech(), spawnParticles(), startCaptureFlash(), screenFade(), startMoveAnim().
 */
+/**
+* Исполняет декларативную команду визуального эффекта.
+* Функция не читает и не меняет игровую логику: только DOM/canvas-анимации.
+* @param {{type:string,color?:string,durationMs?:number,strength?:number,x?:number,y?:number,count?:number}} effect команда из visual-effects.ts
+*/
+function applyVisualEffect(effect) {
+	if (!CFG.ANIM_ENABLED || !effect) return;
+	if (effect.type === "vignette") screenFade(effect.color || "#000", effect.durationMs || 220);
+	else if (effect.type === "transition") screenFade(effect.style === "lens" ? "#5b4a81" : "#000", effect.durationMs || 350);
+	else if (effect.type === "particles") spawnParticles(effect.x || 0, effect.y || 0, effect.color || "#fff", effect.count || 8);
+	else if (effect.type === "move") startMoveAnim(effect.unit, effect.fromX, effect.fromY, effect.toX, effect.toY);
+	else if (effect.type === "capture") startCaptureFlash(effect.x || 0, effect.y || 0);
+	else if (effect.type === "shake" && dom.canvas) {
+		const strength = Math.max(1, Math.min(12, effect.strength || 4));
+		dom.canvas.style.setProperty("--shake-strength", `${strength}px`);
+		dom.canvas.classList.remove("screen-shake");
+		dom.canvas.offsetWidth;
+		dom.canvas.classList.add("screen-shake");
+		setTimeout(() => dom.canvas?.classList.remove("screen-shake"), effect.durationMs || 180);
+	}
+}
 var T = CFG.TILE;
 var needsRedraw = true;
 var loopRunning = false;
@@ -6403,9 +6928,9 @@ var camera = {
 /** true, пока пользователь панорамирует карту — камера не возвращается к игроку. */
 var cameraDrag = false;
 function centerCamera() {
-	if (!S$1.player || cameraDrag) return;
-	const tx = S$1.player.x - CFG.VIEW_W / 2 + .5;
-	const ty = S$1.player.y - CFG.VIEW_H / 2 + .5;
+	if (!S$7.player || cameraDrag) return;
+	const tx = S$7.player.x - CFG.VIEW_W / 2 + .5;
+	const ty = S$7.player.y - CFG.VIEW_H / 2 + .5;
 	camera.x += (tx - camera.x) * .15;
 	camera.y += (ty - camera.y) * .15;
 	const minX = Math.min(0, CFG.W - CFG.VIEW_W);
@@ -6436,7 +6961,6 @@ var animState = {
 * @param {number} ty
 */
 function startMoveAnim(unit, fx, fy, tx, ty) {
-	unit.lastDir = [Math.sign(tx - fx), Math.sign(ty - fy)];
 	if (!CFG.ANIM_ENABLED || typeof requestAnimationFrame === "undefined") return;
 	const entry = {
 		fromX: fx,
@@ -6445,7 +6969,7 @@ function startMoveAnim(unit, fx, fy, tx, ty) {
 		toY: ty,
 		startTs: null
 	};
-	if (unit === S$1.player) animState.player = entry;
+	if (unit === S$7.player) animState.player = entry;
 	else animState.enemies.set(unit, entry);
 	requestRender();
 }
@@ -6455,7 +6979,7 @@ function startMoveAnim(unit, fx, fy, tx, ty) {
 */
 function getAnimPos(unit, realX, realY, ts) {
 	let entry;
-	if (unit === S$1.player) entry = animState.player;
+	if (unit === S$7.player) entry = animState.player;
 	else entry = animState.enemies.get(unit);
 	if (!entry || !ts) return {
 		x: realX,
@@ -6464,7 +6988,7 @@ function getAnimPos(unit, realX, realY, ts) {
 	if (entry.startTs === null) entry.startTs = ts;
 	const elapsed = ts - entry.startTs;
 	if (elapsed >= CFG.MOVE_ANIM_MS) {
-		if (unit === S$1.player) animState.player = null;
+		if (unit === S$7.player) animState.player = null;
 		else animState.enemies.delete(unit);
 		return {
 			x: realX,
@@ -6551,7 +7075,7 @@ var SPEECH_COLOR = {
 	boss: "#d06a5a",
 	neutral: "#b8b4ac"
 };
-var speech = [];
+var speech$3 = [];
 /**
 * Разбить текст на строки по словам, не шире maxW пикселей.
 * Слово длиннее строки рвётся посимвольно.
@@ -6601,8 +7125,8 @@ function wrapSpeechText(c, text, maxW, maxLines) {
 function addSpeech(x, y, text, kind = "enemy") {
 	if (!CFG.ANIM_ENABLED) return;
 	const color = SPEECH_COLOR[kind] || kind;
-	const queuePos = Math.max(0, speech.length - SPEECH.maxVisible + 1);
-	speech.push({
+	const queuePos = Math.max(0, speech$3.length - SPEECH.maxVisible + 1);
+	speech$3.push({
 		x,
 		y,
 		text: String(text),
@@ -6617,7 +7141,7 @@ function addSpeech(x, y, text, kind = "enemy") {
 }
 /** Сбросить все реплики (смена яруса, конец забега). */
 function clearSpeech() {
-	speech = [];
+	speech$3 = [];
 }
 function hexToRgb(h) {
 	let v = String(h).replace("#", "");
@@ -6627,11 +7151,11 @@ function hexToRgb(h) {
 }
 /** Вызывать после отрисовки фигур, внутри трансформации камеры. */
 function drawSpeech(ts) {
-	if (!speech.length) return;
+	if (!speech$3.length) return;
 	const c = dom.ctx;
 	const fontPx = Math.max(10, T * SPEECH.font);
 	const lineH = fontPx * SPEECH.lineH;
-	speech = speech.filter((sp) => {
+	speech$3 = speech$3.filter((sp) => {
 		c.save();
 		c.font = `${fontPx.toFixed(0)}px Georgia, serif`;
 		c.textAlign = "center";
@@ -6699,20 +7223,20 @@ function hasActiveAnim() {
 	if (captureFlash) return true;
 	if (screenOverlay.alpha > 0) return true;
 	if (modPulses.size > 0) return true;
-	if (CFG.ANIM_ENABLED && S$1.player && modCount() > 0) return true;
-	if (speech.length > 0) return true;
+	if (CFG.ANIM_ENABLED && S$7.player && modCount() > 0) return true;
+	if (speech$3.length > 0) return true;
 	if (tutorialTargets().length) return true;
-	if (!cameraDrag && S$1.player) {
-		const tx = S$1.player.x - CFG.VIEW_W / 2 + .5;
-		const ty = S$1.player.y - CFG.VIEW_H / 2 + .5;
+	if (!cameraDrag && S$7.player) {
+		const tx = S$7.player.x - CFG.VIEW_W / 2 + .5;
+		const ty = S$7.player.y - CFG.VIEW_H / 2 + .5;
 		if (Math.abs(camera.x - tx) > .01 || Math.abs(camera.y - ty) > .01) return true;
 	}
 	return false;
 }
 function hasAnimatedSpecials() {
 	if (!CFG.ANIM_ENABLED) return false;
-	if (!S$1.special) return false;
-	for (const s of S$1.special.values()) if (s.type === "lava" || s.type === "fog" || s.type === "conveyor" || s.type === "gate" || s.type === "ice" || s.type === "portal" || s.type === "millstone") return true;
+	if (!S$7.special) return false;
+	for (const s of S$7.special.values()) if (s.type === "lava" || s.type === "fog" || s.type === "conveyor" || s.type === "gate" || s.type === "ice" || s.type === "portal" || s.type === "millstone") return true;
 	return false;
 }
 /**
@@ -6812,10 +7336,10 @@ function modColor(id, isCurse, alpha = 1) {
 	return `hsla(${hue.toFixed(0)},${sat}%,${lit}%,${alpha})`;
 }
 function relicIds() {
-	return S$1.player && S$1.player.relics ? [...S$1.player.relics].sort() : [];
+	return S$7.player && S$7.player.relics ? [...S$7.player.relics].sort() : [];
 }
 function curseIds() {
-	return S$1.player && S$1.player.curses ? [...S$1.player.curses].sort() : [];
+	return S$7.player && S$7.player.curses ? [...S$7.player.curses].sort() : [];
 }
 function modCount() {
 	return relicIds().length + curseIds().length;
@@ -6864,7 +7388,7 @@ function drawModRing(c, cx, cy, radius, ids, isCurse, ts) {
 * @param {number} px,py — координаты в клетках (могут быть дробными при анимации)
 */
 function drawModifierAura(px, py, ts) {
-	if (!S$1.player) return;
+	if (!S$7.player) return;
 	const rel = relicIds();
 	const cur = curseIds();
 	const total = rel.length + cur.length;
@@ -7839,29 +8363,29 @@ function renderNow(ts) {
 	drawAbyss(ts);
 	dom.ctx.translate(-camera.x * T, -camera.y * T);
 	dom.ctx.clearRect(0, 0, CFG.W * T, CFG.H * T);
-	const insp = S$1.hoverEnemy || S$1.selectedEnemy;
+	const insp = S$7.hoverEnemy || S$7.selectedEnemy;
 	const threats = cachedThreats(insp);
-	const bLight = S$1.biome && S$1.biome.light || "#a2937c", bDark = S$1.biome && S$1.biome.dark || "#4b433c";
+	const bLight = S$7.biome && S$7.biome.light || "#a2937c", bDark = S$7.biome && S$7.biome.dark || "#4b433c";
 	const camX0 = Math.floor(camera.x);
 	const camY0 = Math.floor(camera.y);
 	const camX1 = Math.min(CFG.W, camX0 + CFG.VIEW_W + 2);
 	const camY1 = Math.min(CFG.H, camY0 + CFG.VIEW_H + 2);
-	const blind = S$1.challenge === "blind_descent";
+	const blind = S$7.challenge === "blind_descent";
 	for (let y = Math.max(0, camY0 - 1); y < camY1; y++) for (let x = Math.max(0, camX0 - 1); x < camX1; x++) {
-		if (blind && Math.max(Math.abs(x - S$1.player.x), Math.abs(y - S$1.player.y)) > 2) {
+		if (blind && Math.max(Math.abs(x - S$7.player.x), Math.abs(y - S$7.player.y)) > 2) {
 			dom.ctx.fillStyle = "#0a0c10";
 			dom.ctx.fillRect(x * T, y * T, T, T);
-		} else if (S$1.walls.has(key(x, y))) {
-			const m = wallMask(x, y, (ax, ay) => S$1.walls.has(key(ax, ay)));
-			drawWall(dom.ctx, x, y, T, m, { biome: S$1.biome && S$1.biome.id });
+		} else if (S$7.walls.has(key(x, y))) {
+			const m = wallMask(x, y, (ax, ay) => S$7.walls.has(key(ax, ay)));
+			drawWall(dom.ctx, x, y, T, m, { biome: S$7.biome && S$7.biome.id });
 		} else {
 			const col = tileColor(x, y) === 0 ? bLight : bDark;
 			dom.ctx.drawImage(floorTile(col, x, y, T), x * T, y * T, T, T);
 		}
-		if (!blind || Math.max(Math.abs(x - S$1.player.x), Math.abs(y - S$1.player.y)) <= 2) {
-			if (y === 0 && !S$1.walls.has(key(x, y))) {
+		if (!blind || Math.max(Math.abs(x - S$7.player.x), Math.abs(y - S$7.player.y)) <= 2) {
+			if (y === 0 && !S$7.walls.has(key(x, y))) {
 				const pp = (ts || 0) / 900;
-				const pa = S$1.promotionUsed ? .05 : .18 + Math.sin(pp * Math.PI * 2) * .1;
+				const pa = S$7.promotionUsed ? .05 : .18 + Math.sin(pp * Math.PI * 2) * .1;
 				dom.ctx.fillStyle = `rgba(201,162,39,${pa})`;
 				dom.ctx.fillRect(x * T, y * T, T, T);
 				dom.ctx.strokeStyle = `rgba(201,162,39,${pa + .2})`;
@@ -7871,23 +8395,23 @@ function renderNow(ts) {
 		}
 	}
 	for (const k of threats) {
-		if (S$1.special && S$1.special.get(k) && S$1.special.get(k).type === "fog") continue;
+		if (S$7.special && S$7.special.get(k) && S$7.special.get(k).type === "fog") continue;
 		const [x, y] = k.split(",").map(Number);
 		hatch(x, y, "#b3423a", ts, 1);
 	}
 	const pv = pendingMove() || previewCell();
-	if (pv && !S$1.gameOver && !S$1.modalOpen) {
+	if (pv && !S$7.gameOver && !S$7.modalOpen) {
 		const base = insp ? allThreats() : threats;
 		for (const k of threatsAfterMove(pv.x, pv.y)) {
 			if (base.has(k)) continue;
-			if (S$1.special && S$1.special.get(k) && S$1.special.get(k).type === "fog") continue;
+			if (S$7.special && S$7.special.get(k) && S$7.special.get(k).type === "fog") continue;
 			const [x, y] = k.split(",").map(Number);
 			hatch(x, y, "#e0a03a", ts, -1);
 		}
 	}
-	if (S$1.special) S$1.special.forEach((s, k) => {
+	if (S$7.special) S$7.special.forEach((s, k) => {
 		const [x, y] = k.split(",").map(Number);
-		if (S$1.challenge === "blind_descent" && Math.max(Math.abs(x - S$1.player.x), Math.abs(y - S$1.player.y)) > 2) return;
+		if (S$7.challenge === "blind_descent" && Math.max(Math.abs(x - S$7.player.x), Math.abs(y - S$7.player.y)) > 2) return;
 		const sprite = specialSprite(s, x, y, T, ts);
 		if (sprite) dom.ctx.drawImage(sprite, x * T, y * T, T, T);
 		else drawSpecial(x, y, s, ts);
@@ -7897,7 +8421,7 @@ function renderNow(ts) {
 		dom.ctx.lineWidth = 2.5;
 		dom.ctx.strokeRect(insp.x * T + 2, insp.y * T + 2, T - 4, T - 4);
 	}
-	if (!S$1.gameOver && !S$1.modalOpen) {
+	if (!S$7.gameOver && !S$7.modalOpen) {
 		const { moves, captures } = playerOptions();
 		const cx = (c) => c.x * T + T / 2;
 		const cy = (c) => c.y * T + T / 2;
@@ -7946,12 +8470,12 @@ function renderNow(ts) {
 			dom.ctx.stroke();
 		}
 	}
-	for (const e of S$1.enemies) {
-		if (S$1.challenge === "blind_descent" && Math.max(Math.abs(e.x - S$1.player.x), Math.abs(e.y - S$1.player.y)) > 2) continue;
+	for (const e of S$7.enemies) {
+		if (S$7.challenge === "blind_descent" && Math.max(Math.abs(e.x - S$7.player.x), Math.abs(e.y - S$7.player.y)) > 2) continue;
 		const ep = getAnimPos(e, e.x, e.y, ts);
 		const ex = ep.x, ey = ep.y;
 		if (e.type === "mimic") {
-			const t = (S$1.player.wheel[S$1.player.active] || { type: "pawn" }).type;
+			const t = (S$7.player.wheel[S$7.player.active] || { type: "pawn" }).type;
 			drawPiece(ex, ey, t, false, t === "pawn" ? e.facing : null, false, { mimic: true });
 		} else {
 			const tint = e.type === "assassin" ? "#6cbf5a" : e.type === "priest" ? "#5bb6d6" : e.type === "frost" ? "#8fd0e6" : null;
@@ -7964,10 +8488,10 @@ function renderNow(ts) {
 		drawStatuses(ex, ey, e);
 	}
 	const f = activeForm();
-	const pp = getAnimPos(S$1.player, S$1.player.x, S$1.player.y, ts);
+	const pp = getAnimPos(S$7.player, S$7.player.x, S$7.player.y, ts);
 	drawModifierAura(pp.x, pp.y, ts);
-	drawPiece(pp.x, pp.y, f.type, true, f.type === "pawn" ? S$1.player.facing : null, f.improved, { lastDir: S$1.player.lastDir });
-	drawStatuses(pp.x, pp.y, S$1.player);
+	drawPiece(pp.x, pp.y, f.type, true, f.type === "pawn" ? S$7.player.facing : null, f.improved, { lastDir: S$7.player.lastDir });
+	drawStatuses(pp.x, pp.y, S$7.player);
 	drawModifierCounters(pp.x, pp.y, ts);
 	drawSpeech(ts);
 	if (captureFlash) {
@@ -8067,13 +8591,13 @@ function renderNow(ts) {
 			if (st.length) label += " · " + st.join(" ");
 		}
 		tipY = drawTooltip(label, tx, tipY, "#d07a3f");
-		const sp = S$1.special && S$1.special.get(key(insp.x, insp.y));
+		const sp = S$7.special && S$7.special.get(key(insp.x, insp.y));
 		if (sp) drawTooltip(cellTooltipLabel(sp), tx, tipY, "#f2e9d8");
-	} else if (S$1.challenge !== "blind_descent" && S$1.hoveredCell && S$1.special) {
-		const sp = S$1.special.get(key(S$1.hoveredCell.x, S$1.hoveredCell.y));
+	} else if (S$7.challenge !== "blind_descent" && S$7.hoveredCell && S$7.special) {
+		const sp = S$7.special.get(key(S$7.hoveredCell.x, S$7.hoveredCell.y));
 		if (sp) {
-			const tx = S$1.hoveredCell.x * T + T / 2;
-			const ty = S$1.hoveredCell.y * T + tipY;
+			const tx = S$7.hoveredCell.x * T + T / 2;
+			const ty = S$7.hoveredCell.y * T + tipY;
 			drawTooltip(cellTooltipLabel(sp), tx, ty, "#f2e9d8");
 		}
 	}
@@ -8092,8 +8616,8 @@ function renderNow(ts) {
 		dom.ctx.stroke();
 	}
 	dom.ctx.restore();
-	if (S$1.player && S$1.player.hunger !== void 0) {
-		const hr = S$1.player.hunger / CFG.HUNGER.start;
+	if (S$7.player && S$7.player.hunger !== void 0) {
+		const hr = S$7.player.hunger / CFG.HUNGER.start;
 		if (hr < .4) {
 			const alpha = 1 - hr;
 			const c = dom.ctx;
@@ -8109,8 +8633,8 @@ function renderNow(ts) {
 		}
 	}
 	const promoPhase = (ts || 0) / 900;
-	const promoAlpha = S$1.promotionUsed ? .05 : .18 + Math.sin(promoPhase * Math.PI * 2) * .1;
-	const glowAlpha = S$1.promotionUsed ? .1 : .4 + Math.sin(promoPhase * Math.PI * 2) * .2;
+	const promoAlpha = S$7.promotionUsed ? .05 : .18 + Math.sin(promoPhase * Math.PI * 2) * .1;
+	const glowAlpha = S$7.promotionUsed ? .1 : .4 + Math.sin(promoPhase * Math.PI * 2) * .2;
 	dom.ctx.fillStyle = `rgba(201,162,39,${promoAlpha})`;
 	dom.ctx.strokeStyle = `rgba(201,162,39,${glowAlpha})`;
 	dom.ctx.lineWidth = 4;
@@ -8525,55 +9049,91 @@ function playLoot() {
 	bell(1567.98, t + .075, .55, .12);
 }
 //#endregion
+//#region src/visual-effects.ts
+var handler = null;
+/** Подключает рендер-адаптер. При `null` эффекты безопасно игнорируются. */
+function configureVisualEffects(next) {
+	handler = next;
+}
+/** Передаёт эффект в рендер, не изменяя игровое состояние. */
+function emitVisual(effect) {
+	if (!handler) return false;
+	handler(effect);
+	return true;
+}
+//#endregion
 //#region src/enemies.js
+/** Единый путь сообщений хода врагов с fallback до инициализации UI. */
+function log$6(text, tone = "") {
+	reportLegacyLog(text, tone, log$3);
+}
+/** Передаёт реплику врага в единый канал с fallback до инициализации UI. */
+function speech$2(x, y, text, kind = "enemy") {
+	if (!notify$1({
+		channel: "speech",
+		text,
+		anchor: {
+			x,
+			y
+		},
+		speechKind: kind
+	})) addSpeech(x, y, text, kind);
+}
+/** Обрабатывает взятие от boss-event, сохраняя отдельную причину смерти. */
 function handleBossCapture(by) {
 	if (!by) {
-		degradePlayer(null);
-		if (S$1.gameOver) {
+		degradePlayer(null, "boss_capture");
+		if (S$7.gameOver) {
 			render();
 			syncUI();
 		}
 		return;
 	}
-	degradePlayer(by);
-	if (S$1.gameOver) {
+	degradePlayer(by, "boss_capture");
+	if (S$7.gameOver) {
 		render();
 		syncUI();
 	}
 }
 function enemiesTurn() {
 	if (isTutorial()) return;
-	const turns = 1 + (S$1.challenge === "storm" ? 1 : 0);
+	const turns = 1 + (S$7.challenge === "storm" ? 1 : 0);
 	for (let t = 0; t < turns; t++) {
-		if (t > 0 && S$1.gameOver) break;
+		if (t > 0 && S$7.gameOver) break;
 		_enemiesTurnOnce();
 	}
 }
 function _enemiesTurnOnce() {
 	dispatchBossEvents(bossTurn(), {
-		log: (t) => log(t),
-		addSpeech: (x, y, t, kind) => addSpeech(x, y, t, kind),
+		log: (t) => log$6(t),
+		addSpeech: (x, y, t, kind) => speech$2(x, y, t, kind),
 		onCapture: (by) => handleBossCapture(by),
 		onCrush: () => {
-			degradePlayer(null);
-			if (S$1.gameOver) {
+			degradePlayer(null, "boss_crush");
+			if (S$7.gameOver) {
 				render();
 				syncUI();
 			}
 		}
 	});
-	if (S$1.gameOver) return;
-	for (const e of [...S$1.enemies]) {
-		if (!S$1.enemies.includes(e)) continue;
+	if (S$7.gameOver) return;
+	for (const e of [...S$7.enemies]) {
+		if (!S$7.enemies.includes(e)) continue;
 		if (isBossEntity(e)) continue;
 		if (statusVal(e, "poison") > 0) {
 			e.status.poison--;
 			if (e.status.poison <= 0) {
-				S$1.enemies = S$1.enemies.filter((v) => v !== e);
-				spawnParticles(e.x, e.y, "#d07a3f", 6);
+				S$7.enemies = S$7.enemies.filter((v) => v !== e);
+				emitVisual({
+					type: "particles",
+					x: e.x,
+					y: e.y,
+					color: "#d07a3f",
+					count: 6
+				});
 				playDeath();
 				recordKill(e.type, true);
-				log(isEnglish() ? "dies from poison" : "гибнет от яда");
+				log$6(isEnglish() ? "dies from poison" : "гибнет от яда");
 				continue;
 			}
 		}
@@ -8598,24 +9158,24 @@ function _enemiesTurnOnce() {
 		if (e.type === "priest") priestPulse(e);
 		const ef = effectiveForm(e);
 		if (ef.type === "pawn") {
-			const dx = S$1.player.x - e.x, dy = S$1.player.y - e.y;
+			const dx = S$7.player.x - e.x, dy = S$7.player.y - e.y;
 			let fx = Math.sign(dx) || 0, fy = Math.sign(dy) || 0;
-			if (fx === 0 && fy === 0 || !inB$1(e.x + fx, e.y + fy) || S$1.walls.has(key(e.x + fx, e.y + fy))) {
-				const fallback = ORTHO.filter(([ox, oy]) => inB$1(e.x + ox, e.y + oy) && !S$1.walls.has(key(e.x + ox, e.y + oy)));
+			if (fx === 0 && fy === 0 || !inB$1(e.x + fx, e.y + fy) || S$7.walls.has(key(e.x + fx, e.y + fy))) {
+				const fallback = ORTHO.filter(([ox, oy]) => inB$1(e.x + ox, e.y + oy) && !S$7.walls.has(key(e.x + ox, e.y + oy)));
 				if (fallback.length) {
-					const [nx, ny] = fallback[Math.floor(Math.random() * fallback.length)];
+					const [nx, ny] = pick(fallback);
 					fx = nx;
 					fy = ny;
 				}
 			}
 			e.facing = Math.abs(fx) >= Math.abs(fy) ? [fx, 0] : [0, fy];
 		}
-		const opts = genMoves(e, ef, (x, y) => S$1.player.x === x && S$1.player.y === y, (x, y) => {
-			if (S$1.player.x === x && S$1.player.y === y) return true;
-			if (S$1.walls.has(key(x, y))) return true;
+		const opts = genMoves(e, ef, (x, y) => S$7.player.x === x && S$7.player.y === y, (x, y) => {
+			if (S$7.player.x === x && S$7.player.y === y) return true;
+			if (S$7.walls.has(key(x, y))) return true;
 			const oe = enemyAt(x, y);
 			if (oe && oe !== e) return true;
-			const sp = S$1.special.get(key(x, y));
+			const sp = S$7.special.get(key(x, y));
 			if (sp && sp.type === "colorzone" && ef.type !== "bishop") return true;
 			if (sp && sp.type === "gate") {
 				const backX = x - sp.dir[0], backY = y - sp.dir[1];
@@ -8626,10 +9186,10 @@ function _enemiesTurnOnce() {
 		if (opts.captures.length) {
 			e.cd = CFG.ENEMY_CAPTURE_CD;
 			if (e.noAttackCd) e.attackReady = false;
-			if (e.type === "assassin") applyStatus(S$1.player, "poison", 2);
+			if (e.type === "assassin") applyStatus(S$7.player, "poison", 2);
 			checkCellForEnemy(e);
-			degradePlayer(e);
-			if (S$1.gameOver) {
+			degradePlayer(e, "enemy_capture");
+			if (S$7.gameOver) {
 				render();
 				syncUI();
 				return;
@@ -8637,23 +9197,31 @@ function _enemiesTurnOnce() {
 			continue;
 		}
 		const bestMove = opts.moves.reduce((a, b) => {
-			const spA = S$1.special.get(key(a.x, a.y));
-			const spB = S$1.special.get(key(b.x, b.y));
+			const spA = S$7.special.get(key(a.x, a.y));
+			const spB = S$7.special.get(key(b.x, b.y));
 			const penaltyA = spA && (spA.type === "trap" || spA.type === "lava") ? 3 : 0;
 			const penaltyB = spB && (spB.type === "trap" || spB.type === "lava") ? 3 : 0;
-			return cheb(b, S$1.player) + penaltyB < cheb(a, S$1.player) + penaltyA ? b : a;
+			return cheb(b, S$7.player) + penaltyB < cheb(a, S$7.player) + penaltyA ? b : a;
 		}, opts.moves[0]);
 		if (bestMove) {
 			if (enemyAt(bestMove.x, bestMove.y)) continue;
-			startMoveAnim(e, e.x, e.y, bestMove.x, bestMove.y);
+			e.lastDir = [Math.sign(bestMove.x - e.x), Math.sign(bestMove.y - e.y)];
+			emitVisual({
+				type: "move",
+				unit: e,
+				fromX: e.x,
+				fromY: e.y,
+				toX: bestMove.x,
+				toY: bestMove.y
+			});
 			e.x = bestMove.x;
 			e.y = bestMove.y;
 			checkCellForEnemy(e);
 		}
-		if (Math.random() < .08 && !isBossEntity(e)) {
-			const act = actForFloor(S$1.floor);
+		if (random() < .08 && !isBossEntity(e)) {
+			const act = actForFloor(S$7.floor);
 			const line = pickLine(getScript().enemyLines[e.type] && getScript().enemyLines[e.type][act] || []);
-			if (line) addSpeech(e.x, e.y, line, "enemy");
+			if (line) speech$2(e.x, e.y, line, "enemy");
 		}
 		if (e.status && e.status.haste > 0) e.status.haste--;
 	}
@@ -8661,17 +9229,23 @@ function _enemiesTurnOnce() {
 }
 function checkCellForEnemy(e) {
 	const k = key(e.x, e.y);
-	const sp = S$1.special.get(k);
+	const sp = S$7.special.get(k);
 	if (!sp) return;
 	if (sp.type === "trap" || sp.type === "lava") {
-		S$1.enemies = S$1.enemies.filter((v) => v !== e);
-		if (sp.type === "trap") S$1.special.delete(k);
+		S$7.enemies = S$7.enemies.filter((v) => v !== e);
+		if (sp.type === "trap") S$7.special.delete(k);
 		recordKill(e.type, false);
 		if (sp.type === "trap") unlockAch("web_master");
 		if (sp.type === "lava") unlockAch("arsonist");
-		spawnParticles(e.x, e.y, "#c23b30", 4);
+		emitVisual({
+			type: "particles",
+			x: e.x,
+			y: e.y,
+			color: "#c23b30",
+			count: 4
+		});
 		playDeath();
-		log(isEnglish() ? "Enemy slain" : "Враг погиб");
+		log$6(isEnglish() ? "Enemy slain" : "Враг погиб");
 	}
 }
 function necroTurn(e) {
@@ -8679,25 +9253,25 @@ function necroTurn(e) {
 		e.spawnCd--;
 		return;
 	}
-	if (S$1.enemies.filter((o) => o.fromNecro).length >= 2 || S$1.enemies.length >= CFG.DIFF.enemyCap) {
+	if (S$7.enemies.filter((o) => o.fromNecro).length >= 2 || S$7.enemies.length >= CFG.DIFF.enemyCap) {
 		e.spawnCd = necroInterval();
 		return;
 	}
 	const spots = [];
 	for (const [dx, dy] of [...ORTHO, ...DIAG]) {
 		const x = e.x + dx, y = e.y + dy;
-		if (inB$1(x, y) && !S$1.walls.has(key(x, y)) && !enemyAt(x, y) && !(S$1.player.x === x && S$1.player.y === y)) spots.push({
+		if (inB$1(x, y) && !S$7.walls.has(key(x, y)) && !enemyAt(x, y) && !(S$7.player.x === x && S$7.player.y === y)) spots.push({
 			x,
 			y
 		});
 	}
 	if (spots.length) {
-		const c = spots[Math.floor(Math.random() * spots.length)];
-		S$1.enemies.push({
+		const c = pick(spots);
+		S$7.enemies.push({
 			type: "pawn",
 			x: c.x,
 			y: c.y,
-			facing: [Math.sign(S$1.player.x - c.x) || 0, Math.sign(S$1.player.y - c.y) || 1],
+			facing: [Math.sign(S$7.player.x - c.x) || 0, Math.sign(S$7.player.y - c.y) || 1],
 			cd: 0,
 			status: {},
 			homeColor: tileColor(c.x, c.y),
@@ -8713,8 +9287,8 @@ function frostTurn(e) {
 		e.frostCd--;
 		return;
 	}
-	if (cheb(S$1.player, e) <= CFG.DIFF.frostRange) {
-		applyStatus(S$1.player, "stun", 1);
+	if (cheb(S$7.player, e) <= CFG.DIFF.frostRange) {
+		applyStatus(S$7.player, "stun", 1);
 		e.frostCd = CFG.DIFF.frostEvery;
 	} else e.frostCd = 1;
 }
@@ -8723,7 +9297,7 @@ function priestPulse(e) {
 		e.priestCd--;
 		return;
 	}
-	for (const o of S$1.enemies) if (o !== e && cheb(o, e) <= 1) applyStatus(o, "shield", 1);
+	for (const o of S$7.enemies) if (o !== e && cheb(o, e) <= 1) applyStatus(o, "shield", 1);
 	applyStatus(e, "shield", 1);
 	e.priestCd = CFG.DIFF.priestEvery;
 }
@@ -8937,6 +9511,357 @@ function updateMusic(S, bossOnFloor) {
 	playTrack(trackFor(S, bossOnFloor));
 }
 //#endregion
+//#region src/scenarios.ts
+var S = S$7;
+/**
+* Проверяет сериализованный сценарий до запуска в редакторе или загрузки извне.
+* Исполнитель не пытается «исправить» повреждённые данные: это предотвращает
+* запуск комнаты с отсутствующей целью, сообщением или стартовой позицией.
+*/
+function validateScenario(value) {
+	const scenario = value;
+	if (!scenario || typeof scenario !== "object") return ["Сценарий должен быть объектом."];
+	const errors = [];
+	if (!scenario.id || typeof scenario.id !== "string") errors.push("У сценария нужен строковый id.");
+	if (!scenario.entry?.ru || !scenario.entry?.en) errors.push("У сценария нужно вступительное сообщение ru/en.");
+	if (!Array.isArray(scenario.steps) || !scenario.steps.length) return [...errors, "Сценарий должен содержать хотя бы один шаг."];
+	scenario.steps.forEach((step, index) => {
+		const label = `Шаг ${index + 1}`;
+		if (!step.id || !step.board || !step.player || !Array.isArray(step.enemies)) errors.push(`${label}: отсутствуют id, доска, игрок или список врагов.`);
+		if (!Number.isInteger(step.board?.width) || !Number.isInteger(step.board?.height) || step.board.width < 3 || step.board.height < 3) errors.push(`${label}: размер доски должен быть не меньше 3×3.`);
+		if (!Number.isInteger(step.player?.x) || !Number.isInteger(step.player?.y)) errors.push(`${label}: старт игрока должен иметь целые координаты.`);
+		if (!step.message?.ru || !step.message?.en) errors.push(`${label}: нужно сообщение ru/en.`);
+		if (step.completeWhen?.type === "reach") {
+			if (!Number.isInteger(step.completeWhen.x) || !Number.isInteger(step.completeWhen.y)) errors.push(`${label}: цель reach должна иметь целые координаты.`);
+		} else if (step.completeWhen?.type !== "clear") errors.push(`${label}: нужна цель clear или reach.`);
+	});
+	return errors;
+}
+/** Возвращает встроенный сценарий либо определение, сохранённое в состоянии запуска. */
+function scenarioForRun(run) {
+	return run?.definition ?? SCENARIOS[run?.id];
+}
+/**
+* Запускает внешнее определение сценария, например из JSON редактора.
+* @param definition Полное валидное описание, не добавляемое в глобальный реестр.
+*/
+function startScenarioDefinition(definition) {
+	const errors = validateScenario(definition);
+	if (errors.length) throw new Error(errors.join(" "));
+	S.scenario = {
+		id: definition.id,
+		definition,
+		stepIndex: 0,
+		messages: [definition.entry]
+	};
+	return loadScenarioStep();
+}
+/** Sample three-level act; data is intentionally separate from the executor. */
+var SCENARIOS = Object.freeze({ "ashen-trial": {
+	id: "ashen-trial",
+	entry: {
+		ru: "Испытание Пепла начинается.",
+		en: "The Ashen Trial begins."
+	},
+	onComplete: {
+		ru: "Испытание завершено.",
+		en: "Trial complete."
+	},
+	steps: [
+		{
+			id: "gate",
+			board: {
+				width: 7,
+				height: 7,
+				walls: [[0, 0], [6, 0]]
+			},
+			player: {
+				x: 3,
+				y: 6
+			},
+			enemies: [{
+				type: "pawn",
+				x: 3,
+				y: 2
+			}],
+			message: {
+				ru: "Открой путь.",
+				en: "Open the path."
+			},
+			completeWhen: { type: "clear" }
+		},
+		{
+			id: "cross",
+			board: {
+				width: 7,
+				height: 7
+			},
+			player: {
+				x: 3,
+				y: 6
+			},
+			enemies: [{
+				type: "knight",
+				x: 2,
+				y: 2
+			}, {
+				type: "pawn",
+				x: 4,
+				y: 2
+			}],
+			message: {
+				ru: "Не подставься под вилку.",
+				en: "Avoid the fork."
+			},
+			completeWhen: { type: "clear" }
+		},
+		{
+			id: "exit",
+			board: {
+				width: 7,
+				height: 7
+			},
+			player: {
+				x: 3,
+				y: 6
+			},
+			enemies: [],
+			message: {
+				ru: "Дойди до выхода.",
+				en: "Reach the exit."
+			},
+			completeWhen: {
+				type: "reach",
+				x: 3,
+				y: 0
+			},
+			reward: { hunger: 5 }
+		}
+	]
+} });
+function loadScenarioStep() {
+	const run = S.scenario;
+	const scenario = scenarioForRun(run);
+	const step = scenario?.steps[run.stepIndex];
+	if (!run || !scenario || !step) throw new Error("No scenario step to load");
+	CFG.W = step.board.width;
+	CFG.H = step.board.height;
+	S.walls = new Set((step.board.walls ?? []).map(([x, y]) => key(x, y)));
+	S.special = new Map((step.board.specials ?? []).map(([x, y, value]) => [key(x, y), value]));
+	S.enemies = step.enemies.map((enemy) => ({
+		...enemy,
+		r: enemy.r ?? CFG.BASE_R[enemy.type],
+		status: {}
+	}));
+	S.rooms = [{
+		walls: S.walls,
+		special: S.special,
+		enemies: S.enemies,
+		cleared: false
+	}];
+	S.currentRoom = 0;
+	S.player.x = step.player.x;
+	S.player.y = step.player.y;
+	S.player.hunger = step.player.hunger ?? CFG.HUNGER.start;
+	if (step.player.wheel) {
+		S.player.wheel = step.player.wheel.map((type) => makeForm(type));
+		S.player.active = 0;
+	}
+	S.roomRules = makeRoomRules({
+		allowedEvents: false,
+		...step.rules
+	});
+	run.messages.push(step.message);
+	return step;
+}
+/** Called after a player action; returns a loaded step, or null on completion/no transition. */
+function advanceScenario() {
+	const run = S.scenario;
+	const scenario = scenarioForRun(run);
+	const step = scenario?.steps[run.stepIndex];
+	if (!run || !scenario || !step) return null;
+	const condition = step.completeWhen;
+	if (!(condition.type === "clear" ? S.enemies.length === 0 : S.player.x === condition.x && S.player.y === condition.y)) return null;
+	if (step.reward?.hunger) S.player.hunger = Math.min(CFG.HUNGER.cap, S.player.hunger + step.reward.hunger);
+	run.stepIndex++;
+	if (run.stepIndex >= scenario.steps.length) {
+		run.completed = true;
+		if (scenario.onComplete) run.messages.push(scenario.onComplete);
+		return null;
+	}
+	return loadScenarioStep();
+}
+var cellKey = (x, y) => `${x},${y}`;
+/**
+* Возвращает клетки, в которые игрок может попасть из заданной точки.
+*
+* Поиск не учитывает врагов и special-объекты: их состояние меняется во время
+* игры. Он проверяет постоянную геометрию комнаты — границы и стены — поэтому
+* пригоден и для редактора, и для CI без доступа к игровому состоянию.
+* @param room Комната с размерами и набором стен в формате `"x,y"`.
+* @param start Начальная клетка, из которой выполняется обход по четырём сторонам.
+*/
+function reachableCells(room, start) {
+	const reachable = /* @__PURE__ */ new Set();
+	if (!Number.isInteger(room.W) || !Number.isInteger(room.H)) return reachable;
+	if (start.x < 0 || start.y < 0 || start.x >= room.W || start.y >= room.H) return reachable;
+	const walls = new Set(room.walls);
+	const initial = cellKey(start.x, start.y);
+	if (walls.has(initial)) return reachable;
+	const queue = [start];
+	reachable.add(initial);
+	for (let index = 0; index < queue.length; index++) {
+		const current = queue[index];
+		for (const [dx, dy] of [
+			[1, 0],
+			[-1, 0],
+			[0, 1],
+			[0, -1]
+		]) {
+			const x = current.x + dx;
+			const y = current.y + dy;
+			const next = cellKey(x, y);
+			if (x < 0 || y < 0 || x >= room.W || y >= room.H || walls.has(next) || reachable.has(next)) continue;
+			reachable.add(next);
+			queue.push({
+				x,
+				y
+			});
+		}
+	}
+	return reachable;
+}
+/**
+* Валидирует данные до загрузки в редактор.
+* Возвращает список понятных ошибок, не меняя S и не обращаясь к DOM.
+*/
+function validateEditableLevel(value) {
+	const level = value;
+	if (!level || typeof level !== "object") return ["Корень должен быть объектом."];
+	if (!Array.isArray(level.rooms) || level.rooms.length === 0) return ["Нужна хотя бы одна комната."];
+	const errors = [];
+	level.rooms.forEach((room, index) => {
+		if (!Number.isInteger(room.W) || !Number.isInteger(room.H) || room.W < 3 || room.H < 3) errors.push(`Комната ${index + 1}: размер должен быть не меньше 3×3.`);
+		if (!Array.isArray(room.walls) || !Array.isArray(room.enemies) || !room.special) errors.push(`Комната ${index + 1}: отсутствуют стены, враги или special.`);
+		if (!Array.isArray(room.walls)) return;
+		for (const wall of room.walls) {
+			const [x, y, ...rest] = String(wall).split(",").map(Number);
+			if (rest.length || !Number.isInteger(x) || !Number.isInteger(y) || x < 0 || y < 0 || x >= room.W || y >= room.H) {
+				errors.push(`Комната ${index + 1}: стена «${wall}» находится вне поля или имеет неверный формат.`);
+				break;
+			}
+		}
+		if (room.playerStart) {
+			const reachable = reachableCells(room, room.playerStart);
+			if (!reachable.size) errors.push(`Комната ${index + 1}: старт игрока находится вне поля или внутри стены.`);
+			else if (reachable.size === 1) errors.push(`Комната ${index + 1}: из старта игрока нельзя выйти.`);
+		}
+	});
+	if (level.scenario) errors.push(...validateScenario(level.scenario).map((error) => `Сценарий: ${error}`));
+	return errors;
+}
+/** Нормализует старый JSON, добавляя версию и полные RoomRules. */
+function normalizeEditableLevel(value) {
+	return {
+		...value,
+		version: 2,
+		rooms: value.rooms.map((room) => ({
+			...room,
+			rules: makeRoomRules(room.rules)
+		}))
+	};
+}
+//#endregion
+//#region src/scenario-editor.ts
+/**
+* Собирает сценарный шаг из открытой комнаты редактора.
+*
+* Функция не читает глобальное состояние и не обращается к DOM: поэтому один и
+* тот же снимок безопасно использовать для предпросмотра, теста и экспорта.
+*
+* @param room Геометрия, сущности и старт игрока в текущей комнате.
+* @param fields Авторские текст и условие завершения шага.
+*/
+function createScenarioStep(room, fields) {
+	return {
+		id: fields.id,
+		board: {
+			width: room.width,
+			height: room.height,
+			walls: [...room.walls].map((value) => value.split(",").map(Number)),
+			specials: [...room.specials].map(([value, special]) => {
+				const [x, y] = value.split(",").map(Number);
+				return [
+					x,
+					y,
+					{ ...special }
+				];
+			})
+		},
+		player: { ...room.player },
+		enemies: room.enemies.map((enemy) => ({ ...enemy })),
+		message: { ...fields.message },
+		completeWhen: { ...fields.completeWhen },
+		...room.rules ? { rules: { ...room.rules } } : {}
+	};
+}
+/**
+* Создаёт минимальный валидный сценарий для первой комнаты.
+*
+* @param room Снимок комнаты, превращаемой в первый шаг.
+* @param id Машиночитаемый идентификатор сценария.
+* @param entry Локализованная вступительная реплика.
+* @param step Поля первого шага.
+*/
+function createScenarioDraft(room, id, entry, step) {
+	return {
+		id,
+		entry: { ...entry },
+		steps: [createScenarioStep(room, step)],
+		onComplete: {
+			ru: "Сценарий завершён.",
+			en: "Scenario complete."
+		}
+	};
+}
+/**
+* Возвращает новую версию сценария с добавленным либо заменённым шагом.
+*
+* @param scenario Исходный сценарий, который не изменяется.
+* @param step Новый снимок текущей комнаты.
+* @param index Индекс заменяемого шага; если равен длине массива, шаг добавляется.
+*/
+function withScenarioStep(scenario, step, index) {
+	const steps = scenario.steps.map((value) => ({ ...value }));
+	if (index >= 0 && index < steps.length) steps[index] = step;
+	else steps.push(step);
+	return {
+		...scenario,
+		entry: { ...scenario.entry },
+		steps
+	};
+}
+/**
+* Возвращает новую версию сценария без выбранного шага.
+*
+* Единственный шаг удалить нельзя: сценарий без стартовой комнаты не проходит
+* валидацию и не может быть безопасно запущен в preview. Некорректный индекс
+* также оставляет исходный сценарий неизменным, что делает функцию безопасной
+* для повторного нажатия кнопки в DOM.
+*
+* @param scenario Исходный сценарий, который не изменяется.
+* @param index Индекс удаляемого шага в последовательности.
+*/
+function withoutScenarioStep(scenario, index) {
+	if (scenario.steps.length <= 1 || index < 0 || index >= scenario.steps.length) return scenario;
+	const steps = scenario.steps.filter((_, stepIndex) => stepIndex !== index).map((step) => ({ ...step }));
+	return {
+		...scenario,
+		entry: { ...scenario.entry },
+		steps
+	};
+}
+//#endregion
 //#region src/editor.js
 /**
 * src/editor.js — встроенный редактор уровней (canvas + DOM).
@@ -8945,14 +9870,18 @@ function updateMusic(S, bossOnFloor) {
 /**
 * Встроенный редактор уровней.
 */
-var editor_exports = /* @__PURE__ */ __exportAll({
-	editorActive: () => editorActive,
-	handleEditorClick: () => handleEditorClick,
-	isBrushActive: () => isBrushActive,
-	isEditorRunning: () => isEditorRunning,
-	openEditor: () => openEditor,
-	stopEditorRun: () => stopEditorRun
-});
+/**
+* Сообщает результат действия редактора через единый журнал.
+*
+* Редактор доступен до полного запуска игрового интерфейса, поэтому fallback
+* сохраняет видимость ошибки импорта в изолированном предпросмотре и тестах.
+*
+* @param {string} text Локализованный текст результата действия.
+* @param {string} [tone=''] Прежний визуальный тон записи журнала.
+*/
+function log$5(text, tone = "") {
+	reportLegacyLog(text, tone, log$3);
+}
 function isEditorRunning() {
 	return state.running;
 }
@@ -8976,6 +9905,9 @@ var state = {
 	pendingLink: null,
 	running: false,
 	runBtn: null,
+	/** Сценарий из импортированного JSON; сохраняется при повторном экспорте. */
+	scenario: null,
+	scenarioStepIndex: 0,
 	doorIdCounter: 1,
 	activeTab: "enemies"
 };
@@ -8996,31 +9928,32 @@ async function loadLevelFromManifest(file) {
 	try {
 		const res = await fetch("/data/" + file);
 		if (!res.ok) {
-			log((isEnglish() ? "File not found: " : "Файл не найден: ") + +file, "r");
+			log$5((isEnglish() ? "File not found: " : "Файл не найден: ") + +file, "r");
 			return false;
 		}
 		const data = await res.json();
 		snapshotEditorRoom();
 		loadLevel(data);
+		state.scenario = data.scenario || null;
 		editorActive = true;
 		document.getElementById("editorBar").style.display = "";
 		state.statusEl = document.getElementById("editorStatus");
 		buildToolbar();
-		log((isEnglish() ? "Level loaded: " : "Уровень загружен: ") + +file, "g");
+		log$5((isEnglish() ? "Level loaded: " : "Уровень загружен: ") + +file, "g");
 		closeModal();
 		return true;
 	} catch (e) {
-		log((isEnglish() ? "Error loading: " : "Ошибка загрузки: ") + +e.message, "r");
+		log$5((isEnglish() ? "Error loading: " : "Ошибка загрузки: ") + +e.message, "r");
 		return false;
 	}
 }
 async function openLevelSelector() {
 	const m = await loadManifest();
 	if (!m || !m.levels || !m.levels.length) {
-		log(isEnglish() ? "No saved levels in /data/manifest.json" : "Нет сохранённых уровней в /data/manifest.json", "");
+		log$5(isEnglish() ? "No saved levels in /data/manifest.json" : "Нет сохранённых уровней в /data/manifest.json", "");
 		return;
 	}
-	S$1.modalOpen = true;
+	S$7.modalOpen = true;
 	dom.modalBox.classList.remove("death");
 	dom.mTitle.textContent = isEnglish() ? "Open Level" : "Открыть уровень";
 	dom.mText.textContent = isEnglish() ? "Choose a level from manifest.json:" : "Выбери уровень из manifest.json:";
@@ -9060,7 +9993,7 @@ function downloadLevel() {
 	a.download = name;
 	a.click();
 	URL.revokeObjectURL(url);
-	log((isEnglish() ? "Level downloaded: " : "Уровень скачан: ") + +name, "g");
+	log$5((isEnglish() ? "Level downloaded: " : "Уровень скачан: ") + +name, "g");
 }
 var ENEMIES = [
 	{
@@ -9295,6 +10228,11 @@ var ACTIONS = [
 		title: isEnglish() ? "From Clipboard" : "Из буфера"
 	},
 	{
+		id: "scenario",
+		label: "📜",
+		title: isEnglish() ? "Edit Scenario JSON" : "Сценарий: JSON"
+	},
+	{
 		id: "addRoom",
 		label: "+Комн",
 		title: isEnglish() ? "Add Room" : "Добавить комнату"
@@ -9354,22 +10292,23 @@ var TOOLS = [
 ];
 function openEditor() {
 	editorActive = true;
+	state.scenario = null;
 	CFG.W = 11;
 	CFG.H = 9;
-	S$1.walls = /* @__PURE__ */ new Set();
-	S$1.special = /* @__PURE__ */ new Map();
-	S$1.enemies = [];
-	S$1.rooms = [{
+	S$7.walls = /* @__PURE__ */ new Set();
+	S$7.special = /* @__PURE__ */ new Map();
+	S$7.enemies = [];
+	S$7.rooms = [{
 		walls: /* @__PURE__ */ new Set(),
 		special: /* @__PURE__ */ new Map(),
 		enemies: [],
 		cleared: false
 	}];
-	S$1.currentRoom = 0;
-	S$1.player.x = 5;
-	S$1.player.y = 8;
-	if (!S$1.player.wheel) S$1.player.wheel = [null];
-	if (S$1.player.active == null) S$1.player.active = 0;
+	S$7.currentRoom = 0;
+	S$7.player.x = 5;
+	S$7.player.y = 8;
+	if (!S$7.player.wheel) S$7.player.wheel = [null];
+	if (S$7.player.active == null) S$7.player.active = 0;
 	state.tool = "wall";
 	state.brush = false;
 	state.running = false;
@@ -9381,20 +10320,20 @@ function openEditor() {
 	syncEditorRoom();
 	render();
 	loadManifest().then((m) => {
-		if (m && m.levels && m.levels.length) log(isEnglish() ? "Found " + m.levels.length + " levels in manifest.json" : "Найдено " + m.levels.length + " уровней в manifest.json", "");
+		if (m && m.levels && m.levels.length) log$5(isEnglish() ? "Found " + m.levels.length + " levels in manifest.json" : "Найдено " + m.levels.length + " уровней в manifest.json", "");
 	});
 }
 function syncEditorRoom() {
-	const r = S$1.rooms[S$1.currentRoom];
-	S$1.walls = r.walls;
-	S$1.special = r.special;
-	S$1.enemies = r.enemies;
+	const r = S$7.rooms[S$7.currentRoom];
+	S$7.walls = r.walls;
+	S$7.special = r.special;
+	S$7.enemies = r.enemies;
 }
 function snapshotEditorRoom() {
-	S$1.rooms[S$1.currentRoom] = {
-		walls: S$1.walls,
-		special: S$1.special,
-		enemies: S$1.enemies,
+	S$7.rooms[S$7.currentRoom] = {
+		walls: S$7.walls,
+		special: S$7.special,
+		enemies: S$7.enemies,
 		cleared: false
 	};
 }
@@ -9405,37 +10344,37 @@ function closeEditor() {
 }
 function addRoom() {
 	snapshotEditorRoom();
-	S$1.rooms.push({
+	S$7.rooms.push({
 		walls: /* @__PURE__ */ new Set(),
 		special: /* @__PURE__ */ new Map(),
 		enemies: [],
 		cleared: false
 	});
-	S$1.currentRoom = S$1.rooms.length - 1;
+	S$7.currentRoom = S$7.rooms.length - 1;
 	syncEditorRoom();
-	state.statusEl.textContent = isEnglish() ? `Room ${S$1.currentRoom + 1}/${S$1.rooms.length}` : `Комната ${S$1.currentRoom + 1}/${S$1.rooms.length}`;
+	state.statusEl.textContent = isEnglish() ? `Room ${S$7.currentRoom + 1}/${S$7.rooms.length}` : `Комната ${S$7.currentRoom + 1}/${S$7.rooms.length}`;
 	render();
 }
 function prevRoom() {
-	if (S$1.rooms.length <= 1) return;
+	if (S$7.rooms.length <= 1) return;
 	snapshotEditorRoom();
-	S$1.currentRoom = (S$1.currentRoom - 1 + S$1.rooms.length) % S$1.rooms.length;
+	S$7.currentRoom = (S$7.currentRoom - 1 + S$7.rooms.length) % S$7.rooms.length;
 	syncEditorRoom();
-	state.statusEl.textContent = `Комната ${S$1.currentRoom + 1}/${S$1.rooms.length}`;
+	state.statusEl.textContent = `Комната ${S$7.currentRoom + 1}/${S$7.rooms.length}`;
 	render();
 }
 function nextRoom() {
-	if (S$1.rooms.length <= 1) return;
+	if (S$7.rooms.length <= 1) return;
 	snapshotEditorRoom();
-	S$1.currentRoom = (S$1.currentRoom + 1) % S$1.rooms.length;
+	S$7.currentRoom = (S$7.currentRoom + 1) % S$7.rooms.length;
 	syncEditorRoom();
-	state.statusEl.textContent = `Комната ${S$1.currentRoom + 1}/${S$1.rooms.length}`;
+	state.statusEl.textContent = `Комната ${S$7.currentRoom + 1}/${S$7.rooms.length}`;
 	render();
 }
 function runLevel() {
 	snapshotEditorRoom();
 	editorBackup = {
-		rooms: S$1.rooms.map((r) => ({
+		rooms: S$7.rooms.map((r) => ({
 			walls: new Set(r.walls),
 			special: new Map([...r.special.entries()].map(([k, v]) => [k, { ...v }])),
 			enemies: r.enemies.map((e) => ({
@@ -9443,41 +10382,44 @@ function runLevel() {
 				status: { ...e.status }
 			}))
 		})),
-		curRoom: S$1.currentRoom,
-		playerX: S$1.player.x,
-		playerY: S$1.player.y,
+		curRoom: S$7.currentRoom,
+		playerX: S$7.player.x,
+		playerY: S$7.player.y,
 		W: CFG.W,
 		H: CFG.H
 	};
-	loadLevel(buildLevelData());
-	S$1.gameOver = false;
-	if (!S$1.player.wheel || S$1.player.wheel.every((s) => !s)) {
-		S$1.player.wheel = [
+	const data = buildLevelData();
+	const scenarioStep = data.scenario ? startScenarioDefinition(data.scenario) : null;
+	if (!scenarioStep) loadLevel(data);
+	S$7.gameOver = false;
+	if (!S$7.player.wheel || S$7.player.wheel.every((s) => !s)) {
+		S$7.player.wheel = [
 			makeForm("pawn"),
 			null,
 			null
 		];
-		S$1.player.active = 0;
+		S$7.player.active = 0;
 	}
-	S$1.player.hunger = CFG.HUNGER.start;
-	S$1.player.status = {};
-	S$1.player.boneVoiceTimer = 0;
+	if (!scenarioStep) S$7.player.hunger = CFG.HUNGER.start;
+	S$7.player.status = {};
+	S$7.player.boneVoiceTimer = 0;
 	editorActive = false;
 	state.running = true;
 	if (state.runBtn) {
 		state.runBtn.textContent = "⏹";
 		state.runBtn.classList.add("running");
 	}
-	log(isEnglish() ? "Level started. Press ⏹ to return to editor." : "Уровень запущен. Нажмите ⏹ для возврата в редактор.", "g");
+	log$5(scenarioStep ? L("editor.scenario.preview", isEnglish() ? scenarioStep.message.en : scenarioStep.message.ru) : isEnglish() ? "Level started. Press ⏹ to return to editor." : "Уровень запущен. Нажмите ⏹ для возврата в редактор.", "g");
 }
 function stopRun() {
 	if (!editorBackup) return;
-	S$1.rooms = editorBackup.rooms;
-	S$1.currentRoom = editorBackup.curRoom;
-	S$1.player.x = editorBackup.playerX;
-	S$1.player.y = editorBackup.playerY;
+	S$7.rooms = editorBackup.rooms;
+	S$7.currentRoom = editorBackup.curRoom;
+	S$7.player.x = editorBackup.playerX;
+	S$7.player.y = editorBackup.playerY;
 	CFG.W = editorBackup.W;
 	CFG.H = editorBackup.H;
+	S$7.scenario = null;
 	syncEditorRoom();
 	editorActive = true;
 	state.running = false;
@@ -9486,7 +10428,7 @@ function stopRun() {
 		state.runBtn.textContent = "▶";
 		state.runBtn.classList.remove("running");
 	}
-	log(isEnglish() ? "Returned to editor." : "Возврат в редактор.", "g");
+	log$5(isEnglish() ? "Returned to editor." : "Возврат в редактор.", "g");
 	render();
 }
 function pushUndo(x, y) {
@@ -9494,9 +10436,9 @@ function pushUndo(x, y) {
 	undoStack.push({
 		x,
 		y,
-		walls: S$1.walls.has(k),
-		special: S$1.special.has(k) ? { ...S$1.special.get(k) } : null,
-		enemies: S$1.enemies.filter((e) => e.x === x && e.y === y).map((e) => ({
+		walls: S$7.walls.has(k),
+		special: S$7.special.has(k) ? { ...S$7.special.get(k) } : null,
+		enemies: S$7.enemies.filter((e) => e.x === x && e.y === y).map((e) => ({
 			...e,
 			status: { ...e.status }
 		}))
@@ -9511,12 +10453,12 @@ function undo() {
 	const prev = undoStack.pop();
 	const k = key(prev.x, prev.y);
 	snapshotEditorRoom();
-	if (prev.walls) S$1.walls.add(k);
-	else S$1.walls.delete(k);
-	S$1.special.delete(k);
-	if (prev.special) S$1.special.set(k, prev.special);
-	S$1.enemies = S$1.enemies.filter((e) => !(e.x === prev.x && e.y === prev.y));
-	prev.enemies.forEach((e) => S$1.enemies.push(e));
+	if (prev.walls) S$7.walls.add(k);
+	else S$7.walls.delete(k);
+	S$7.special.delete(k);
+	if (prev.special) S$7.special.set(k, prev.special);
+	S$7.enemies = S$7.enemies.filter((e) => !(e.x === prev.x && e.y === prev.y));
+	prev.enemies.forEach((e) => S$7.enemies.push(e));
 	render();
 	state.statusEl.textContent = isEnglish() ? "Undo (Ctrl+Z)." : "Отмена (Ctrl+Z).";
 }
@@ -9540,6 +10482,10 @@ function selectTool(id) {
 	}
 	if (id === "import") {
 		importJSON();
+		return;
+	}
+	if (id === "scenario") {
+		openScenarioForm();
 		return;
 	}
 	if (id === "run") {
@@ -9713,8 +10659,8 @@ function buildToolbar() {
 }
 function resizeEditorBoard() {
 	if (!editorActive) return;
-	if (S$1.player.x >= CFG.W) S$1.player.x = CFG.W - 1;
-	if (S$1.player.y >= CFG.H) S$1.player.y = CFG.H - 1;
+	if (S$7.player.x >= CFG.W) S$7.player.x = CFG.W - 1;
+	if (S$7.player.y >= CFG.H) S$7.player.y = CFG.H - 1;
 	render();
 }
 function updateStatus() {
@@ -9763,13 +10709,13 @@ function parseTool(toolId) {
 	return null;
 }
 function editEnemyFlags(x, y) {
-	const e = S$1.enemies.find((en) => en.x === x && en.y === y);
+	const e = S$7.enemies.find((en) => en.x === x && en.y === y);
 	if (!e) {
 		state.statusEl.textContent = isEnglish() ? "No enemy on this cell." : "Нет врага на этой клетке.";
 		return;
 	}
 	snapshotEditorRoom();
-	S$1.modalOpen = true;
+	S$7.modalOpen = true;
 	dom.modalBox.classList.remove("death");
 	dom.mTitle.textContent = isEnglish() ? "Enemy Flags" : "Флаги врага";
 	dom.mText.textContent = `${NAME[e.type] || e.type} (${x}, ${y})`;
@@ -9909,21 +10855,21 @@ function editEnemyFlags(x, y) {
 	dom.overlay.classList.add("on");
 }
 function openDoorLinker(currentKey) {
-	S$1.modalOpen = true;
+	S$7.modalOpen = true;
 	dom.modalBox.classList.remove("death");
 	dom.mTitle.textContent = isEnglish() ? "Door Links" : "Связи дверей";
-	dom.mText.textContent = `Всего комнат: ${S$1.rooms.length}.`;
+	dom.mText.textContent = `Всего комнат: ${S$7.rooms.length}.`;
 	dom.mChoices.innerHTML = "";
 	dom.mChoices.classList.add("loot-list");
 	const allDoors = [];
-	S$1.rooms.forEach((r, roomIdx) => {
+	S$7.rooms.forEach((r, roomIdx) => {
 		r.special.forEach((sp, spKey) => {
 			if (sp.type === "door") {
 				const [dx, dy] = spKey.split(",").map(Number);
 				const linked = sp.targetRoom != null;
 				let linkedDoorId = "";
 				if (linked) {
-					const targetRoomObj = S$1.rooms[sp.targetRoom];
+					const targetRoomObj = S$7.rooms[sp.targetRoom];
 					if (targetRoomObj) targetRoomObj.special.forEach((ts) => {
 						if (ts.type === "door" && ts.targetRoom === roomIdx && ts !== sp) linkedDoorId = ts.doorId != null ? `#${ts.doorId}` : "";
 					});
@@ -9950,7 +10896,7 @@ function openDoorLinker(currentKey) {
 	let selectedIdx = null;
 	const unlinkPair = (d) => {
 		if (d.special.targetRoom != null) {
-			const oldTarget = S$1.rooms[d.special.targetRoom];
+			const oldTarget = S$7.rooms[d.special.targetRoom];
 			if (oldTarget) oldTarget.special.forEach((os) => {
 				if (os.type === "door" && os.targetRoom === d.room) {
 					os.targetRoom = void 0;
@@ -10079,35 +11025,35 @@ function handleEditorClick(x, y) {
 	if (!parsed) return;
 	const k = key(x, y);
 	if (parsed.kind === "delete") {
-		S$1.walls.delete(k);
-		S$1.special.delete(k);
-		S$1.enemies = S$1.enemies.filter((e) => !(e.x === x && e.y === y));
+		S$7.walls.delete(k);
+		S$7.special.delete(k);
+		S$7.enemies = S$7.enemies.filter((e) => !(e.x === x && e.y === y));
 	} else if (parsed.kind === "flag") {
 		editEnemyFlags(x, y);
 		return;
 	} else if (parsed.kind === "rotate") {
-		const sp = S$1.special.get(k);
+		const sp = S$7.special.get(k);
 		if (sp && (sp.type === "conveyor" || sp.type === "gate" || sp.type === "millstone") && sp.dir) {
 			sp.dir = DIRECTIONS[(DIRECTIONS.findIndex((d) => d[0] === sp.dir[0] && d[1] === sp.dir[1]) + 1) % 4];
 			state.statusEl.textContent = (isEnglish() ? "Direction: " : "Направление: ") + +sp.dir.join(",");
 		}
 	} else if (parsed.kind === "wall") if (state.brush) {
-		S$1.walls.add(k);
-		S$1.special.delete(k);
-		S$1.enemies = S$1.enemies.filter((e) => !(e.x === x && e.y === y));
-	} else if (S$1.walls.has(k)) S$1.walls.delete(k);
+		S$7.walls.add(k);
+		S$7.special.delete(k);
+		S$7.enemies = S$7.enemies.filter((e) => !(e.x === x && e.y === y));
+	} else if (S$7.walls.has(k)) S$7.walls.delete(k);
 	else {
-		S$1.walls.add(k);
-		S$1.special.delete(k);
-		S$1.enemies = S$1.enemies.filter((e) => !(e.x === x && e.y === y));
+		S$7.walls.add(k);
+		S$7.special.delete(k);
+		S$7.enemies = S$7.enemies.filter((e) => !(e.x === x && e.y === y));
 	}
 	else if (parsed.kind === "spawn") {
-		S$1.player.x = x;
-		S$1.player.y = y;
+		S$7.player.x = x;
+		S$7.player.y = y;
 	} else if (parsed.kind === "enemy") {
-		S$1.walls.delete(k);
-		S$1.special.delete(k);
-		S$1.enemies = S$1.enemies.filter((e) => !(e.x === x && e.y === y));
+		S$7.walls.delete(k);
+		S$7.special.delete(k);
+		S$7.enemies = S$7.enemies.filter((e) => !(e.x === x && e.y === y));
 		const e = {
 			type: parsed.enemyType,
 			x,
@@ -10121,10 +11067,10 @@ function handleEditorClick(x, y) {
 		};
 		if (parsed.enemyType === "guardian") e.armor = 2;
 		if (parsed.enemyType === "necro") e.spawnCd = 3;
-		S$1.enemies.push(e);
+		S$7.enemies.push(e);
 	} else if (parsed.kind === "special") {
-		S$1.walls.delete(k);
-		S$1.enemies = S$1.enemies.filter((e) => !(e.x === x && e.y === y));
+		S$7.walls.delete(k);
+		S$7.enemies = S$7.enemies.filter((e) => !(e.x === x && e.y === y));
 		const spec = { type: parsed.specialType };
 		if (spec.type === "key") spec.color = parsed.keyColor || "gold";
 		if (spec.type === "door") {
@@ -10133,7 +11079,7 @@ function handleEditorClick(x, y) {
 		}
 		if (spec.type === "plate") for (const [dx, dy] of ORTHO) {
 			const nx = x + dx, ny = y + dy;
-			if (inB$1(nx, ny) && S$1.walls.has(key(nx, ny))) {
+			if (inB$1(nx, ny) && S$7.walls.has(key(nx, ny))) {
 				spec.opens = {
 					x: nx,
 					y: ny
@@ -10146,12 +11092,12 @@ function handleEditorClick(x, y) {
 			y: -1
 		};
 		if (spec.type === "conveyor" || spec.type === "gate" || spec.type === "millstone") spec.dir = [0, -1];
-		S$1.special.set(k, spec);
+		S$7.special.set(k, spec);
 	} else if (parsed.kind === "boss") {
-		S$1.walls.delete(k);
-		S$1.special.delete(k);
-		S$1.enemies = S$1.enemies.filter((e) => !(e.x === x && e.y === y));
-		if (parsed.bossId === "tormentor") S$1.enemies.push({
+		S$7.walls.delete(k);
+		S$7.special.delete(k);
+		S$7.enemies = S$7.enemies.filter((e) => !(e.x === x && e.y === y));
+		if (parsed.bossId === "tormentor") S$7.enemies.push({
 			type: "bishop",
 			x,
 			y,
@@ -10164,7 +11110,7 @@ function handleEditorClick(x, y) {
 		});
 		else if (parsed.bossId === "rooks") {
 			const nx = x + 1;
-			S$1.enemies.push({
+			S$7.enemies.push({
 				type: "rook",
 				x,
 				y,
@@ -10172,10 +11118,10 @@ function handleEditorClick(x, y) {
 				r: 6,
 				status: {}
 			});
-			if (inB$1(nx, y) && !S$1.walls.has(key(nx, y))) {
-				S$1.enemies = S$1.enemies.filter((e) => !(e.x === nx && e.y === y));
-				S$1.special.delete(key(nx, y));
-				S$1.enemies.push({
+			if (inB$1(nx, y) && !S$7.walls.has(key(nx, y))) {
+				S$7.enemies = S$7.enemies.filter((e) => !(e.x === nx && e.y === y));
+				S$7.special.delete(key(nx, y));
+				S$7.enemies.push({
 					type: "rook",
 					x: nx,
 					y,
@@ -10184,12 +11130,12 @@ function handleEditorClick(x, y) {
 					status: {}
 				});
 			}
-		} else if (parsed.bossId === "millstone") S$1.special.set(k, {
+		} else if (parsed.bossId === "millstone") S$7.special.set(k, {
 			type: "millstone",
 			dir: [0, -1]
 		});
 		else if (parsed.bossId === "king") {
-			S$1.enemies.push({
+			S$7.enemies.push({
 				type: "king",
 				x,
 				y,
@@ -10243,9 +11189,9 @@ function handleEditorClick(x, y) {
 				}
 			].forEach(({ dx, dy, type, retinue, r, shield, passive, noAttackCd }) => {
 				const rx = x + dx, ry = y + dy;
-				if (inB$1(rx, ry) && !S$1.walls.has(key(rx, ry))) {
-					S$1.enemies = S$1.enemies.filter((e) => !(e.x === rx && e.y === ry));
-					S$1.special.delete(key(rx, ry));
+				if (inB$1(rx, ry) && !S$7.walls.has(key(rx, ry))) {
+					S$7.enemies = S$7.enemies.filter((e) => !(e.x === rx && e.y === ry));
+					S$7.special.delete(key(rx, ry));
 					const e2 = {
 						type,
 						x: rx,
@@ -10260,13 +11206,13 @@ function handleEditorClick(x, y) {
 						e2.noAttackCd = true;
 						e2.attackReady = true;
 					}
-					S$1.enemies.push(e2);
+					S$7.enemies.push(e2);
 				}
 			});
 		}
 		state.statusEl.textContent = `Босс «${parsed.bossId}» установлен.`;
 	} else if (parsed.kind === "link") {
-		const sp = S$1.special.get(k);
+		const sp = S$7.special.get(k);
 		if (sp && sp.type === "door") openDoorLinker(k);
 		else state.statusEl.textContent = isEnglish() ? "Not a door — click a door." : "Это не дверь — кликни по двери.";
 	}
@@ -10277,25 +11223,240 @@ function importJSON() {
 	if (!text) return;
 	try {
 		const data = JSON.parse(text);
+		const errors = validateEditableLevel(data);
+		if (errors.length) throw new Error(errors.join(" "));
 		closeEditor();
 		loadLevel(data);
+		state.scenario = data.scenario || null;
 		editorActive = true;
 		document.getElementById("editorBar").style.display = "";
 		state.statusEl = document.getElementById("editorStatus");
 		buildToolbar();
-		log(isEnglish() ? "Level loaded from clipboard." : "Уровень загружен из буфера обмена.", "g");
+		if (state.scenario) state.statusEl.textContent = L("editor.scenario.ready", state.scenario.steps.length);
+		log$5(isEnglish() ? "Level loaded from clipboard." : "Уровень загружен из буфера обмена.", "g");
 	} catch (e) {
-		log((isEnglish() ? "JSON parse error: " : "Ошибка парсинга JSON: ") + +e.message, "r");
+		log$5((isEnglish() ? "JSON parse error: " : "Ошибка парсинга JSON: ") + +e.message, "r");
+	}
+}
+/**
+* Создаёт стартовый сценарий из текущей комнаты или редактирует уже прикреплённый.
+* Поле остаётся JSON намеренно: это промежуточный интерфейс до визуального
+* редактора шагов, но пользователь получает шаблон, валидацию и предпросмотр.
+*/
+/**
+* Открывает визуальную форму шага сценария.
+*
+* Форма всегда берёт карту, врагов и правила из текущей комнаты, поэтому
+* автор редактирует поле обычными инструментами и задаёт здесь только текст,
+* условие и порядок шагов. JSON остаётся импортным форматом, но не нужен для
+* создания или изменения сценария.
+*/
+function openScenarioForm() {
+	snapshotEditorRoom();
+	const roomSnapshot = () => ({
+		width: CFG.W,
+		height: CFG.H,
+		walls: S$7.walls,
+		specials: S$7.special,
+		enemies: S$7.enemies,
+		player: {
+			x: S$7.player.x,
+			y: S$7.player.y,
+			hunger: S$7.player.hunger
+		},
+		rules: S$7.roomRules
+	});
+	const scenario = state.scenario || createScenarioDraft(roomSnapshot(), "editor-scenario", {
+		ru: "Сценарий начинается.",
+		en: "Scenario begins."
+	}, {
+		id: "step-1",
+		message: {
+			ru: "Завершите комнату.",
+			en: "Complete the room."
+		},
+		completeWhen: { type: "clear" }
+	});
+	state.scenario = scenario;
+	state.scenarioStepIndex = Math.min(state.scenarioStepIndex, scenario.steps.length - 1);
+	shell("lg");
+	dom.overlay.classList.add("on");
+	dom.mTitle.textContent = L("editor.scenario.formTitle");
+	dom.mText.textContent = L("editor.scenario.formHelp");
+	const form = document.createElement("div");
+	form.className = "scenario-editor-form";
+	dom.mChoices.appendChild(form);
+	const label = (text, control) => {
+		const row = document.createElement("label");
+		row.className = "scenario-editor-field";
+		const title = document.createElement("span");
+		title.textContent = text;
+		row.appendChild(title);
+		row.appendChild(control);
+		form.appendChild(row);
+	};
+	const input = (value = "", type = "text") => {
+		const control = document.createElement("input");
+		control.type = type;
+		control.value = value;
+		return control;
+	};
+	const scenarioId = input(scenario.id);
+	const messageRu = input("");
+	const messageEn = input("");
+	const condition = document.createElement("select");
+	[["clear", L("editor.scenario.clear")], ["reach", L("editor.scenario.reach")]].forEach(([value, text]) => {
+		const option = document.createElement("option");
+		option.value = value;
+		option.textContent = text;
+		condition.appendChild(option);
+	});
+	const targetX = input("0", "number");
+	const targetY = input("0", "number");
+	label(L("editor.scenario.id"), scenarioId);
+	label(L("editor.scenario.messageRu"), messageRu);
+	label(L("editor.scenario.messageEn"), messageEn);
+	label(L("editor.scenario.completion"), condition);
+	label(L("editor.scenario.targetX"), targetX);
+	label(L("editor.scenario.targetY"), targetY);
+	const steps = document.createElement("div");
+	steps.className = "scenario-editor-steps";
+	form.appendChild(steps);
+	const loadStep = (index) => {
+		state.scenarioStepIndex = index;
+		const step = state.scenario.steps[index];
+		messageRu.value = step.message.ru;
+		messageEn.value = step.message.en;
+		condition.value = step.completeWhen.type;
+		targetX.value = step.completeWhen.type === "reach" ? String(step.completeWhen.x) : "";
+		targetY.value = step.completeWhen.type === "reach" ? String(step.completeWhen.y) : "";
+		steps.innerHTML = "";
+		state.scenario.steps.forEach((value, stepIndex) => {
+			const button = mkButton(`${stepIndex + 1}. ${value.id}`, () => loadStep(stepIndex));
+			if (stepIndex === index) button.classList.add("active");
+			steps.appendChild(button);
+		});
+	};
+	loadStep(state.scenarioStepIndex);
+	action(mkButton(L("editor.scenario.addStep"), () => {
+		const index = state.scenario.steps.length;
+		state.scenario = withScenarioStep(state.scenario, createScenarioStep(roomSnapshot(), {
+			id: `step-${index + 1}`,
+			message: {
+				ru: "Завершите комнату.",
+				en: "Complete the room."
+			},
+			completeWhen: { type: "clear" }
+		}), index);
+		loadStep(index);
+	}));
+	action(mkButton(L("editor.scenario.saveStep"), () => {
+		const oldStep = state.scenario.steps[state.scenarioStepIndex];
+		const completeWhen = condition.value === "reach" ? {
+			type: "reach",
+			x: Number(targetX.value),
+			y: Number(targetY.value)
+		} : { type: "clear" };
+		const step = createScenarioStep(roomSnapshot(), {
+			id: oldStep.id,
+			message: {
+				ru: messageRu.value.trim(),
+				en: messageEn.value.trim()
+			},
+			completeWhen
+		});
+		state.scenario = withScenarioStep({
+			...state.scenario,
+			id: scenarioId.value.trim()
+		}, step, state.scenarioStepIndex);
+		const errors = validateScenario(state.scenario);
+		if (errors.length) {
+			log$5(errors.join(" "), "r");
+			return;
+		}
+		state.statusEl.textContent = L("editor.scenario.saved", state.scenario.steps.length);
+		closeModal();
+	}, "again"));
+	action(mkButton(L("editor.scenario.deleteStep"), () => {
+		const nextScenario = withoutScenarioStep(state.scenario, state.scenarioStepIndex);
+		if (nextScenario === state.scenario) {
+			log$5(L("editor.scenario.deleteOnlyStep"), "r");
+			return;
+		}
+		state.scenario = nextScenario;
+		state.scenarioStepIndex = Math.min(state.scenarioStepIndex, state.scenario.steps.length - 1);
+		loadStep(state.scenarioStepIndex);
+	}));
+	action(mkButton(L("editor.scenario.advanced"), editScenario));
+	action(mkButton(L("editor.scenario.cancel"), closeModal));
+}
+/** Временный JSON-редактор сохранён для диагностики импортированных форматов. */
+function editScenario() {
+	snapshotEditorRoom();
+	const current = state.scenario || {
+		id: "editor-scenario",
+		entry: {
+			ru: "Сценарий начинается.",
+			en: "Scenario begins."
+		},
+		steps: [{
+			id: "step-1",
+			board: {
+				width: CFG.W,
+				height: CFG.H,
+				walls: [...S$7.walls].map((value) => value.split(",").map(Number)),
+				specials: [...S$7.special.entries()].map(([value, special]) => {
+					const [x, y] = value.split(",").map(Number);
+					return [
+						x,
+						y,
+						special
+					];
+				})
+			},
+			player: {
+				x: S$7.player.x,
+				y: S$7.player.y,
+				hunger: S$7.player.hunger
+			},
+			enemies: S$7.enemies.map((enemy) => ({
+				type: enemy.type,
+				x: enemy.x,
+				y: enemy.y,
+				r: enemy.r
+			})),
+			message: {
+				ru: "Завершите комнату.",
+				en: "Complete the room."
+			},
+			completeWhen: { type: "clear" },
+			rules: S$7.roomRules || void 0
+		}],
+		onComplete: {
+			ru: "Сценарий завершён.",
+			en: "Scenario complete."
+		}
+	};
+	const text = prompt(L("editor.scenario.prompt"), JSON.stringify(current, null, 2));
+	if (!text) return;
+	try {
+		const scenario = JSON.parse(text);
+		const errors = validateScenario(scenario);
+		if (errors.length) throw new Error(errors.join(" "));
+		state.scenario = scenario;
+		state.statusEl.textContent = L("editor.scenario.saved", scenario.steps.length);
+	} catch (error) {
+		log$5(L("editor.scenario.error", error.message || String(error)), "r");
 	}
 }
 function exportJSON() {
 	const data = buildLevelData();
 	const json = JSON.stringify(data, null, 2);
-	navigator.clipboard.writeText(json).then(() => log(isEnglish() ? "JSON copied." : "JSON скопирован.", "g")).catch(() => log("JSON:\n" + json, ""));
+	navigator.clipboard.writeText(json).then(() => log$5(isEnglish() ? "JSON copied." : "JSON скопирован.", "g")).catch(() => log$5("JSON:\n" + json, ""));
 }
 function buildLevelData() {
 	snapshotEditorRoom();
-	const rooms = S$1.rooms.map((r) => ({
+	const rooms = S$7.rooms.map((r) => ({
 		W: CFG.W,
 		H: CFG.H,
 		walls: [...r.walls],
@@ -10312,22 +11473,23 @@ function buildLevelData() {
 			...e.noAttackCd ? { noAttackCd: true } : {},
 			...e.r !== 1 ? { r: e.r } : {}
 		})),
-		special: Object.fromEntries(r.special)
+		special: Object.fromEntries(r.special),
+		rules: S$7.roomRules || void 0
 	}));
 	rooms[0].playerStart = {
-		x: S$1.player.x,
-		y: S$1.player.y
+		x: S$7.player.x,
+		y: S$7.player.y
 	};
 	const doors = [];
 	const seenDoors = /* @__PURE__ */ new Set();
-	S$1.rooms.forEach((r, fromRoom) => {
+	S$7.rooms.forEach((r, fromRoom) => {
 		r.special.forEach((s, k) => {
 			if (s.type === "door" && !seenDoors.has(k)) {
 				const [x, y] = k.split(",").map(Number);
 				const targetRoom = s.targetRoom;
-				if (targetRoom != null && S$1.rooms[targetRoom]) {
+				if (targetRoom != null && S$7.rooms[targetRoom]) {
 					let pairedKey = null;
-					S$1.rooms[targetRoom].special.forEach((ts, tk) => {
+					S$7.rooms[targetRoom].special.forEach((ts, tk) => {
 						if (ts.type === "door" && ts.targetRoom === fromRoom) pairedKey = tk;
 					});
 					if (pairedKey && !seenDoors.has(pairedKey)) {
@@ -10348,12 +11510,55 @@ function buildLevelData() {
 			}
 		});
 	});
-	return {
-		floor: S$1.floor || 1,
-		biome: S$1.biome?.id || "halls",
+	return normalizeEditableLevel({
+		version: 1,
+		floor: S$7.floor || 1,
+		biome: S$7.biome?.id || "halls",
 		rooms,
-		doors
-	};
+		doors,
+		...state.scenario ? { scenario: state.scenario } : {}
+	});
+}
+//#endregion
+//#region src/temporary-effects.ts
+function effectsOf(player) {
+	return player.temporaryEffects ?? (player.temporaryEffects = []);
+}
+function addTemporaryEffect(player, effect) {
+	const current = effectsOf(player).find((item) => item.id === effect.id);
+	if (current) {
+		current.remainingTurns = Math.max(current.remainingTurns, effect.remainingTurns);
+		current.armor = Math.max(current.armor, effect.armor);
+		return current;
+	}
+	effectsOf(player).push({ ...effect });
+	return effect;
+}
+function getTemporaryEffect(player, id) {
+	return effectsOf(player).find((effect) => effect.id === id);
+}
+function consumeTemporaryArmor(player) {
+	const effect = effectsOf(player).find((item) => item.armor > 0);
+	if (!effect) return false;
+	effect.armor--;
+	return true;
+}
+function removeEffectsOnFormLoss(player) {
+	player.temporaryEffects = effectsOf(player).filter((effect) => !effect.expiresOnFormLoss);
+}
+/** Decrements effects once per completed player turn and returns expired ids. */
+function tickTemporaryEffects(player) {
+	const expired = [];
+	player.temporaryEffects = effectsOf(player).filter((effect) => {
+		effect.remainingTurns--;
+		if (effect.remainingTurns > 0) return true;
+		expired.push(effect.id);
+		return false;
+	});
+	return expired;
+}
+function hungerDrainMultiplier(player) {
+	return getTemporaryEffect(player, "satiety") ? BALANCE.temporaryEffects.satiety.hungerDrainMultiplier : 1;
 }
 //#endregion
 //#region src/combat.js
@@ -10362,8 +11567,31 @@ function buildLevelData() {
 * Основные экспорты: tryMoveTo(), rotate(), switchForm(), pass(), endPlayerTurn(),
 * degradePlayer(), triggerSpecialForPlayer(), triggerBossPhase(), openVictory().
 */
+/** Единый путь старых боевых записей в журнал через typed API сообщений. */
+function log$4(text, tone = "") {
+	reportLegacyLog(text, tone, log$3);
+}
+/**
+* Показывает реплику на поле через единый API, сохраняя legacy fallback.
+*
+* @param {number} x Координата клетки по X.
+* @param {number} y Координата клетки по Y.
+* @param {string} text Текст реплики.
+* @param {string} [kind='system'] Визуальная роль реплики в renderer.
+*/
+function speech$1(x, y, text, kind = "system") {
+	if (!notify$1({
+		channel: "speech",
+		text,
+		anchor: {
+			x,
+			y
+		},
+		speechKind: kind
+	})) addSpeech(x, y, text, kind);
+}
 function tryMoveTo(x, y) {
-	if (S$1.gameOver || S$1.modalOpen) return;
+	if (S$7.gameOver || S$7.modalOpen) return;
 	const { moves, captures } = playerOptions();
 	const isCap = captures.some((c) => c.x === x && c.y === y);
 	const isMove = moves.some((c) => c.x === x && c.y === y);
@@ -10372,7 +11600,7 @@ function tryMoveTo(x, y) {
 			to: [x, y],
 			reason: "not_legal"
 		});
-		if (moves.length || captures.length) log(isEnglish() ? "No valid move to that cell." : "Нет хода на эту клетку.", "");
+		if (moves.length || captures.length) log$4(isEnglish() ? "No valid move to that cell." : "Нет хода на эту клетку.", "");
 		return;
 	}
 	if (!tutorialAllowsMove(x, y)) {
@@ -10385,7 +11613,7 @@ function tryMoveTo(x, y) {
 	}
 	tutorialSnapshot();
 	if (isMove && enemyAt(x, y)) {
-		addSpeech(x, y, isEnglish() ? "Occupied." : "Занято.", "enemy");
+		speech$1(x, y, isEnglish() ? "Occupied." : "Занято.", "enemy");
 		return;
 	}
 	if (!confirmMove(x, y)) {
@@ -10397,15 +11625,15 @@ function tryMoveTo(x, y) {
 		syncUI();
 		return;
 	}
-	const dx = Math.sign(x - S$1.player.x), dy = Math.sign(y - S$1.player.y);
-	if (dx === 0 || dy === 0) S$1.player.facing = [dx, dy];
+	const dx = Math.sign(x - S$7.player.x), dy = Math.sign(y - S$7.player.y);
+	if (dx === 0 || dy === 0) S$7.player.facing = [dx, dy];
 	if (isCap) {
 		const e = enemyAt(x, y);
 		const fatigue = has("no_fatigue") ? 0 : CFG.FATIGUE_K + (curse("brittle") ? 1 : 0);
 		if (statusVal(e, "shield") > 0) {
 			e.status.shield--;
 			activeForm().cooldown = fatigue;
-			log(isEnglish() ? `${GLYPH[e.type]} ${NAME_EN[e.type]} shield absorbs the hit.` : `Щит ${GLYPH[e.type]} ${NAME[e.type]} поглощает удар.`, "p");
+			log$4(isEnglish() ? `${GLYPH[e.type]} ${NAME_EN[e.type]} shield absorbs the hit.` : `Щит ${GLYPH[e.type]} ${NAME[e.type]} поглощает удар.`, "p");
 			endPlayerTurn();
 			return;
 		}
@@ -10413,8 +11641,8 @@ function tryMoveTo(x, y) {
 			activeForm().cooldown = fatigue;
 			if (has("guard_pierce")) e.armor = 1;
 			dispatchBossEvents(tormentorHit(e), {
-				log: (t) => log(t),
-				addSpeech: (x, y, t, kind) => addSpeech(x, y, t, kind)
+				log: (t) => log$4(t),
+				addSpeech: (x, y, t, kind) => speech$1(x, y, t, kind)
 			});
 			if (e.armor > 0) triggerBossPhase("tormentor", e.phase);
 			endPlayerTurn();
@@ -10423,57 +11651,75 @@ function tryMoveTo(x, y) {
 		if (e.armor > 1 && !has("guard_pierce")) {
 			e.armor--;
 			activeForm().cooldown = fatigue;
-			log(isEnglish() ? `You dent ${GLYPH[e.type]} ${NAME_EN[e.type]} (armor left: ${e.armor}).` : `Ты пробиваешь щит ${GLYPH[e.type]} ${NAME[e.type]} (осталось брони: ${e.armor})`, "p");
+			log$4(isEnglish() ? `You dent ${GLYPH[e.type]} ${NAME_EN[e.type]} (armor left: ${e.armor}).` : `Ты пробиваешь щит ${GLYPH[e.type]} ${NAME[e.type]} (осталось брони: ${e.armor})`, "p");
 			endPlayerTurn();
 			return;
 		}
-		S$1.enemies = S$1.enemies.filter((v) => v !== e);
-		spawnParticles(x, y, "#d07a3f", 8);
-		startCaptureFlash(x, y);
+		S$7.enemies = S$7.enemies.filter((v) => v !== e);
+		emitVisual({
+			type: "particles",
+			x,
+			y,
+			color: "#d07a3f",
+			count: 8
+		});
+		emitVisual({
+			type: "capture",
+			x,
+			y
+		});
 		playCapture();
-		S$1.player.capturedThisFloor++;
-		S$1.player.totalCaptures++;
+		S$7.player.capturedThisFloor++;
+		S$7.player.totalCaptures++;
 		recordKill(e.type, false);
 		{
-			const act = actForFloor(S$1.floor);
+			const act = actForFloor(S$7.floor);
 			const line = pickLine(getScript().deathLines[act] || []);
-			if (line && Math.random() < .35) addSpeech(x, y, line, "enemy");
+			if (line && random() < .35) speech$1(x, y, line, "enemy");
 		}
 		if (e.linkedTo) {
 			const revengeEvents = linkedRookRevenge(e);
 			if (revengeEvents.some((ev) => ev && ev.ch === "capture")) {
-				degradePlayer(null);
-				if (S$1.gameOver) {
+				degradePlayer(null, "linked_rook_revenge");
+				if (S$7.gameOver) {
 					render();
 					syncUI();
 					return;
 				}
 			} else revengeEvents.forEach((ev) => {
-				if (ev && ev.ch === "speech") addSpeech(ev.x, ev.y, ev.text, ev.kind || "boss");
-				if (ev && ev.ch === "log") log(ev.text);
+				if (ev && ev.ch === "speech") speech$1(ev.x, ev.y, ev.text, ev.kind || "boss");
+				if (ev && ev.ch === "log") log$4(ev.text);
 			});
 		}
 		unlockAch("first_blood");
 		activeForm().cooldown = fatigue;
-		if (has("trophy")) S$1.player.wheel.forEach((f) => {
+		if (has("trophy")) S$7.player.wheel.forEach((f) => {
 			if (f) f.cooldown = 0;
 		});
 		if (has("concuss")) {
-			for (const o of S$1.enemies) if (Math.max(Math.abs(o.x - x), Math.abs(o.y - y)) === 1) applyStatus(o, "stun", 1);
+			for (const o of S$7.enemies) if (Math.max(Math.abs(o.x - x), Math.abs(o.y - y)) === 1) applyStatus(o, "stun", 1);
 		}
-		log(isEnglish() ? `You take ${GLYPH[e.type]} ${NAME_EN[e.type]} with ${NAME_EN[activeForm().type]}.` : `Ты берёшь ${GLYPH[e.type]} ${NAME[e.type]} формой ${NAME[activeForm().type]}`, "p");
-		log(moveNotation(S$1.player.x, S$1.player.y, x, y, GLYPH[activeForm().type], GLYPH[e.type]), "");
-		S$1.player.hunger = Math.min(CFG.HUNGER.cap ?? CFG.HUNGER.start, S$1.player.hunger + CFG.HUNGER.capture);
+		log$4(isEnglish() ? `You take ${GLYPH[e.type]} ${NAME_EN[e.type]} with ${NAME_EN[activeForm().type]}.` : `Ты берёшь ${GLYPH[e.type]} ${NAME[e.type]} формой ${NAME[activeForm().type]}`, "p");
+		log$4(moveNotation(S$7.player.x, S$7.player.y, x, y, GLYPH[activeForm().type], GLYPH[e.type]), "");
+		S$7.player.hunger = Math.min(CFG.HUNGER.cap ?? CFG.HUNGER.start, S$7.player.hunger + CFG.HUNGER.capture);
 		unlockType(e.type, tileColor(x, y));
 	}
-	const fx = S$1.player.x, fy = S$1.player.y;
-	S$1.player.x = x;
-	S$1.player.y = y;
-	startMoveAnim(S$1.player, fx, fy, x, y);
+	const fx = S$7.player.x, fy = S$7.player.y;
+	S$7.player.x = x;
+	S$7.player.y = y;
+	S$7.player.lastDir = [Math.sign(x - fx), Math.sign(y - fy)];
+	emitVisual({
+		type: "move",
+		unit: S$7.player,
+		fromX: fx,
+		fromY: fy,
+		toX: x,
+		toY: y
+	});
 	playMove();
-	if (!isCap) log(moveNotation(fx, fy, x, y, GLYPH[activeForm().type]), "");
+	if (!isCap) log$4(moveNotation(fx, fy, x, y, GLYPH[activeForm().type]), "");
 	triggerSpecialForPlayer();
-	if (S$1.gameOver) {
+	if (S$7.gameOver) {
 		render();
 		syncUI();
 		return;
@@ -10485,133 +11731,142 @@ function tryMoveTo(x, y) {
 	endPlayerTurn();
 }
 function triggerSpecialForPlayer() {
-	const k = key(S$1.player.x, S$1.player.y), s = S$1.special.get(k);
+	const k = key(S$7.player.x, S$7.player.y), s = S$7.special.get(k);
 	if (!s) return;
 	if (s.type === "trap") {
-		S$1.special.delete(k);
-		log(isEnglish() ? "The web tears at you. Form destroyed." : "Паутина рвёт тебя. Форма разрушена.", "r");
+		S$7.special.delete(k);
+		log$4(isEnglish() ? "The web tears at you. Form destroyed." : "Паутина рвёт тебя. Форма разрушена.", "r");
 		playTrap();
-		degradePlayer(null);
+		degradePlayer(null, "trap");
 	} else if (s.type === "rune") {
-		S$1.special.delete(k);
+		S$7.special.delete(k);
 		playRune();
-		S$1.player.wheel.forEach((f) => {
+		S$7.player.wheel.forEach((f) => {
 			if (f) f.cooldown = 0;
 		});
-		cleanse(S$1.player);
-		S$1.player.hunger = CFG.HUNGER.start;
-		S$1.player.hungerMark = 1;
-		log(isEnglish() ? "The Vein satiates — form fatigue and statuses cleansed." : "Жила насыщает — усталость форм и статусы сняты.", "g");
+		cleanse(S$7.player);
+		S$7.player.hunger = CFG.HUNGER.start;
+		S$7.player.hungerMark = 1;
+		log$4(isEnglish() ? "The Vein satiates — form fatigue and statuses cleansed." : "Жила насыщает — усталость форм и статусы сняты.", "g");
 	} else if (s.type === "ice") {
-		applyStatus(S$1.player, "stun", 1);
-		log(isEnglish() ? "You slipped on ice — stunned." : "Ты поскользнулся на льду — оглушение.", "r");
+		applyStatus(S$7.player, "stun", 1);
+		log$4(isEnglish() ? "You slipped on ice — stunned." : "Ты поскользнулся на льду — оглушение.", "r");
 	} else if (s.type === "portal") {
 		const p = s.pair;
-		if (p && !S$1.walls.has(key(p.x, p.y)) && !enemyAt(p.x, p.y)) {
-			S$1.player.x = p.x;
-			S$1.player.y = p.y;
-			log(isEnglish() ? "The portal teleports you." : "Портал переносит тебя.", "p");
+		if (p && !S$7.walls.has(key(p.x, p.y)) && !enemyAt(p.x, p.y)) {
+			S$7.player.x = p.x;
+			S$7.player.y = p.y;
+			emitVisual({
+				type: "transition",
+				style: "lens",
+				durationMs: 250
+			});
+			log$4(isEnglish() ? "The portal teleports you." : "Портал переносит тебя.", "p");
 			playPortal();
 		}
 	} else if (s.type === "conveyor") {
 		const [dx, dy] = s.dir;
-		let nx = S$1.player.x + dx;
-		let ny = S$1.player.y + dy;
-		if (inB$1(nx, ny) && !S$1.walls.has(key(nx, ny)) && !enemyAt(nx, ny)) {
-			S$1.player.x = nx;
-			S$1.player.y = ny;
+		let nx = S$7.player.x + dx;
+		let ny = S$7.player.y + dy;
+		if (inB$1(nx, ny) && !S$7.walls.has(key(nx, ny)) && !enemyAt(nx, ny)) {
+			S$7.player.x = nx;
+			S$7.player.y = ny;
 			const visited = /* @__PURE__ */ new Set();
 			visited.add(k);
 			while (true) {
-				const ck = key(S$1.player.x, S$1.player.y);
+				const ck = key(S$7.player.x, S$7.player.y);
 				if (visited.has(ck)) break;
 				visited.add(ck);
-				const cs = S$1.special.get(ck);
+				const cs = S$7.special.get(ck);
 				if (!cs || cs.type !== "conveyor") break;
-				nx = S$1.player.x + cs.dir[0];
-				ny = S$1.player.y + cs.dir[1];
-				if (!inB$1(nx, ny) || S$1.walls.has(key(nx, ny)) || enemyAt(nx, ny)) break;
-				S$1.player.x = nx;
-				S$1.player.y = ny;
+				nx = S$7.player.x + cs.dir[0];
+				ny = S$7.player.y + cs.dir[1];
+				if (!inB$1(nx, ny) || S$7.walls.has(key(nx, ny)) || enemyAt(nx, ny)) break;
+				S$7.player.x = nx;
+				S$7.player.y = ny;
 			}
-			log(isEnglish() ? "The conveyor pushes you." : "Конвейер сдвигает тебя.", "p");
-			const finalSpecial = S$1.special.get(key(S$1.player.x, S$1.player.y));
+			log$4(isEnglish() ? "The conveyor pushes you." : "Конвейер сдвигает тебя.", "p");
+			const finalSpecial = S$7.special.get(key(S$7.player.x, S$7.player.y));
 			if (finalSpecial && finalSpecial.type !== "conveyor") triggerSpecialForPlayer();
 		}
 	} else if (s.type === "plate") {
 		if (s.chain) {
 			if (s.broken) return;
 			s.broken = true;
-			S$1.chainsBroken = (S$1.chainsBroken || 0) + 1;
-			log(isEnglish() ? `Chain broken (${S$1.chainsBroken}/${BOSS_CFG.redKing.chains}).` : `Цепь разорвана (${S$1.chainsBroken}/${BOSS_CFG.redKing.chains}).`, "g");
-			const king = S$1.enemies.find((e) => e.king);
+			S$7.chainsBroken = (S$7.chainsBroken || 0) + 1;
+			log$4(isEnglish() ? `Chain broken (${S$7.chainsBroken}/${BOSS_CONFIG.redKing.chains}).` : `Цепь разорвана (${S$7.chainsBroken}/${BOSS_CONFIG.redKing.chains}).`, "g");
+			const king = S$7.enemies.find((e) => e.king);
 			if (king && getScript().bosses.redKing) {
-				const line = getScript().bosses.redKing.chainBreak[S$1.chainsBroken];
+				const line = getScript().bosses.redKing.chainBreak[S$7.chainsBroken];
 				if (line) {
-					addSpeech(king.x, king.y, line.text, "boss");
-					log(line.text);
+					speech$1(king.x, king.y, line.text, "boss");
+					log$4(line.text);
 				}
 			}
-		} else if (s.opens && S$1.walls.has(key(s.opens.x, s.opens.y))) {
-			S$1.walls.delete(key(s.opens.x, s.opens.y));
-			log(isEnglish() ? "The plate opens a passage." : "Плита открывает проход.", "g");
+		} else if (s.opens && S$7.walls.has(key(s.opens.x, s.opens.y))) {
+			S$7.walls.delete(key(s.opens.x, s.opens.y));
+			log$4(isEnglish() ? "The plate opens a passage." : "Плита открывает проход.", "g");
 		}
 	} else if (s.type === "lava") {
-		log(isEnglish() ? "You are in lava! Form destroyed." : "Ты в лаве! Форма разрушена.", "r");
-		degradePlayer(null);
+		log$4(isEnglish() ? "You are in lava! Form destroyed." : "Ты в лаве! Форма разрушена.", "r");
+		degradePlayer(null, "lava");
 	} else if (s.type === "door") {
 		snapshotRoom();
-		if (s.color && S$1.keys.has(s.color)) {
-			S$1.keys.delete(s.color);
+		if (s.color && S$7.keys.has(s.color)) {
+			S$7.keys.delete(s.color);
 			s.color = null;
-			const targetRoom = S$1.rooms[s.targetRoom];
+			const targetRoom = S$7.rooms[s.targetRoom];
 			if (targetRoom) targetRoom.special.forEach((ds) => {
-				if (ds.type === "door" && ds.targetRoom === S$1.currentRoom) ds.color = null;
+				if (ds.type === "door" && ds.targetRoom === S$7.currentRoom) ds.color = null;
 			});
 		}
-		if (s.color && !S$1.keys.has(s.color)) {
-			log(isEnglish() ? `Door is locked — need a ${KEY_GLYPH[s.color]} ключ.` : `Дверь заперта — нужен ${KEY_GLYPH[s.color]} ключ.`, "r");
+		if (s.color && !S$7.keys.has(s.color)) {
+			log$4(isEnglish() ? `Door is locked — need a ${KEY_GLYPH[s.color]} ключ.` : `Дверь заперта — нужен ${KEY_GLYPH[s.color]} ключ.`, "r");
 			return;
 		}
 		loadRoom(s.targetRoom);
-		S$1.player.x = s.targetPos.x;
-		S$1.player.y = s.targetPos.y;
+		S$7.player.x = s.targetPos.x;
+		S$7.player.y = s.targetPos.y;
 		syncCheckIndicator();
 		recordSnapshot("room_entered", { room: s.targetRoom });
-		screenFade("#000", 250);
-		log(isEnglish() ? `Entering room ${s.targetRoom + 1}.` : `Переход в комнату ${s.targetRoom + 1}.`, "p");
+		emitVisual({
+			type: "transition",
+			style: "tunnel",
+			durationMs: 250
+		});
+		log$4(isEnglish() ? `Entering room ${s.targetRoom + 1}.` : `Переход в комнату ${s.targetRoom + 1}.`, "p");
 		playPortal();
 		render();
 		syncUI();
 		return;
 	} else if (s.type === "key") {
-		S$1.keys.add(s.color);
-		S$1.special.delete(k);
-		log(isEnglish() ? `You found a ${KEY_GLYPH[s.color]} key.` : `Ты нашёл ${KEY_GLYPH[s.color]} ключ.`, "g");
+		S$7.keys.add(s.color);
+		S$7.special.delete(k);
+		log$4(isEnglish() ? `You found a ${KEY_GLYPH[s.color]} key.` : `Ты нашёл ${KEY_GLYPH[s.color]} ключ.`, "g");
 		playLoot();
 	} else if (s.type === "food") {
-		S$1.special.delete(k);
-		S$1.player.hunger = Math.min(CFG.HUNGER.cap ?? CFG.HUNGER.start, S$1.player.hunger + CFG.HUNGER.food);
-		S$1.player.hungerMark = 1;
-		log(isEnglish() ? `You eat a bone (+${CFG.HUNGER.food} satiety, total ${S$1.player.hunger}/${CFG.HUNGER.start}).` : `Ты съедаешь кость (+${CFG.HUNGER.food} сытости, всего ${S$1.player.hunger}/${CFG.HUNGER.start}).`, "g");
+		S$7.special.delete(k);
+		S$7.player.hunger = Math.min(CFG.HUNGER.cap ?? CFG.HUNGER.start, S$7.player.hunger + CFG.HUNGER.food);
+		S$7.player.hungerMark = 1;
+		log$4(isEnglish() ? `You eat a bone (+${CFG.HUNGER.food} satiety, total ${S$7.player.hunger}/${CFG.HUNGER.start}).` : `Ты съедаешь кость (+${CFG.HUNGER.food} сытости, всего ${S$7.player.hunger}/${CFG.HUNGER.start}).`, "g");
 		tutorialMark("eat");
 		playLoot();
 	} else if (s.type === "scroll") {
-		S$1.special.delete(k);
+		S$7.special.delete(k);
 		playLoot();
-		if (Math.random() < .5) {
-			const pool = Object.keys(RELICS).filter((id) => !S$1.player.relics.has(id));
+		if (random() < .5) {
+			const pool = Object.keys(RELICS).filter((id) => !S$7.player.relics.has(id));
 			if (pool.length) {
-				const id = pool[Math.floor(Math.random() * pool.length)];
+				const id = pick(pool);
 				applyRelic(id);
-				log(isEnglish() ? `Scroll: <b>${RELICS[id].enName}</b> — ${RELICS[id].enDesc}` : `Свиток: <b>${RELICS[id].name}</b> — ${RELICS[id].desc}`, "g");
+				log$4(isEnglish() ? `Scroll: <b>${RELICS[id].enName}</b> — ${RELICS[id].enDesc}` : `Свиток: <b>${RELICS[id].name}</b> — ${RELICS[id].desc}`, "g");
 			}
 		} else {
-			const pool = Object.keys(CURSES).filter((id) => !S$1.player.curses.has(id));
+			const pool = Object.keys(CURSES).filter((id) => !S$7.player.curses.has(id));
 			if (pool.length) {
-				const id = pool[Math.floor(Math.random() * pool.length)];
+				const id = pick(pool);
 				applyCurse(id);
-				log(isEnglish() ? `Scroll: <b>☠ ${CURSES[id].enName}</b> — ${CURSES[id].enDesc}` : `Свиток: <b>☠ ${CURSES[id].name}</b> — ${CURSES[id].desc}`, "r");
+				log$4(isEnglish() ? `Scroll: <b>☠ ${CURSES[id].enName}</b> — ${CURSES[id].enDesc}` : `Свиток: <b>☠ ${CURSES[id].name}</b> — ${CURSES[id].desc}`, "r");
 			}
 		}
 	}
@@ -10622,151 +11877,175 @@ function triggerBossPhase(bossId, phase) {
 	if (!boss) return;
 	const key = phase === 2 ? "phase2" : phase === 3 ? "phase3" : null;
 	if (!key || !boss[key]) return;
-	for (const line of boss[key]) if (line.ch === "log") log(line.text);
+	for (const line of boss[key]) if (line.ch === "log") log$4(line.text);
 	else if (line.ch === "speech") {
-		const e = S$1.enemies.find((en) => en.bossId === bossId) || S$1.enemies[0];
-		if (e) addSpeech(e.x, e.y, line.text, line.kind || "boss");
-		log(line.text);
+		const e = S$7.enemies.find((en) => en.bossId === bossId) || S$7.enemies[0];
+		if (e) speech$1(e.x, e.y, line.text, line.kind || "boss");
+		log$4(line.text);
 	}
 }
 function unlockType(t, colorAt) {
 	if (!STD_TYPES.has(t)) {
-		log(isEnglish() ? `Form "${NAME_EN[t] || t}" is not available to the player.` : `Форма «${NAME[t] || t}» недоступна игроку.`);
+		log$4(isEnglish() ? `Form "${NAME_EN[t] || t}" is not available to the player.` : `Форма «${NAME[t] || t}» недоступна игроку.`);
 		return;
 	}
-	if (S$1.unlocked.has(t)) {
-		log(isEnglish() ? `«${NAME_EN[t]}» already yours. Extra bone.` : `«${NAME[t]}» у тебя уже есть. Кость лишняя.`);
+	if (S$7.unlocked.has(t)) {
+		log$4(isEnglish() ? `«${NAME_EN[t]}» already yours. Extra bone.` : `«${NAME[t]}» у тебя уже есть. Кость лишняя.`);
 		return;
 	}
-	S$1.unlocked.add(t);
-	if ([...STD_TYPES].every((x) => S$1.unlocked.has(x))) unlockAch("polymorph");
-	const slot = S$1.player.wheel.findIndex((s, i) => i > 0 && s === null);
+	S$7.unlocked.add(t);
+	if ([...STD_TYPES].every((x) => S$7.unlocked.has(x))) unlockAch("polymorph");
+	const slot = S$7.player.wheel.findIndex((s, i) => i > 0 && s === null);
 	if (slot !== -1) {
-		S$1.player.wheel[slot] = makeForm(t, colorAt);
-		log(isEnglish() ? `Form <b>${NAME_EN[t]}</b> added to wheel (slot ${slot}).` : `Форма <b>${NAME[t]}</b> добавлена в колесо (слот ${slot})`, "g");
-	} else log(isEnglish() ? `Type «${NAME_EN[t]}» unlocked in pool — wheel is full.` : `Тип «${NAME[t]}» открыт в пуле — колесо заполнено.`, "g");
+		S$7.player.wheel[slot] = makeForm(t, colorAt);
+		log$4(isEnglish() ? `Form <b>${NAME_EN[t]}</b> added to wheel (slot ${slot}).` : `Форма <b>${NAME[t]}</b> добавлена в колесо (слот ${slot})`, "g");
+	} else log$4(isEnglish() ? `Type «${NAME_EN[t]}» unlocked in pool — wheel is full.` : `Тип «${NAME[t]}» открыт в пуле — колесо заполнено.`, "g");
 }
 function switchForm(i) {
-	if (S$1.gameOver || S$1.modalOpen) return;
-	if (S$1.challenge === "lone_figure") {
-		log(isEnglish() ? "Lone Figure: form switching disabled." : "Одинокая фигура: смена формы запрещена.", "r");
+	if (S$7.gameOver || S$7.modalOpen) return;
+	if (S$7.challenge === "lone_figure") {
+		log$4(isEnglish() ? "Lone Figure: form switching disabled." : "Одинокая фигура: смена формы запрещена.", "r");
 		return;
 	}
 	if (!tutorialAllowsSwitch()) return tutorialNudge("switch");
-	const f = S$1.player.wheel[i];
+	const f = S$7.player.wheel[i];
 	if (!f) {
-		log(isEnglish() ? "This wheel slot is empty." : "Этот слот колеса пуст.", "");
+		log$4(isEnglish() ? "This wheel slot is empty." : "Этот слот колеса пуст.", "");
 		return;
 	}
-	if (i === S$1.player.active) {
-		log(isEnglish() ? "This form is already active." : "Эта форма уже активна.", "");
+	if (i === S$7.player.active) {
+		log$4(isEnglish() ? "This form is already active." : "Эта форма уже активна.", "");
 		return;
 	}
 	if (f.cooldown > 0) {
-		log(isEnglish() ? `«${NAME_EN[f.type]}» fatigued — ${f.cooldown} t. left` : `«${NAME[f.type]}» устала — ещё ${f.cooldown} х.`, "r");
+		log$4(isEnglish() ? `«${NAME_EN[f.type]}» fatigued — ${f.cooldown} t. left` : `«${NAME[f.type]}» устала — ещё ${f.cooldown} х.`, "r");
 		return;
 	}
-	S$1.player.active = i;
+	S$7.player.active = i;
 	recordEvent("switch_form", {
 		slot: i,
 		form: f.type
 	});
 	recordSnapshot("form_switched");
-	const formType = S$1.player.wheel[i].type;
-	if (!has("silence") && !S$1.player.wheel[i]._seenBefore) {
-		S$1.player.wheel[i]._seenBefore = true;
-		S$1.player.boneVoiceTimer = 3;
+	const formType = S$7.player.wheel[i].type;
+	if (!has("silence") && !S$7.player.wheel[i]._seenBefore) {
+		S$7.player.wheel[i]._seenBefore = true;
+		S$7.player.boneVoiceTimer = 3;
 		const lines = getScript().boneVoices[formType];
 		if (lines && lines.length) {
-			const line = lines[Math.floor(Math.random() * lines.length)];
-			addSpeech(S$1.player.x, S$1.player.y, line, "bone");
-			log(line);
+			const line = pick(lines);
+			speech$1(S$7.player.x, S$7.player.y, line, "bone");
+			log$4(line);
 		}
 	}
-	if (has("free_swap") && !S$1.player.freeSwapUsed) {
-		S$1.player.freeSwapUsed = true;
-		log(isEnglish() ? `Switch form → <b>${NAME_EN[f.type]}</b> (for free).` : `Смена формы → <b>${NAME[f.type]}</b> (бесплатно).`, "p");
+	if (has("free_swap") && !S$7.player.freeSwapUsed) {
+		S$7.player.freeSwapUsed = true;
+		log$4(isEnglish() ? `Switch form → <b>${NAME_EN[f.type]}</b> (for free).` : `Смена формы → <b>${NAME[f.type]}</b> (бесплатно).`, "p");
 		render();
 		syncUI();
 		return;
 	}
-	log(isEnglish() ? `Switch form → <b>${NAME_EN[f.type]}</b> (wasted move).` : `Смена формы → <b>${NAME[f.type]}</b> (потрачен ход).`, "p");
+	log$4(isEnglish() ? `Switch form → <b>${NAME_EN[f.type]}</b> (wasted move).` : `Смена формы → <b>${NAME[f.type]}</b> (потрачен ход).`, "p");
 	endPlayerTurn();
 }
 function rotate(dir) {
-	if (S$1.gameOver || S$1.modalOpen) return;
+	if (S$7.gameOver || S$7.modalOpen) return;
 	if (!tutorialAllowsRotate()) return tutorialNudge("rotate");
-	const i = ORTHO.findIndex(([dx, dy]) => dx === S$1.player.facing[0] && dy === S$1.player.facing[1]);
-	S$1.player.facing = ORTHO[(i + dir + 4) % 4];
+	const i = ORTHO.findIndex(([dx, dy]) => dx === S$7.player.facing[0] && dy === S$7.player.facing[1]);
+	S$7.player.facing = ORTHO[(i + dir + 4) % 4];
 	recordEvent("rotate", {
 		direction: dir,
-		facing: S$1.player.facing
+		facing: S$7.player.facing
 	});
 	recordSnapshot("rotated");
 	render();
 	syncUI();
 }
 function pass() {
-	if (S$1.gameOver || S$1.modalOpen) return;
+	if (S$7.gameOver || S$7.modalOpen) return;
 	if (curse("compulsion")) {
 		const { moves, captures } = playerOptions();
-		const canSwitch = S$1.player.wheel.some((f, i) => f && i !== S$1.player.active && f.cooldown === 0);
+		const canSwitch = S$7.player.wheel.some((f, i) => f && i !== S$7.player.active && f.cooldown === 0);
 		if (moves.length || captures.length || canSwitch) {
-			log(isEnglish() ? "Compulsion: cannot pass while moves exist." : "Одержимость: пасовать нельзя, пока есть ход.", "r");
+			log$4(isEnglish() ? "Compulsion: cannot pass while moves exist." : "Одержимость: пасовать нельзя, пока есть ход.", "r");
 			return;
 		}
 	}
-	S$1.player.hunger -= CFG.HUNGER.passExtra;
-	recordEvent("pass", { hunger: S$1.player.hunger });
-	log(isEnglish() ? `Pass. Hunger deepens (−${CFG.HUNGER.passExtra}).` : `Пас. Голод крепчает (−${CFG.HUNGER.passExtra}).`);
+	S$7.player.hunger -= CFG.HUNGER.passExtra * hungerDrainMultiplier(S$7.player);
+	recordEvent("pass", { hunger: S$7.player.hunger });
+	log$4(isEnglish() ? `Pass. Hunger deepens (−${CFG.HUNGER.passExtra}).` : `Пас. Голод крепчает (−${CFG.HUNGER.passExtra}).`);
 	endPlayerTurn();
 }
 function endPlayerTurn() {
 	clearPending();
 	recordSnapshot("turn_started");
-	if (S$1.player.status && S$1.player.status.haste > 0) S$1.player.status.haste--;
-	if (!(S$1.runMode === "campaign" && isBossFloor(S$1.floor))) {
-		S$1.player.hunger -= CFG.HUNGER.perTurn;
+	if (S$7.player.status && S$7.player.status.haste > 0) S$7.player.status.haste--;
+	if (!S$7.roomRules?.freezeHunger) {
+		const satiety = CFG.BALANCE.temporaryEffects.satiety;
+		const wasSatiety = hungerDrainMultiplier(S$7.player) < 1;
+		if (tickTemporaryEffects(S$7.player).includes("satiety")) {
+			S$7.player.hunger = Math.min(S$7.player.hunger, CFG.HUNGER.start * satiety.yellowRatio);
+			S$7.player.greenHungerTurns = 0;
+			log$4(isEnglish() ? "Satiety fades — hunger falls to the yellow zone." : "Сытость гаснет — голод падает в жёлтую зону.", "p");
+		}
+		S$7.player.hunger -= CFG.HUNGER.perTurn * hungerDrainMultiplier(S$7.player);
+		if (!wasSatiety && S$7.player.hunger >= CFG.HUNGER.start * satiety.greenRatio) {
+			S$7.player.greenHungerTurns = (S$7.player.greenHungerTurns || 0) + 1;
+			if (S$7.player.greenHungerTurns >= satiety.consecutiveGreenTurns) {
+				addTemporaryEffect(S$7.player, {
+					id: "satiety",
+					remainingTurns: satiety.durationTurns,
+					armor: satiety.armor,
+					expiresOnFormLoss: false
+				});
+				S$7.player.greenHungerTurns = 0;
+				log$4(isEnglish() ? "Satiety: hunger drains half as fast for 10 turns; gain 1 armor." : "Сытость: голод убывает вдвое медленнее 10 ходов; +1 броня.", "g");
+			}
+		} else if (!wasSatiety) S$7.player.greenHungerTurns = 0;
 		{
-			const ratio = S$1.player.hunger / CFG.HUNGER.start;
+			const ratio = S$7.player.hunger / CFG.HUNGER.start;
 			for (const th of [
 				.4,
 				.25,
 				.1,
 				0
-			]) if (ratio <= th && (S$1.player.hungerMark ?? 1) > th) {
-				S$1.player.hungerMark = th;
+			]) if (ratio <= th && (S$7.player.hungerMark ?? 1) > th) {
+				S$7.player.hungerMark = th;
 				const line = getScript().hungerLines[th];
-				if (line) log(line, "r");
+				if (line) log$4(line, "r");
 				break;
 			}
 		}
-		if (S$1.player.hunger <= 0) {
-			S$1.player.hunger = 0;
-			log(isEnglish() ? "Hunger devours you. Form destroyed." : "Голод пожирает тебя. Форма разрушена.", "r");
-			degradePlayer(null);
-			if (S$1.gameOver) {
+		if (S$7.player.hunger <= 0) {
+			S$7.player.hunger = 0;
+			emitVisual({
+				type: "vignette",
+				color: "#8b5a16",
+				durationMs: 420
+			});
+			log$4(isEnglish() ? "Hunger devours you. Form destroyed." : "Голод пожирает тебя. Форма разрушена.", "r");
+			degradePlayer(null, "hunger");
+			if (S$7.gameOver) {
 				render();
 				syncUI();
 				return;
 			}
 		}
-		setHungerLayer(S$1.player.hunger < CFG.HUNGER.start * .25);
+		setHungerLayer(S$7.player.hunger < CFG.HUNGER.start * .25);
 	}
-	const bloodBlocked = curse("bloodline") && S$1.player.capturedThisFloor > 0;
-	if (!S$1.promotionUsed && activeForm().type === "pawn" && S$1.player.y === 0 && !bloodBlocked) {
+	const bloodBlocked = curse("bloodline") && S$7.player.capturedThisFloor > 0;
+	if (!S$7.promotionUsed && activeForm().type === "pawn" && S$7.player.y === 0 && !bloodBlocked) {
 		openPromotion();
 		render();
 		syncUI();
 		return;
 	}
-	if (!S$1.promotionUsed && bloodBlocked && activeForm().type === "pawn" && S$1.player.y === 0) log(isEnglish() ? "Bloodline: ascension blocked — a capture occurred this floor." : "Кровавая линия: промоушен закрыт — на этаже уже было взятие.", "r");
-	if (S$1.challenge === "chaos_wheel" && S$1.turn > 0 && S$1.turn % 3 === 0) {
-		const alive = S$1.player.wheel.map((f, idx) => f ? idx : -1).filter((idx) => idx >= 0 && idx !== S$1.player.active);
+	if (!S$7.promotionUsed && bloodBlocked && activeForm().type === "pawn" && S$7.player.y === 0) log$4(isEnglish() ? "Bloodline: ascension blocked — a capture occurred this floor." : "Кровавая линия: промоушен закрыт — на этаже уже было взятие.", "r");
+	if (S$7.challenge === "chaos_wheel" && S$7.turn > 0 && S$7.turn % 3 === 0) {
+		const alive = S$7.player.wheel.map((f, idx) => f ? idx : -1).filter((idx) => idx >= 0 && idx !== S$7.player.active);
 		if (alive.length > 0) {
-			const pick = alive[Math.floor(Math.random() * alive.length)];
-			S$1.player.active = pick;
-			log(isEnglish() ? `🌀 Chaos: form switched to <b>${NAME[activeForm().type]}</b>.` : `🌀 Хаос: форма сменена на <b>${NAME[activeForm().type]}</b>.`, "p");
+			S$7.player.active = pick(alive);
+			log$4(isEnglish() ? `🌀 Chaos: form switched to <b>${NAME[activeForm().type]}</b>.` : `🌀 Хаос: форма сменена на <b>${NAME[activeForm().type]}</b>.`, "p");
 		}
 	}
 	tutorialCheck();
@@ -10780,23 +12059,58 @@ function endPlayerTurn() {
 function startPlayerTurn() {
 	if (isTutorial()) return false;
 	if (has("toxic_aura")) {
-		for (const o of S$1.enemies) if (cheb(o, S$1.player) <= 1) applyStatus(o, "poison", 1);
+		for (const o of S$7.enemies) if (cheb(o, S$7.player) <= 1) applyStatus(o, "poison", 1);
 	}
-	if (statusVal(S$1.player, "poison") > 0) {
-		S$1.player.status.poison--;
-		if (S$1.player.status.poison <= 0) {
-			log(isEnglish() ? "Poison destroys your form." : "Яд разрушает твою форму.", "r");
-			degradePlayer(null);
-			if (S$1.gameOver) return true;
+	if (statusVal(S$7.player, "poison") > 0) {
+		S$7.player.status.poison--;
+		if (S$7.player.status.poison <= 0) {
+			emitVisual({
+				type: "vignette",
+				color: "#496f3d",
+				durationMs: 420
+			});
+			log$4(isEnglish() ? "Poison destroys your form." : "Яд разрушает твою форму.", "r");
+			degradePlayer(null, "poison");
+			if (S$7.gameOver) return true;
 		}
 	}
-	if (statusVal(S$1.player, "stun") > 0) {
-		S$1.player.status.stun--;
-		log(isEnglish() ? "You are stunned — turn skipped." : "Ты оглушён — ход пропущен.", "r");
+	if (statusVal(S$7.player, "stun") > 0) {
+		S$7.player.status.stun--;
+		log$4(isEnglish() ? "You are stunned — turn skipped." : "Ты оглушён — ход пропущен.", "r");
 		enemiesTurn();
 		return true;
 	}
 	return false;
+}
+function grantEndlessBossReward() {
+	const room = S$7.specialRoom;
+	if (S$7.runMode !== "infinite" || !room || room.rewardGranted) return;
+	room.rewardGranted = true;
+	const definition = BOSS_DEFINITIONS[room.id];
+	if (!definition) return;
+	unlockAch(definition.achievement);
+	if (room.difficulty >= 2) unlockAch(`endless_${room.id}_hard`);
+	unlockAch(`endless_${room.id}_mastery`);
+	if (definition.reward === "tormentor_guard") {
+		addTemporaryEffect(S$7.player, {
+			id: "boss_guard",
+			remainingTurns: 5,
+			armor: 1,
+			expiresOnFormLoss: true
+		});
+		log$4(isEnglish() ? "Tormentor’s Guard: 1 armor for 5 turns." : "Страж Мучителя: 1 броня на 5 ходов.", "g");
+	} else if (definition.reward === "rooks_momentum") {
+		S$7.player.wheel.forEach((form) => {
+			if (form) form.cooldown = 0;
+		});
+		log$4(isEnglish() ? "Rooks’ Momentum: all forms are refreshed." : "Импульс Ладей: усталость всех форм снята.", "g");
+	} else if (definition.reward === "millstone_feast") {
+		S$7.player.hunger = Math.min(CFG.HUNGER.cap, S$7.player.hunger + CFG.HUNGER.food);
+		log$4(isEnglish() ? "Millstone Feast: restore 10 hunger." : "Жерновая трапеза: +10 сытости.", "g");
+	} else if (definition.reward === "red_king_haste") {
+		applyStatus(S$7.player, "haste", 2);
+		log$4(isEnglish() ? "Red King’s Tempo: haste for 2 turns." : "Темп Красного Короля: ускорение на 2 хода.", "g");
+	}
 }
 function afterEnemies() {
 	if (isTutorial()) {
@@ -10804,37 +12118,45 @@ function afterEnemies() {
 		syncUI();
 		return;
 	}
-	S$1.turn++;
-	if (S$1.player.boneVoiceTimer > 0) {
-		S$1.player.boneVoiceTimer--;
-		if (S$1.player.boneVoiceTimer > 0 && Math.random() < .4) {
+	if (S$7.scenario) {
+		if (advanceScenario() || S$7.scenario.completed) {
+			render();
+			syncUI();
+			return;
+		}
+	}
+	S$7.turn++;
+	if (S$7.player.boneVoiceTimer > 0) {
+		S$7.player.boneVoiceTimer--;
+		if (S$7.player.boneVoiceTimer > 0 && random() < .4) {
 			const ft = activeForm().type;
 			const lines = getScript().boneVoices[ft];
 			if (lines && lines.length) {
-				const line = lines[Math.floor(Math.random() * lines.length)];
-				addSpeech(S$1.player.x, S$1.player.y, line, "bone");
-				log(line);
+				const line = pick(lines);
+				speech$1(S$7.player.x, S$7.player.y, line, "bone");
+				log$4(line);
 			}
 		}
 	}
-	S$1.player.wheel.forEach((f) => {
+	S$7.player.wheel.forEach((f) => {
 		if (f && f.cooldown > 0) f.cooldown--;
 	});
 	spreadLava();
-	if (S$1.challenge === "storm") unlockAch("storm_chaser");
-	if (S$1.challenge === "lone_figure") unlockAch("glass_cannon");
-	const millQuota = BOSS_CFG.puppeteer.jamQuota;
-	if (bossOnFloor(S$1.floor) === "millstone" && S$1.millFed >= millQuota && !S$1.gameOver) {
-		const room = S$1.rooms[S$1.currentRoom];
+	if (S$7.challenge === "storm") unlockAch("storm_chaser");
+	if (S$7.challenge === "lone_figure") unlockAch("glass_cannon");
+	const millQuota = BOSS_CONFIG.puppeteer.jamQuota;
+	if ((S$7.specialRoom?.id === "millstone" || bossOnFloor(S$7.floor) === "millstone") && S$7.millFed >= millQuota && !S$7.gameOver) {
+		const room = S$7.rooms[S$7.currentRoom];
 		if (room && !room.cleared) {
 			room.cleared = true;
 			room.enemies = [];
 		}
-		log(isEnglish() ? "Floor cleared! The millstone is jammed." : "Ярус зачищен! Жернов встал.", "g");
-		if (!S$1.player.lostFormThisFloor) unlockAch("flawless");
+		log$4(isEnglish() ? "Floor cleared! The millstone is jammed." : "Ярус зачищен! Жернов встал.", "g");
+		if (!S$7.player.lostFormThisFloor) unlockAch("flawless");
+		grantEndlessBossReward();
 		render();
 		syncUI();
-		if (S$1.runMode === "campaign" && getScript().interludes.act2to3) {
+		if (S$7.runMode === "campaign" && getScript().interludes.act2to3) {
 			openInterlude({
 				...getScript().interludes.act2to3,
 				art: ART.act2to3
@@ -10844,36 +12166,37 @@ function afterEnemies() {
 		offerLoot();
 		return;
 	}
-	if (S$1.enemies.length === 0 && !S$1.gameOver) {
+	if (S$7.enemies.length === 0 && !S$7.gameOver) {
 		if (isEditorRunning()) {
 			closeModal();
-			log(isEnglish() ? "All enemies destroyed — simulation complete." : "Все враги уничтожены — симуляция завершена.", "g");
+			log$4(isEnglish() ? "All enemies destroyed — simulation complete." : "Все враги уничтожены — симуляция завершена.", "g");
 			stopEditorRun();
 			return;
 		}
-		const room = S$1.rooms[S$1.currentRoom];
+		const room = S$7.rooms[S$7.currentRoom];
 		if (room && !room.cleared) {
 			room.cleared = true;
 			room.enemies = [];
 		}
-		if (!S$1.rooms.every((r) => r.cleared)) {
-			log(isEnglish() ? "Room cleared — find a door to the remaining enemies." : "Комната зачищена — пройди через дверь к оставшимся врагам.", "g");
+		if (!S$7.rooms.every((r) => r.cleared)) {
+			log$4(isEnglish() ? "Room cleared — find a door to the remaining enemies." : "Комната зачищена — пройди через дверь к оставшимся врагам.", "g");
 			render();
 			syncUI();
 			return;
 		}
-		if (S$1.runMode === "campaign" && isFinalFloor(S$1.floor)) {
-			log(isEnglish() ? "The King has fallen. The Dungeon went silent." : "Король пал. Подземелье затихло.", "g");
+		if (S$7.runMode === "campaign" && isFinalFloor(S$7.floor)) {
+			log$4(isEnglish() ? "The King has fallen. The Dungeon went silent." : "Король пал. Подземелье затихло.", "g");
 			openVictory();
 			return;
 		}
-		log(isEnglish() ? "Floor cleared!" : "Ярус зачищен!", "g");
-		if (!S$1.player.lostFormThisFloor) unlockAch("flawless");
-		if (!S$1.player.capturedThisFloor) unlockAch("pacifist");
+		log$4(isEnglish() ? "Floor cleared!" : "Ярус зачищен!", "g");
+		if (!S$7.player.lostFormThisFloor) unlockAch("flawless");
+		if (!S$7.player.capturedThisFloor) unlockAch("pacifist");
+		grantEndlessBossReward();
 		render();
 		syncUI();
-		if (S$1.runMode === "campaign") {
-			if (S$1.floor === 5 && getScript().interludes.act1to2) {
+		if (S$7.runMode === "campaign") {
+			if (S$7.floor === 5 && getScript().interludes.act1to2) {
 				openInterlude({
 					...getScript().interludes.act1to2,
 					art: ART.act1to2,
@@ -10881,7 +12204,7 @@ function afterEnemies() {
 				}, () => offerLoot());
 				return;
 			}
-			if (S$1.floor === 11 && getScript().interludes.act2to3) {
+			if (S$7.floor === 11 && getScript().interludes.act2to3) {
 				openInterlude({
 					...getScript().interludes.act2to3,
 					art: ART.act2to3
@@ -10893,7 +12216,7 @@ function afterEnemies() {
 		return;
 	}
 	if (startPlayerTurn()) return;
-	if (S$1.gameOver) {
+	if (S$7.gameOver) {
 		render();
 		syncUI();
 		return;
@@ -10904,109 +12227,144 @@ function afterEnemies() {
 	syncUI();
 }
 function spreadLava() {
-	if (!S$1.special) return;
-	const lavas = [...S$1.special.entries()].filter(([_, s]) => s.type === "lava");
-	if (!lavas.length || lavas.length >= 8 || Math.random() > .3) return;
+	if (!S$7.special) return;
+	const lavas = [...S$7.special.entries()].filter(([_, s]) => s.type === "lava");
+	if (!lavas.length || lavas.length >= 8 || random() > .3) return;
 	const [lk] = pick(lavas);
 	const [lx, ly] = lk.split(",").map(Number);
 	const opts = ORTHO.map(([dx, dy]) => ({
 		x: lx + dx,
 		y: ly + dy
-	})).filter((c) => c.x > 0 && c.x < CFG.W - 1 && c.y > 0 && c.y < CFG.H - 1 && !S$1.walls.has(key(c.x, c.y)) && !S$1.special.get(key(c.x, c.y)) && !enemyAt(c.x, c.y) && !(S$1.player.x === c.x && S$1.player.y === c.y));
+	})).filter((c) => c.x > 0 && c.x < CFG.W - 1 && c.y > 0 && c.y < CFG.H - 1 && !S$7.walls.has(key(c.x, c.y)) && !S$7.special.get(key(c.x, c.y)) && !enemyAt(c.x, c.y) && !(S$7.player.x === c.x && S$7.player.y === c.y));
 	if (opts.length) {
 		const c = pick(opts);
-		S$1.special.set(key(c.x, c.y), { type: "lava" });
+		S$7.special.set(key(c.x, c.y), { type: "lava" });
 	}
 }
-function degradePlayer(byEnemy) {
-	if (S$1.godMode) return;
+/**
+* Снимает активную форму либо завершает забег, если формы больше нет.
+* @param byEnemy Враг, совершивший взятие; `null` для опасности окружения.
+* @param reason Стабильный код причины для итогового события аналитики и replay.
+*/
+function degradePlayer(byEnemy, reason = byEnemy ? "enemy_capture" : "hazard") {
+	emitVisual({
+		type: "shake",
+		strength: byEnemy ? 7 : 4,
+		durationMs: 180
+	});
+	if (S$7.godMode) return;
 	const f = activeForm();
 	if (byEnemy && has("venom")) applyStatus(byEnemy, "poison", 2);
-	if (statusVal(S$1.player, "shield") > 0) {
-		S$1.player.status.shield--;
-		log(isEnglish() ? "Shield absorbs the capture!" : "Щит поглощает взятие!", "g");
+	if (statusVal(S$7.player, "shield") > 0) {
+		S$7.player.status.shield--;
+		log$4(isEnglish() ? "Shield absorbs the capture!" : "Щит поглощает взятие!", "g");
 		if (byEnemy) {
 			byEnemy.cd = CFG.ENEMY_CAPTURE_CD;
 			if (has("bulwark")) applyStatus(byEnemy, "stun", 1);
 		}
 		return;
 	}
-	if (f.type === "pawn" && has("pawn_shield") && !S$1.player.pawnShieldUsed) {
-		S$1.player.pawnShieldUsed = true;
-		log(isEnglish() ? "Pawn Talisman flares — capture deflected! (one-use)" : "Талисман пешки вспыхивает — взятие отражено! (одноразово)", "g");
+	if (f.type === "pawn" && has("pawn_shield") && !S$7.player.pawnShieldUsed) {
+		S$7.player.pawnShieldUsed = true;
+		log$4(isEnglish() ? "Pawn Talisman flares — capture deflected! (one-use)" : "Талисман пешки вспыхивает — взятие отражено! (одноразово)", "g");
 		if (byEnemy) byEnemy.cd = CFG.ENEMY_CAPTURE_CD;
 		return;
 	}
-	if (S$1.challenge === "lone_figure") {
-		death();
+	if (consumeTemporaryArmor(S$7.player)) {
+		log$4(isEnglish() ? "Temporary armor absorbs the capture!" : "Временная броня поглощает взятие!", "g");
+		if (byEnemy) byEnemy.cd = CFG.ENEMY_CAPTURE_CD;
 		return;
 	}
-	if (byEnemy) log(isEnglish() ? `${GLYPH[byEnemy.type]} ${NAME_EN[byEnemy.type]} captures you! Form «${NAME_EN[f.type]}» destroyed.` : `${GLYPH[byEnemy.type]} ${NAME[byEnemy.type]} берёт тебя! Форма «${NAME[f.type]}» уничтожена.`, "r");
-	else log(isEnglish() ? `Form «${NAME_EN[f.type]}» destroyed.` : `Форма «${NAME[f.type]}» уничтожена.`, "r");
-	if (byEnemy && curse("hex")) applyStatus(S$1.player, "poison", 2);
-	if (f.type === "pawn" && S$1.challenge !== "lone_figure") {
-		death();
+	if (S$7.challenge === "lone_figure") {
+		death(reason);
 		return;
 	}
-	S$1.player.wheel[S$1.player.active] = null;
-	S$1.player.lostFormThisFloor = true;
-	const alive = S$1.player.wheel.map((s, i) => ({
+	if (byEnemy) log$4(isEnglish() ? `${GLYPH[byEnemy.type]} ${NAME_EN[byEnemy.type]} captures you! Form «${NAME_EN[f.type]}» destroyed.` : `${GLYPH[byEnemy.type]} ${NAME[byEnemy.type]} берёт тебя! Форма «${NAME[f.type]}» уничтожена.`, "r");
+	else log$4(isEnglish() ? `Form «${NAME_EN[f.type]}» destroyed.` : `Форма «${NAME[f.type]}» уничтожена.`, "r");
+	if (byEnemy && curse("hex")) applyStatus(S$7.player, "poison", 2);
+	if (f.type === "pawn" && S$7.challenge !== "lone_figure") {
+		death(reason);
+		return;
+	}
+	S$7.player.wheel[S$7.player.active] = null;
+	removeEffectsOnFormLoss(S$7.player);
+	S$7.player.lostFormThisFloor = true;
+	const alive = S$7.player.wheel.map((s, i) => ({
 		s,
 		i
 	})).filter((v) => v.s);
 	alive.sort((a, b) => CFG.LADDER[b.s.type] - CFG.LADDER[a.s.type]);
 	const lower = alive.find((v) => CFG.LADDER[v.s.type] <= CFG.LADDER[f.type]) || alive[alive.length - 1];
-	S$1.player.active = lower.i;
-	log(isEnglish() ? `Degradation → you are now <b>${NAME_EN[activeForm().type]}</b>.${byEnemy ? ` Enemy catches breath (${CFG.ENEMY_CAPTURE_CD} t.).` : ""}` : `Деградация → теперь ты <b>${NAME[activeForm().type]}</b>.${byEnemy ? ` Враг переводит дух (${CFG.ENEMY_CAPTURE_CD} х.).` : ""}`, "r");
+	S$7.player.active = lower.i;
+	log$4(isEnglish() ? `Degradation → you are now <b>${NAME_EN[activeForm().type]}</b>.${byEnemy ? ` Enemy catches breath (${CFG.ENEMY_CAPTURE_CD} t.).` : ""}` : `Деградация → теперь ты <b>${NAME[activeForm().type]}</b>.${byEnemy ? ` Враг переводит дух (${CFG.ENEMY_CAPTURE_CD} х.).` : ""}`, "r");
 }
-function death() {
+/**
+* Завершает забег единственным идемпотентным путём.
+*
+* В эту функцию сходятся взятие последней формы, голод, яд, мат и правила
+* испытаний. Повторный вызов после `S.gameOver` ничего не делает: это не даёт
+* дважды начислить пепел или отправить две записи аналитики, если несколько
+* эффектов сработали в рамках одного хода.
+* @param reason Машиночитаемая причина, добавляемая в событие аналитики.
+* @returns `true`, если забег был завершён этим вызовом.
+*/
+function death(reason = "unknown") {
+	if (S$7.gameOver) return false;
 	if (isEditorRunning()) {
 		closeModal();
-		log(isEnglish() ? "Death in test simulation." : "Смерть в тестовой симуляции.", "r");
+		log$4(isEnglish() ? "Death in test simulation." : "Смерть в тестовой симуляции.", "r");
 		stopEditorRun();
-		return;
+		return true;
 	}
-	S$1.gameOver = true;
+	S$7.gameOver = true;
 	finishAnalyticsRun("death", {
-		floor: S$1.floor,
-		turn: S$1.turn
+		floor: S$7.floor,
+		turn: S$7.turn,
+		reason
 	});
 	sting("death");
 	const earned = endRunMeta();
 	openRunSummary(L("summary.dead"), L("summary.deadSub"), earned);
+	return true;
 }
 function checkMate() {
-	if (S$1.gameOver) return;
-	const onThreat = allThreats().has(key(S$1.player.x, S$1.player.y));
+	if (S$7.gameOver) return;
+	const onThreat = allThreats().has(key(S$7.player.x, S$7.player.y));
 	dom.shahEl.classList.toggle("on", onThreat);
 	if (!onThreat) return;
 	const { moves, captures } = playerOptions();
-	const canSwitch = S$1.player.wheel.some((f, i) => f && i !== S$1.player.active && f.cooldown === 0);
+	const canSwitch = S$7.player.wheel.some((f, i) => f && i !== S$7.player.active && f.cooldown === 0);
 	if (moves.length || captures.length || canSwitch) return;
-	log(isEnglish() ? "No moves. You are taken on the spot." : "Ходов нет. Тебя вскрывают на месте.", "r");
-	degradePlayer(null);
-	if (S$1.gameOver) return;
-	for (const e of S$1.enemies) if (cheb(e, S$1.player) === 1) {
-		const nx = e.x + Math.sign(e.x - S$1.player.x), ny = e.y + Math.sign(e.y - S$1.player.y);
-		if (inB$1(nx, ny) && !S$1.walls.has(key(nx, ny)) && !enemyAt(nx, ny)) {
+	log$4(isEnglish() ? "No moves. You are taken on the spot." : "Ходов нет. Тебя вскрывают на месте.", "r");
+	emitVisual({
+		type: "vignette",
+		color: "#8d1e2f",
+		durationMs: 480
+	});
+	degradePlayer(null, "checkmate");
+	if (S$7.gameOver) return;
+	for (const e of S$7.enemies) if (cheb(e, S$7.player) === 1) {
+		const nx = e.x + Math.sign(e.x - S$7.player.x), ny = e.y + Math.sign(e.y - S$7.player.y);
+		if (inB$1(nx, ny) && !S$7.walls.has(key(nx, ny)) && !enemyAt(nx, ny)) {
 			e.x = nx;
 			e.y = ny;
 		}
 	}
 }
+var hasFallenBones = () => Object.keys(META.codex.relics).length >= 12;
 function openVictory() {
 	if (isEditorRunning()) {
 		closeModal();
-		log(isEnglish() ? "Victory in test simulation." : "Победа в тестовой симуляции.", "g");
+		log$4(isEnglish() ? "Victory in test simulation." : "Победа в тестовой симуляции.", "g");
 		stopEditorRun();
 		return;
 	}
-	S$1.gameOver = true;
+	S$7.gameOver = true;
 	finishAnalyticsRun("victory", {
-		floor: S$1.floor,
-		turn: S$1.turn
+		floor: S$7.floor,
+		turn: S$7.turn
 	});
-	S$1.modalOpen = true;
+	S$7.modalOpen = true;
 	playTrack("ending");
 	const earned = endRunMeta();
 	const finish = (id, art) => {
@@ -11019,24 +12377,22 @@ function openVictory() {
 		}, () => openRunSummary(e.title, "", earned, { win: true }));
 		else openRunSummary(L("app.title"), "", earned, { win: true });
 	};
-	openModal(L("modal.victory"), L("modal.victoryText", S$1.floor, S$1.player.totalCaptures, earned), [
-		{
-			label: L("modal.victoryKill"),
-			fn: () => finish("kill", ART.endingKill)
-		},
-		{
-			label: L("modal.victoryThrone"),
-			fn: () => finish("throne", ART.endingThrone)
-		},
-		{
-			label: L("modal.victoryBreak"),
-			fn: () => finish("breakBoard", ART.endingBreak)
-		}
-	], false);
+	const choices = [{
+		label: L("modal.victoryKill"),
+		fn: () => finish("kill", ART.endingKill)
+	}, {
+		label: L("modal.victoryThrone"),
+		fn: () => finish("throne", ART.endingThrone)
+	}];
+	if (hasFallenBones()) choices.push({
+		label: L("modal.victoryBreak"),
+		fn: () => finish("breakBoard", ART.endingBreak)
+	});
+	openModal(L("modal.victory"), L("modal.victoryText", S$7.floor, S$7.player.totalCaptures, earned), choices, false);
 }
 function openPromotion() {
-	S$1.promotionUsed = true;
-	const choices = [...S$1.unlocked].filter((t) => t !== "pawn");
+	S$7.promotionUsed = true;
+	const choices = [...S$7.unlocked].filter((t) => t !== "pawn");
 	if (choices.length === 0) {
 		enemiesTurn();
 		return;
@@ -11044,13 +12400,13 @@ function openPromotion() {
 	openModal(L("modal.promotion"), L("modal.promotionText"), choices.map((t) => ({
 		label: GLYPH[t] + " " + (isEnglish() ? NAME_EN[t] : NAME[t]),
 		fn: () => {
-			const f = makeForm(t, tileColor(S$1.player.x, S$1.player.y), true);
-			let slot = S$1.player.wheel.findIndex((s, i) => i > 0 && s === null);
-			if (slot === -1) slot = S$1.player.wheel.findIndex((s, i) => i > 0 && s.type === t);
-			if (slot === -1) slot = S$1.player.wheel.length - 1;
-			S$1.player.wheel[slot] = f;
-			S$1.player.active = slot;
-			log(isEnglish() ? `Ascension: you become <b>${NAME_EN[t]} ★</b> (slot ${slot}).` : `Восхождение: превращаешься в <b>${NAME[t]} ★</b> (слот ${slot}).`, "g");
+			const f = makeForm(t, tileColor(S$7.player.x, S$7.player.y), true);
+			let slot = S$7.player.wheel.findIndex((s, i) => i > 0 && s === null);
+			if (slot === -1) slot = S$7.player.wheel.findIndex((s, i) => i > 0 && s.type === t);
+			if (slot === -1) slot = S$7.player.wheel.length - 1;
+			S$7.player.wheel[slot] = f;
+			S$7.player.active = slot;
+			log$4(isEnglish() ? `Ascension: you become <b>${NAME_EN[t]} ★</b> (slot ${slot}).` : `Восхождение: превращаешься в <b>${NAME[t]} ★</b> (слот ${slot}).`, "g");
 			playPromotion();
 			if (t === "queen") unlockAch("kingmaker");
 			closeModal();
@@ -11086,12 +12442,13 @@ function ensureChild(host, id, tag = "div", cls = "") {
 * Игрок должен уметь ответить на вопрос «сколько у меня ходов» не считая рёбра.
 */
 function renderHunger() {
-	if (!dom.hungerRibs || !S$1.player || S$1.player.hunger === void 0) return;
+	if (!dom.hungerRibs || !S$7.player || S$7.player.hunger === void 0) return;
 	const max = CFG.HUNGER.cap ?? CFG.HUNGER.start;
-	const val = Math.max(0, Math.min(max, S$1.player.hunger));
-	const perTurn = CFG.HUNGER.perTurn || 1;
+	const val = Math.max(0, Math.min(max, S$7.player.hunger));
+	const satiety = S$7.player.temporaryEffects?.find((effect) => effect.id === "satiety");
+	const perTurn = (CFG.HUNGER.perTurn || 1) * (satiety ? .5 : 1);
 	const turns = Math.ceil(val / perTurn);
-	const frozen = S$1.runMode === "campaign" && isBossFloor(S$1.floor);
+	const frozen = !!S$7.roomRules?.freezeHunger;
 	let html = "";
 	for (let i = 0; i < max; i++) {
 		if (i > 0 && i % HUNGER_GROUP === 0) html += "<span class=\"rib-gap\"></span>";
@@ -11110,12 +12467,12 @@ function renderHunger() {
 		if (dom.hungerRibs.parentNode) dom.hungerRibs.parentNode.insertBefore(el, dom.hungerRibs.nextSibling);
 	}
 	el.className = frozen ? "hcount frozen" : turns <= HUNGER_GROUP ? "hcount warn" : "hcount";
-	el.textContent = frozen ? L("hud.hungerFrozen", val) : val + " · " + L("hud.turnsLeft", turns);
+	el.textContent = frozen ? L("hud.hungerFrozen", val) : val + " · " + L("hud.turnsLeft", turns) + (satiety ? ` · ✦ ${satiety.remainingTurns}` : "");
 	el.title = frozen ? L("hud.hungerFrozenTTL") : L("hud.hungerTTL", val, max, CFG.HUNGER.capture, CFG.HUNGER.food, CFG.HUNGER.passExtra);
 }
 /** Какой ключ нужен, чтобы войти в комнату i (null — открыта). */
 function lockOf(i) {
-	for (const room of S$1.rooms) {
+	for (const room of S$7.rooms) {
 		if (!room || !room.special) continue;
 		for (const [, s] of room.special) if (s.type === "door" && s.targetRoom === i && s.color) return s.color;
 	}
@@ -11123,16 +12480,16 @@ function lockOf(i) {
 }
 function renderRooms(host) {
 	const el = ensureChild(host, "roomMap", "div", "roommap");
-	if (!S$1.rooms || S$1.rooms.length <= 1) {
+	if (!S$7.rooms || S$7.rooms.length <= 1) {
 		el.style.display = "none";
 		return;
 	}
 	el.style.display = "";
 	let html = "<span class=\"rm-label\">" + L("hud.rooms") + "</span>";
-	S$1.rooms.forEach((r, i) => {
+	S$7.rooms.forEach((r, i) => {
 		if (i) html += "<span class=\"rm-link\"></span>";
-		const cur = i === S$1.currentRoom;
-		const left = cur ? S$1.enemies.length : (r.enemies || []).length;
+		const cur = i === S$7.currentRoom;
+		const left = cur ? S$7.enemies.length : (r.enemies || []).length;
 		const lock = r.cleared ? null : lockOf(i);
 		const cls = "rm" + (r.cleared ? " rm-clear" : "") + (cur ? " rm-cur" : "") + (lock && !cur ? " rm-lock" : "");
 		const face = r.cleared ? "✓" : lock && !cur ? KEY_GLYPH[lock] : left || "·";
@@ -11149,8 +12506,8 @@ function renderMods() {
 	const card = document.getElementById("relicCard");
 	const box = document.getElementById("relics");
 	if (!card || !box) return;
-	const rids = [...S$1.player.relics];
-	const cids = [...S$1.player.curses];
+	const rids = [...S$7.player.relics];
+	const cids = [...S$7.player.curses];
 	card.style.display = rids.length || cids.length ? "block" : "none";
 	if (!rids.length && !cids.length) return;
 	let head = document.getElementById("modHead");
@@ -11210,11 +12567,11 @@ function decorateWheel() {
 /** Кто держит игрока под боем прямо сейчас. Дублирует индикатор шаха словами. */
 function renderCheck(host) {
 	const el = ensureChild(host, "checkLine", "div", "checkline");
-	if (S$1.gameOver || !S$1.player) {
+	if (S$7.gameOver || !S$7.player) {
 		el.style.display = "none";
 		return;
 	}
-	const by = threatenersAt(S$1.player.x, S$1.player.y);
+	const by = threatenersAt(S$7.player.x, S$7.player.y);
 	if (!by.length) {
 		el.style.display = "none";
 		return;
@@ -11239,73 +12596,6 @@ function syncHud() {
 		console.error("syncHud", e);
 	}
 }
-//#endregion
-//#region \0vite/preload-helper.js
-var scriptRel = "modulepreload";
-var assetsURL = function(dep, importerUrl) {
-	return new URL(dep, importerUrl).href;
-};
-var seen = {};
-var __vitePreload = function preload(baseModule, deps, importerUrl) {
-	let promise = Promise.resolve();
-	if (deps && deps.length > 0) {
-		const links = document.getElementsByTagName("link");
-		const cspNonceMeta = document.querySelector("meta[property=csp-nonce]");
-		const cspNonce = cspNonceMeta?.nonce || cspNonceMeta?.getAttribute("nonce");
-		function allSettled(promises) {
-			return Promise.all(promises.map((p) => Promise.resolve(p).then((value) => ({
-				status: "fulfilled",
-				value
-			}), (reason) => ({
-				status: "rejected",
-				reason
-			}))));
-		}
-		function importMetaResolve(specifier) {
-			if (import.meta.resolve) return import.meta.resolve(specifier);
-			return new URL(
-				specifier,
-				/** #__KEEP__ */
-				import.meta.url
-			).href;
-		}
-		promise = allSettled(deps.map((dep) => {
-			dep = assetsURL(dep, importerUrl);
-			dep = importMetaResolve(dep);
-			if (dep in seen) return;
-			seen[dep] = true;
-			const isCss = dep.endsWith(".css");
-			for (let i = links.length - 1; i >= 0; i--) {
-				const link = links[i];
-				if (link.href === dep && (!isCss || link.rel === "stylesheet")) return;
-			}
-			const link = document.createElement("link");
-			link.rel = isCss ? "stylesheet" : scriptRel;
-			if (!isCss) link.as = "script";
-			link.crossOrigin = "";
-			link.href = dep;
-			if (cspNonce) link.setAttribute("nonce", cspNonce);
-			document.head.appendChild(link);
-			if (isCss) return new Promise((res, rej) => {
-				link.addEventListener("load", res);
-				link.addEventListener("error", () => rej(/* @__PURE__ */ new Error(`Unable to preload CSS for ${dep}`)));
-			});
-		}));
-	}
-	function handlePreloadError(err) {
-		const e = new Event("vite:preloadError", { cancelable: true });
-		e.payload = err;
-		window.dispatchEvent(e);
-		if (!e.defaultPrevented) throw err;
-	}
-	return promise.then((res) => {
-		for (const item of res || []) {
-			if (item.status !== "rejected") continue;
-			handlePreloadError(item.reason);
-		}
-		return baseModule().catch(handlePreloadError);
-	});
-};
 //#endregion
 //#region src/ui.js
 /**
@@ -11394,7 +12684,7 @@ function trapFocus() {
 * @param {boolean} [opts.dismissible] — можно ли закрыть окно Esc/кликом по фону/назад (default true)
 */
 function shell(size = "md", art = null, mode = "aside", opts = {}) {
-	S$1.modalOpen = true;
+	S$7.modalOpen = true;
 	_modalDismissible = opts.dismissible !== false;
 	dom.modalBox.classList.remove("m-sm", "m-md", "m-lg", "death");
 	dom.modalBox.classList.add("m-" + size);
@@ -11435,7 +12725,7 @@ function shell(size = "md", art = null, mode = "aside", opts = {}) {
 }
 /** Закрыть окно если оно закрываемо. Вызывается из Esc, клика по оверлею, popstate. */
 function dismissModal() {
-	if (!_modalDismissible || !S$1.modalOpen) return;
+	if (!_modalDismissible || !S$7.modalOpen) return;
 	const again = el("mActions")?.querySelector("button.again");
 	if (again) {
 		again.click();
@@ -11469,9 +12759,9 @@ function openRunSummary(title, subtitle, earned, opts = {}) {
 	dom.mText.textContent = win ? subtitle : title + " — " + subtitle;
 	dom.mChoices.classList.add("loot-list");
 	var isEnSummary = isEnglish();
-	var rids = [...S$1.player.relics];
-	var cids = [...S$1.player.curses];
-	var formsUnlocked = [...S$1.unlocked].filter(function(t) {
+	var rids = [...S$7.player.relics];
+	var cids = [...S$7.player.curses];
+	var formsUnlocked = [...S$7.unlocked].filter(function(t) {
 		return t !== "pawn";
 	}).map(function(t) {
 		return isEnSummary && NAME_EN[t] ? NAME_EN[t] : NAME[t];
@@ -11479,7 +12769,7 @@ function openRunSummary(title, subtitle, earned, opts = {}) {
 	var wrap = document.createElement("div");
 	wrap.className = "summary";
 	var formsText = formsUnlocked.length ? formsUnlocked.join(", ") : L("summary.formsOnlyPawnKnight");
-	wrap.innerHTML = "<div class=\"sfloor\"><span class=\"snum\">" + S$1.floor + "</span><span class=\"slbl\">" + L("summary.floor") + "</span></div><div class=\"sstats\"><div><b>" + S$1.player.totalCaptures + "</b> " + L("summary.captures") + "</div><div><b>" + rids.length + "</b> " + L("summary.bones") + " · <b>" + cids.length + "</b> " + L("summary.seams") + "</div><div>" + L("summary.forms", formsText) + "</div><div class=\"searn\">" + L("summary.ashEarned", earned, META.shards) + "</div><div class=\"srec\">" + L("summary.record", META.bestFloor, META.runs) + "</div></div>" + (rids.length ? "<div class=\"ssec\"><div class=\"sh\">" + L("summary.bones") + "</div><div class=\"relics\">" + rids.map(function(id) {
+	wrap.innerHTML = "<div class=\"sfloor\"><span class=\"snum\">" + S$7.floor + "</span><span class=\"slbl\">" + L("summary.floor") + "</span></div><div class=\"sstats\"><div><b>" + S$7.player.totalCaptures + "</b> " + L("summary.captures") + "</div><div><b>" + rids.length + "</b> " + L("summary.bones") + " · <b>" + cids.length + "</b> " + L("summary.seams") + "</div><div>" + L("summary.forms", formsText) + "</div><div class=\"searn\">" + L("summary.ashEarned", earned, META.shards) + "</div><div class=\"srec\">" + L("summary.record", META.bestFloor, META.runs) + "</div><div class=\"sseed\">" + L("summary.seed", S$7.runSeed) + "</div></div>" + (rids.length ? "<div class=\"ssec\"><div class=\"sh\">" + L("summary.bones") + "</div><div class=\"relics\">" + rids.map(function(id) {
 		return "<span class=\"chip\" title=\"" + LContent(RELICS[id], "desc") + "\">" + LContent(RELICS[id], "name") + "</span>";
 	}).join("") + "</div></div>" : "") + (cids.length ? "<div class=\"ssec\"><div class=\"sh\">" + L("summary.seams") + "</div><div class=\"relics\">" + cids.map(function(id) {
 		return "<span class=\"chip curse\" title=\"" + LContent(CURSES[id], "desc") + "\">☠ " + LContent(CURSES[id], "name") + "</span>";
@@ -11507,7 +12797,7 @@ function openTitle() {
 	const seg = document.createElement("div");
 	seg.className = "mode-seg";
 	const setMode = (m) => {
-		S$1.runMode = m;
+		S$7.runMode = m;
 		bCamp.classList.toggle("on", m === "campaign");
 		bInf.classList.toggle("on", m === "infinite");
 		hint.textContent = m === "campaign" ? L("meta.campDesc") : L("meta.infDesc");
@@ -11520,7 +12810,7 @@ function openTitle() {
 		actions.appendChild(seg);
 		actions.appendChild(hint);
 	}
-	setMode(S$1.runMode || "campaign");
+	setMode(S$7.runMode || "campaign");
 	action(mkButton(L("meta.startRun"), () => {
 		closeModal();
 		reset();
@@ -11584,10 +12874,10 @@ function openTitle() {
 		row.innerHTML = "<div class=\"si\"><span class=\"ln\">" + c.icon + " " + cname + "</span><span class=\"ld\">" + cdesc + "</span></div>";
 		const btn = document.createElement("button");
 		btn.className = "buy";
-		btn.textContent = S$1.challenge === id ? isEnTitle ? "selected" : "выбран" : isEnTitle ? "select" : "выбрать";
-		btn.style.borderColor = S$1.challenge === id ? "#e08a3f" : "";
+		btn.textContent = S$7.challenge === id ? isEnTitle ? "selected" : "выбран" : isEnTitle ? "select" : "выбрать";
+		btn.style.borderColor = S$7.challenge === id ? "#e08a3f" : "";
 		btn.onclick = () => {
-			S$1.challenge = S$1.challenge === id ? null : id;
+			S$7.challenge = S$7.challenge === id ? null : id;
 			openTitle();
 			tabChall.onclick();
 		};
@@ -11866,7 +13156,7 @@ function openInterlude(data, onClose) {
 		b.innerHTML = `<span class="ln">${ch.label}</span><span class="ld">${ch.desc || ""}</span>`;
 		b.onclick = () => {
 			closeModal();
-			if (ch.mercy !== void 0) S$1.mercy = (S$1.mercy || 0) + ch.mercy;
+			if (ch.mercy !== void 0) S$7.mercy = (S$7.mercy || 0) + ch.mercy;
 			if (onClose) onClose(ch);
 		};
 		dom.mChoices.appendChild(b);
@@ -11878,7 +13168,7 @@ function openInterlude(data, onClose) {
 	dom.overlay.classList.add("on");
 }
 function closeModal() {
-	S$1.modalOpen = false;
+	S$7.modalOpen = false;
 	_modalDismissible = true;
 	setInertBehind(false);
 	dom.overlay.classList.remove("on");
@@ -11926,7 +13216,7 @@ function openSettings() {
 	dom.mChoices.appendChild(mkToggle(L("settings.anim"), "ANIM_ENABLED"));
 	dom.mChoices.appendChild(mkToggle(L("settings.music"), "MUSIC_ENABLED"));
 	dom.mChoices.appendChild(mkToggle(L("settings.preview"), "SHOW_PREVIEW"));
-	const analyticsRow = mkRow(isEnglish() ? "Anonymous playtest telemetry" : "Анонимная статистика плейтеста", isEnglish() ? "Sends game actions and replays without personal data." : "Отправляет игровые действия и реплеи без персональных данных.");
+	const analyticsRow = mkRow(isEnglish() ? "Anonymous playtest telemetry" : "Анонимная статистика плейтеста", isEnglish() ? "Sends game actions and replays. No fingerprint, browser storage, or raw error details are sent." : "Отправляет игровые действия и реплеи без fingerprint, данных хранилища браузера и сырых сведений об ошибках.");
 	const analyticsBtn = document.createElement("button");
 	analyticsBtn.className = "buy";
 	analyticsBtn.textContent = CFG.ANALYTICS_ENABLED ? L("on") : L("off");
@@ -11936,7 +13226,7 @@ function openSettings() {
 		if (CFG.ANALYTICS_ENABLED) {
 			startAnalyticsRun({
 				enabledFromSettings: true,
-				mode: S$1.runMode || "campaign"
+				mode: S$7.runMode || "campaign"
 			});
 			recordSnapshot("analytics_enabled");
 		}
@@ -11997,9 +13287,7 @@ function openSettings() {
 	const tBtn = document.createElement("button");
 	tBtn.className = "buy";
 	tBtn.textContent = L("settings.tutorialBtn");
-	tBtn.onclick = () => {
-		__vitePreload(() => Promise.resolve().then(() => tutorial_exports).then((m) => m.resetHints && m.resetHints()), void 0, import.meta.url);
-	};
+	tBtn.onclick = resetHints;
 	tRow.appendChild(tBtn);
 	dom.mChoices.appendChild(tRow);
 	const langModes = [
@@ -12030,7 +13318,7 @@ var runLog = [];
 function clearRunLog() {
 	runLog.length = 0;
 }
-function log(msg, cls) {
+function log$3(msg, cls) {
 	const d = document.createElement("div");
 	if (cls) d.className = cls;
 	d.innerHTML = msg;
@@ -12044,16 +13332,16 @@ function log(msg, cls) {
 	}
 }
 function syncUI() {
-	const clearedRooms = S$1.rooms.filter((r) => r.cleared).length;
-	document.getElementById("turnNo").innerHTML = "<span class=\"hb\">" + L("summary.floor") + " " + S$1.floor + "</span>" + (S$1.biome ? "<span class=\"hb\">" + LContent(S$1.biome, "name") + "</span>" : "") + (S$1.rooms.length > 1 ? "<span class=\"hb\">" + L("hud.rooms") + " " + clearedRooms + "/" + S$1.rooms.length + "</span>" : "") + "<span class=\"hb\">#" + S$1.turn + `</span><span class="hb gold">${S$1.player.gold || 0}🪙</span><span class="hb shards">${META.shards || 0}✦</span>` + (S$1.keys.size > 0 ? `<span class="hb keys">${[...S$1.keys].map((k) => KEY_GLYPH[k]).join("")}</span>` : "");
-	const nSlots = S$1.player.wheel.length;
+	const clearedRooms = S$7.rooms.filter((r) => r.cleared).length;
+	document.getElementById("turnNo").innerHTML = "<span class=\"hb\">" + L("summary.floor") + " " + S$7.floor + "</span>" + (S$7.biome ? "<span class=\"hb\">" + LContent(S$7.biome, "name") + "</span>" : "") + (S$7.rooms.length > 1 ? "<span class=\"hb\">" + L("hud.rooms") + " " + clearedRooms + "/" + S$7.rooms.length + "</span>" : "") + "<span class=\"hb\">#" + S$7.turn + `</span><span class="hb gold">${S$7.player.gold || 0}🪙</span><span class="hb shards">${META.shards || 0}✦</span>` + (S$7.keys.size > 0 ? `<span class="hb keys">${[...S$7.keys].map((k) => KEY_GLYPH[k]).join("")}</span>` : "");
+	const nSlots = S$7.player.wheel.length;
 	while (dom.wheelEl.children.length < nSlots) {
 		const slot = document.createElement("div");
 		slot.dataset.idx = dom.wheelEl.children.length;
 		dom.wheelEl.appendChild(slot);
 	}
 	while (dom.wheelEl.children.length > nSlots) dom.wheelEl.removeChild(dom.wheelEl.lastChild);
-	S$1.player.wheel.forEach((f, i) => {
+	S$7.player.wheel.forEach((f, i) => {
 		const slot = dom.wheelEl.children[i];
 		if (!f) {
 			slot.className = "slot empty";
@@ -12061,7 +13349,7 @@ function syncUI() {
 			slot.onclick = null;
 			slot.removeAttribute("title");
 		} else {
-			const cls = "slot" + (i === S$1.player.active ? " active" : "") + (f.cooldown > 0 ? " cd" : "");
+			const cls = "slot" + (i === S$7.player.active ? " active" : "") + (f.cooldown > 0 ? " cd" : "");
 			if (slot.className !== cls) slot.className = cls;
 			const elGlyph = slot.querySelector(".glyph");
 			const elNm = slot.querySelector(".nm");
@@ -12084,155 +13372,13 @@ function syncUI() {
 				if (elCd) elCd.textContent = f.cooldown;
 			} else if (elCd) elCd.remove();
 			slot.onclick = () => switchForm(i);
-			slot.title = i === S$1.player.active ? L("wheel.active") : f.cooldown > 0 ? L("wheel.cd") : L("wheel.switch");
+			slot.title = i === S$7.player.active ? L("wheel.active") : f.cooldown > 0 ? L("wheel.cd") : L("wheel.switch");
 		}
 	});
-	var fDir = S$1.player.facing.join(",");
+	var fDir = S$7.player.facing.join(",");
 	var dirKey = fDir === "0,-1" ? "face.north" : fDir === "1,0" ? "face.east" : fDir === "0,1" ? "face.south" : "face.west";
 	dom.faceInfo.textContent = activeForm().type === "pawn" ? L("face.label", L(dirKey)) : "";
 	syncHud();
-}
-//#endregion
-//#region src/meta.js
-/**
-* src/meta.js — мета-прогрессия: осколки (Пепел), достижения, бестиарий, сохранения.
-* Основные экспорты: META, metaLoad(), metaSave(), unlockAch(), codexSeeEnemy(), recordKill(), endRunMeta().
-*/
-var META_KEY = "chessrogue_meta_v1";
-function defaultMeta() {
-	return {
-		bestFloor: 0,
-		runs: 0,
-		totalCaptures: 0,
-		shards: 0,
-		upgrades: {
-			startSlots: 0,
-			startRelics: 0,
-			headstart: 0
-		},
-		codex: {
-			enemies: {},
-			relics: {},
-			curses: {},
-			kills: {}
-		},
-		achievements: {},
-		tutorialDone: false,
-		hints: {}
-	};
-}
-var saveMeta = metaSave;
-var META = defaultMeta();
-function metaLoad() {
-	try {
-		const raw = window.localStorage && localStorage.getItem("chessrogue_meta_v1");
-		if (raw) {
-			const o = JSON.parse(raw);
-			const d = defaultMeta();
-			META = Object.assign(d, o);
-			META.upgrades = Object.assign(d.upgrades, o.upgrades || {});
-			const c = o.codex || {};
-			META.codex = {
-				enemies: c.enemies || {},
-				relics: c.relics || {},
-				curses: c.curses || {},
-				kills: c.kills || {}
-			};
-			META.achievements = o.achievements || {};
-		}
-	} catch (e) {
-		console.error("meta load error", e);
-	}
-}
-function metaSave() {
-	try {
-		if (window.localStorage) localStorage.setItem(META_KEY, JSON.stringify(META));
-	} catch (e) {
-		console.error(e);
-	}
-}
-function upgradeCost(id) {
-	const u = META_UPGRADES[id], lvl = META.upgrades[id] || 0;
-	return lvl >= u.max ? null : u.costs[lvl];
-}
-function buyUpgrade(id) {
-	const cost = upgradeCost(id);
-	if (cost == null || META.shards < cost) return false;
-	META.shards -= cost;
-	META.upgrades[id] = (META.upgrades[id] || 0) + 1;
-	metaSave();
-	return true;
-}
-function codexSeeEnemy(t) {
-	if (!META.codex.enemies[t]) {
-		META.codex.enemies[t] = true;
-		metaSave();
-		if (BESTIARY_TRIO.every((id) => META.codex.enemies[id])) unlockAch("bestiary");
-	}
-}
-function codexSeeRelic(id) {
-	if (!META.codex.relics[id]) {
-		META.codex.relics[id] = true;
-		metaSave();
-	}
-}
-function codexSeeCurse(id) {
-	if (!META.codex.curses[id]) {
-		META.codex.curses[id] = true;
-		metaSave();
-	}
-}
-function recordKill(t, byPoison) {
-	META.codex.kills[t] = (META.codex.kills[t] || 0) + 1;
-	metaSave();
-	if (S$1.player) S$1.player.gold = (S$1.player.gold || 0) + (GOLD_DROP[t] || 1);
-	if (byPoison) unlockAch("toxin");
-}
-function unlockAch(id) {
-	if (!ACHIEVEMENTS[id] || META.achievements[id]) return;
-	META.achievements[id] = true;
-	metaSave();
-	toast("🏆 " + LContent(ACHIEVEMENTS[id], "name"));
-	log(`${isEnglish() ? "Achievement: " : "Достижение: "}<b>${LContent(ACHIEVEMENTS[id], "name")}</b>`, "g");
-}
-function endRunMeta() {
-	META.runs++;
-	META.bestFloor = Math.max(META.bestFloor, S$1.floor);
-	META.totalCaptures += S$1.player.totalCaptures;
-	let earned = S$1.floor * 3 + S$1.player.totalCaptures;
-	if (S$1.challenge === "storm") earned = Math.round(earned * 1.5);
-	if (S$1.challenge === "escalation" && S$1.floor >= 5) earned *= 2;
-	META.shards += earned;
-	metaSave();
-	if (META.shards >= 100) unlockAch("wealthy");
-	return earned;
-}
-function codexProgress() {
-	const allE = [
-		"pawn",
-		"knight",
-		"bishop",
-		"rook",
-		"queen",
-		"guardian",
-		"necro",
-		"mimic",
-		"assassin",
-		"priest",
-		"frost"
-	];
-	const total = allE.length + Object.keys(RELICS).length + Object.keys(CURSES).length;
-	return {
-		have: allE.filter((t) => META.codex.enemies[t]).length + Object.keys(RELICS).filter((id) => META.codex.relics[id]).length + Object.keys(CURSES).filter((id) => META.codex.curses[id]).length,
-		total
-	};
-}
-function achProgress() {
-	const total = Object.keys(ACHIEVEMENTS).length;
-	return {
-		have: Object.keys(ACHIEVEMENTS).filter((id) => META.achievements[id]).length,
-		total
-	};
 }
 //#endregion
 //#region src/events.js
@@ -12244,6 +13390,14 @@ function achProgress() {
 * Все окна переведены на shell() — иначе от предыдущей модалки остаётся её
 * размерный класс и картинка в шапке, а завершающие кнопки уезжают в скролл.
 */
+/**
+* Адаптирует старые цветовые тона журнала событий к единому API сообщений.
+* Fallback нужен для unit-тестов и ранней инициализации, когда UI-адаптер
+* `feedback` ещё не подключён.
+*/
+function log$2(text, tone = "") {
+	reportLegacyLog(text, tone, log$3);
+}
 function proceed() {
 	closeModal();
 	newFloor();
@@ -12260,9 +13414,9 @@ function maybeEvent() {
 		"purify",
 		"blessing"
 	];
-	if (S$1.player.wheel.some((f, i) => i > 0 && f)) events.push("sanctuary");
-	if (S$1.player.gold >= 5) events.push("gamble");
-	if (events.length && Math.random() < .5) {
+	if (S$7.player.wheel.some((f, i) => i > 0 && f)) events.push("sanctuary");
+	if (S$7.player.gold >= 5) events.push("gamble");
+	if (events.length && random() < .5) {
 		playTrack("event");
 		({
 			shop: openShop,
@@ -12290,7 +13444,7 @@ function openBlessing() {
 		...curse("glass") ? [] : [{
 			label: isEnB ? "🛡 Shield (2)" : "🛡 Щит (2)",
 			desc: isEnB ? "Absorbs one capture" : "Поглотит одно взятие",
-			fn: () => S$1.player.nextFloorStatus.push({
+			fn: () => S$7.player.nextFloorStatus.push({
 				k: "shield",
 				n: 2
 			})
@@ -12298,7 +13452,7 @@ function openBlessing() {
 		{
 			label: "⚡ " + (isEnB ? "Haste (3)" : "Ускорение (3)"),
 			desc: isEnB ? "+1 slider range, extra knight step" : "+1 дальность слайдерам, доп. шаг коню",
-			fn: () => S$1.player.nextFloorStatus.push({
+			fn: () => S$7.player.nextFloorStatus.push({
 				k: "haste",
 				n: 3
 			})
@@ -12307,7 +13461,7 @@ function openBlessing() {
 			label: "🪙 " + (isEnB ? "Gold (+8)" : "Золото (+8)"),
 			desc: isEnB ? "Useful at the Bonesetter" : "Пригодится у Костоправа",
 			fn: () => {
-				S$1.player.gold = (S$1.player.gold || 0) + 8;
+				S$7.player.gold = (S$7.player.gold || 0) + 8;
 			}
 		}
 	].forEach((o) => {
@@ -12324,24 +13478,24 @@ function openBlessing() {
 }
 var shopStock = null;
 function openShop() {
-	const seamCount = S$1.player.curses.size;
-	const boneCount = S$1.player.relics.size;
+	const seamCount = S$7.player.curses.size;
+	const boneCount = S$7.player.relics.size;
 	const bs = getScript().bonesetterLines;
 	const rep = bs.repeat[META.runs];
-	if (rep) log(rep);
-	else if (seamCount >= 3) log(bs.bySeams.high);
-	else if (seamCount >= 2) log(bs.bySeams.mid);
-	else if (seamCount >= 1) log(bs.bySeams.low);
-	else log(bs.bySeams[0]);
-	if (boneCount > 4) log(bs.byBones.many);
-	else if (boneCount <= 1) log(bs.byBones.few);
+	if (rep) log$2(rep);
+	else if (seamCount >= 3) log$2(bs.bySeams.high);
+	else if (seamCount >= 2) log$2(bs.bySeams.mid);
+	else if (seamCount >= 1) log$2(bs.bySeams.low);
+	else log$2(bs.bySeams[0]);
+	if (boneCount > 4) log$2(bs.byBones.many);
+	else if (boneCount <= 1) log$2(bs.byBones.few);
 	shopStock = [...rollWeighted(relicPool, 2, /* @__PURE__ */ new Set(), false).map((id) => ({
 		kind: "relic",
 		id,
 		price: SHOP_PRICE[relicTier(id)],
 		sold: false
 	}))];
-	if (S$1.player.curses.size > 0) shopStock.push({
+	if (S$7.player.curses.size > 0) shopStock.push({
 		kind: "uncurse",
 		price: 6,
 		sold: false
@@ -12352,12 +13506,12 @@ function openShop() {
 function renderShop() {
 	shell("md", ART.event.bonesetter, "aside");
 	dom.mTitle.textContent = isEnglish() ? "Bonesetter" : "Костоправ";
-	dom.mText.textContent = (isEnglish() ? "Gold: " : "Золото: ") + (S$1.player.gold || 0) + "🪙. " + (isEnglish() ? "Purchases apply immediately." : "Покупки применяются сразу.");
+	dom.mText.textContent = (isEnglish() ? "Gold: " : "Золото: ") + (S$7.player.gold || 0) + "🪙. " + (isEnglish() ? "Purchases apply immediately." : "Покупки применяются сразу.");
 	dom.mChoices.classList.add("loot-list");
 	shopStock.forEach((item) => {
 		const b = document.createElement("button");
 		b.className = "loot";
-		const afford = (S$1.player.gold || 0) >= item.price && !item.sold;
+		const afford = (S$7.player.gold || 0) >= item.price && !item.sold;
 		if (item.kind === "relic") b.innerHTML = `<span class="ln ${TIER_META[relicTier(item.id)].cls}">✦ ${isEnglish() ? RELICS[item.id].enName : RELICS[item.id].name} <em class="tag">${item.price}🪙</em></span><span class="ld">${isEnglish() ? RELICS[item.id].enDesc : RELICS[item.id].desc}</span>`;
 		else b.innerHTML = isEnglish() ? `<span class="ln">✚ Remove Seam <em class="tag">${item.price}🪙</em></span><span class="ld">Removes one random seam.</span>` : `<span class="ln">✚ Снять шов <em class="tag">${item.price}🪙</em></span><span class="ld">Убирает один случайный шов.</span>`;
 		if (item.sold) {
@@ -12367,15 +13521,15 @@ function renderShop() {
 			b.disabled = true;
 			b.style.opacity = .55;
 		} else b.onclick = () => {
-			S$1.player.gold -= item.price;
+			S$7.player.gold -= item.price;
 			item.sold = true;
 			unlockAch("merchant");
 			if (item.kind === "relic") applyRelic(item.id);
 			else {
-				const c = [...S$1.player.curses];
+				const c = [...S$7.player.curses];
 				const rm = c[randInt(c.length)];
-				S$1.player.curses.delete(rm);
-				log(isEnglish() ? `Bonesetter removed the seam: ${CURSES[rm].enName}.` : `Костоправ снял шов: ${CURSES[rm].name}.`, "g");
+				S$7.player.curses.delete(rm);
+				log$2(isEnglish() ? `Bonesetter removed the seam: ${CURSES[rm].enName}.` : `Костоправ снял шов: ${CURSES[rm].name}.`, "g");
 			}
 			renderShop();
 		};
@@ -12387,7 +13541,7 @@ function openPurify() {
 	shell("md", ART.event.unstitch, "aside");
 	dom.mTitle.textContent = isEnglish() ? "Unstitching" : "Распайка";
 	dom.mChoices.classList.add("loot-list");
-	const curses = [...S$1.player.curses];
+	const curses = [...S$7.player.curses];
 	if (curses.length) {
 		dom.mText.textContent = isEnglish() ? "Remove one seam." : "Сними один шов.";
 		curses.forEach((id) => {
@@ -12395,8 +13549,8 @@ function openPurify() {
 			b.className = "loot";
 			b.innerHTML = `<span class="cn">☠ ${isEnglish() ? CURSES[id].enName : CURSES[id].name}</span><span class="cd">${isEnglish() ? CURSES[id].enDesc : CURSES[id].desc}</span>`;
 			b.onclick = () => {
-				S$1.player.curses.delete(id);
-				log(isEnglish() ? `Unstitching: removed "${CURSES[id].enName}".` : `Распайка: снят «${CURSES[id].name}».`, "g");
+				S$7.player.curses.delete(id);
+				log$2(isEnglish() ? `Unstitching: removed "${CURSES[id].enName}".` : `Распайка: снят «${CURSES[id].name}».`, "g");
 				proceed();
 			};
 			dom.mChoices.appendChild(b);
@@ -12404,7 +13558,7 @@ function openPurify() {
 		leaveButton(isEnglish() ? "Leave" : "Уйти");
 	} else {
 		const g = 5;
-		S$1.player.gold = (S$1.player.gold || 0) + g;
+		S$7.player.gold = (S$7.player.gold || 0) + g;
 		dom.mText.textContent = isEnglish() ? "No seams — the altar pays in gold." : "Швов нет — алтарь расплачивается золотом.";
 		leaveButton(isEnglish() ? `Take +${g}🪙 (continue)` : `Взять +${g}🪙 (дальше)`);
 	}
@@ -12416,15 +13570,15 @@ function openSanctuary() {
 	dom.mText.textContent = isEnglish() ? "Sacrifice a form — receive a rare bone." : "Пожертвуй форму — взамен получишь редкую кость.";
 	dom.mChoices.classList.add("loot-list");
 	const reward = pickRareRelic();
-	S$1.player.wheel.forEach((f, i) => {
+	S$7.player.wheel.forEach((f, i) => {
 		if (i === 0 || !f) return;
 		const b = document.createElement("button");
 		b.className = "loot";
 		b.innerHTML = (isEnglish() ? "<span class=\"ln\">Give: " + (NAME_EN[f.type] || NAME[f.type]) + (f.improved ? " ★" : "") + "</span>" : "<span class=\"ln\">Отдать: " + NAME[f.type] + (f.improved ? " ★" : "") + "</span>") + "<span class=\"ld\">" + (reward ? (isEnglish() ? "receive: " : "получишь: ") + (isEnglish() ? RELICS[reward].enName || RELICS[reward].name : RELICS[reward].name) : isEnglish() ? "no reward" : "наград нет") + "</span>";
 		b.onclick = () => {
-			S$1.player.wheel[i] = null;
-			if (S$1.player.active === i) S$1.player.active = 0;
-			log(isEnglish() ? `Sanctuary accepted ${NAME[f.type]}.` : `Жертвенник принял ${NAME[f.type]}.`, "r");
+			S$7.player.wheel[i] = null;
+			if (S$7.player.active === i) S$7.player.active = 0;
+			log$2(isEnglish() ? `Sanctuary accepted ${NAME[f.type]}.` : `Жертвенник принял ${NAME[f.type]}.`, "r");
 			if (reward) applyRelic(reward);
 			proceed();
 		};
@@ -12445,24 +13599,34 @@ function openGamble() {
 	const bet = document.createElement("button");
 	bet.className = "loot";
 	bet.innerHTML = (isEnglish() ? "<span class=\"ln\">Try Your Luck <em class=\"tag\">5🪙</em></span>" : "<span class=\"ln\">Испытать судьбу <em class=\"tag\">5🪙</em></span>") + (isEnglish() ? "<span class=\"ld\">55% — random bone · 45% — random seam</span>" : "<span class=\"ld\">55% — случайная кость · 45% — случайный шов</span>");
-	if ((S$1.player.gold || 0) < 5) {
+	if ((S$7.player.gold || 0) < 5) {
 		bet.disabled = true;
 		bet.style.opacity = .5;
 	} else bet.onclick = () => {
-		S$1.player.gold -= 5;
-		if (Math.random() < .55) {
+		S$7.player.gold -= 5;
+		if (random() < .55) {
 			const r = relicPool();
 			if (r.length) {
 				const id = r[randInt(r.length)];
 				applyRelic(id);
-				toast((isEnglish() ? "Luck! " : "Удача! ") + (isEnglish() ? RELICS[id].enName : RELICS[id].name));
+				notify$1({
+					channel: "toast",
+					priority: "high",
+					dedupeKey: `gamble-relic-${id}`,
+					text: (isEnglish() ? "Luck! " : "Удача! ") + (isEnglish() ? RELICS[id].enName : RELICS[id].name)
+				});
 			}
 		} else {
 			const c = cursePool();
 			if (c.length) {
 				const id = c[randInt(c.length)];
 				applyCurse(id);
-				toast((isEnglish() ? "Failure… " : "Провал… ") + (isEnglish() ? CURSES[id].enName : CURSES[id].name));
+				notify$1({
+					channel: "toast",
+					priority: "high",
+					dedupeKey: `gamble-curse-${id}`,
+					text: (isEnglish() ? "Failure… " : "Провал… ") + (isEnglish() ? CURSES[id].enName : CURSES[id].name)
+				});
 			}
 		}
 		proceed();
@@ -12477,24 +13641,36 @@ function openGamble() {
 * src/loot.js — кости (реликвии), швы (проклятия), награды между этажами.
 * Основные экспорты: offerLoot(), applyRelic(), applyCurse().
 */
+/**
+* Записывает выбор награды через единый API сообщений.
+*
+* При ранней инициализации или в изолированном тесте применяется прежний
+* интерфейс `ui.log`, поэтому выбор реликвий и проклятий не теряет сообщения.
+*
+* @param {string} text Текст полученной реликвии или проклятия.
+* @param {string} [tone=''] Старый визуальный тон журнала.
+*/
+function log$1(text, tone = "") {
+	reportLegacyLog(text, tone, log$3);
+}
 var relicPool = () => Object.keys(RELICS).filter((id) => {
-	if (S$1.player.relics.has(id)) return false;
-	if (S$1.player.curses.has("glass") && (id === "smoke" || id === "bulwark")) return false;
-	if (id === "extra_slot" && S$1.player.wheel.length >= 5) return false;
+	if (S$7.player.relics.has(id)) return false;
+	if (S$7.player.curses.has("glass") && (id === "smoke" || id === "bulwark")) return false;
+	if (id === "extra_slot" && S$7.player.wheel.length >= 5) return false;
 	return true;
 });
-var cursePool = () => Object.keys(CURSES).filter((id) => !S$1.player.curses.has(id));
+var cursePool = () => Object.keys(CURSES).filter((id) => !S$7.player.curses.has(id));
 function rollWeighted(poolFn, n, used, biasHigh) {
 	const avail = poolFn().filter((id) => !used.has(id));
 	const got = [];
 	for (let k = 0; k < n && avail.length; k++) {
 		let total = 0;
 		const weights = avail.map((id) => {
-			const w = tierWeight(relicTier(id), S$1.floor, biasHigh);
+			const w = tierWeight(relicTier(id), S$7.floor, biasHigh);
 			total += w;
 			return w;
 		});
-		let r = Math.random() * total, idx = 0;
+		let r = random() * total, idx = 0;
 		while (idx < avail.length - 1 && (r -= weights[idx]) > 0) idx++;
 		const id = avail.splice(idx, 1)[0];
 		got.push(id);
@@ -12520,7 +13696,7 @@ function buildLootOptions() {
 	for (let i = 0; i < 2; i++) {
 		const rLeft = relicPool().filter((id) => !usedR.has(id)).length;
 		const cLeft = cursePool().filter((id) => !usedC.has(id)).length;
-		const roll = Math.random();
+		const roll = random();
 		if (roll < .45 && rLeft >= 2 && cLeft >= 1) opts.push({
 			kind: "faust",
 			relics: rollWeighted(relicPool, 2, usedR, true),
@@ -12548,26 +13724,27 @@ function offerLoot() {
 }
 function applyRelic(id) {
 	recordEvent("relic_selected", { id });
-	S$1.player.relics.add(id);
+	S$7.player.relics.add(id);
 	codexSeeRelic(id);
-	if (S$1.player.relics.size >= 5) unlockAch("collector");
-	if (S$1.player.relics.size >= 10) unlockAch("collector_elite");
+	if (S$7.player.relics.size >= 5) unlockAch("collector");
+	if (S$7.player.relics.size >= 10) unlockAch("collector_elite");
 	if (id === "extra_slot") {
-		if (S$1.player.wheel.length < 5) S$1.player.wheel.push(null);
+		if (S$7.player.wheel.length < 5) S$7.player.wheel.push(null);
 	}
-	log(isEnglish() ? `Bone: <b>${RELICS[id].enName}</b> — ${RELICS[id].enDesc}` : `Кость: <b>${RELICS[id].name}</b> — ${RELICS[id].desc}`, "g");
+	log$1(isEnglish() ? `Bone: <b>${RELICS[id].enName}</b> — ${RELICS[id].enDesc}` : `Кость: <b>${RELICS[id].name}</b> — ${RELICS[id].desc}`, "g");
 }
 function applyCurse(id) {
 	recordEvent("curse_selected", { id });
-	S$1.player.curses.add(id);
+	S$7.player.curses.add(id);
 	codexSeeCurse(id);
-	if (S$1.player.curses.size >= 3) unlockAch("cursed");
-	if (id === "rusted" && S$1.player.wheel.length > 1) {
-		const idx = S$1.player.wheel.findLastIndex((s) => s !== null);
-		if (idx >= 0) S$1.player.wheel[idx] = null;
-		if (S$1.player.active >= S$1.player.wheel.length) S$1.player.active = 0;
+	if (S$7.player.curses.size >= 3) unlockAch("cursed");
+	if (id === "glass" && S$7.player.status) S$7.player.status.shield = 0;
+	if (id === "rusted" && S$7.player.wheel.length > 1) {
+		const idx = S$7.player.wheel.findLastIndex((s) => s !== null);
+		if (idx >= 0) S$7.player.wheel[idx] = null;
+		if (S$7.player.active >= S$7.player.wheel.length) S$7.player.active = 0;
 	}
-	log(isEnglish() ? `Seam: <b>${CURSES[id].enName}</b> — ${CURSES[id].enDesc}` : `Шов: <b>${CURSES[id].name}</b> — ${CURSES[id].desc}`, "r");
+	log$1(isEnglish() ? `Seam: <b>${CURSES[id].enName}</b> — ${CURSES[id].enDesc}` : `Шов: <b>${CURSES[id].name}</b> — ${CURSES[id].desc}`, "r");
 }
 function applyOption(opt) {
 	playLoot();
@@ -12908,6 +14085,49 @@ var ALGO_FN = {
 	stamps
 };
 //#endregion
+//#region src/generation-config.ts
+var GENERATION = {
+	floorSizes: [
+		{
+			throughFloor: 2,
+			width: 11,
+			height: 9
+		},
+		{
+			throughFloor: 4,
+			width: 13,
+			height: 11
+		},
+		{
+			throughFloor: 6,
+			width: 15,
+			height: 13
+		},
+		{
+			throughFloor: Number.POSITIVE_INFINITY,
+			width: 17,
+			height: 15
+		}
+	],
+	decoration: {
+		conveyorRewardChance: .55,
+		lavaChance: .35,
+		portalChance: .55,
+		veinChance: .6,
+		foodPerColour: {
+			min: 1,
+			max: 2
+		},
+		scrolls: {
+			min: 1,
+			max: 2
+		}
+	}
+};
+function boardSizeForFloor(floor) {
+	return GENERATION.floorSizes.find((size) => floor <= size.throughFloor) ?? GENERATION.floorSizes[GENERATION.floorSizes.length - 1];
+}
+//#endregion
 //#region src/gen/validate.js
 /**
 * src/gen/validate.js — проверка карты по тому, как в игре реально ходят.
@@ -13190,7 +14410,7 @@ function decorate(walls, o) {
 			});
 		}
 		const ex = head.x + dir[0] * P.conveyorLen, ey = head.y + dir[1] * P.conveyorLen;
-		if (inB(ex, ey, W, H) && !occupied(ex, ey)) sp.set(key(ex, ey), { type: random() < .55 ? "food" : "trap" });
+		if (inB(ex, ey, W, H) && !occupied(ex, ey)) sp.set(key(ex, ey), { type: random() < GENERATION.decoration.conveyorRewardChance ? "food" : "trap" });
 	}
 	const kReach = reachFor("knight", start, W, H, isWall);
 	for (let p = 0; p < P.platePuzzles; p++) {
@@ -13273,11 +14493,11 @@ function decorate(walls, o) {
 		if (!c) break;
 		sp.set(key(c.x, c.y), { type: pick(hazards) });
 	}
-	if (random() < .35) {
+	if (random() < GENERATION.decoration.lavaChance) {
 		const c = take(null);
 		if (c) sp.set(key(c.x, c.y), { type: "lava" });
 	}
-	if (random() < .55) {
+	if (random() < GENERATION.decoration.portalChance) {
 		const a = take(null), b = take((c) => a && Math.abs(c.x - a.x) + Math.abs(c.y - a.y) > Math.min(W, H) * .6);
 		if (a && b) {
 			sp.set(key(a.x, a.y), {
@@ -13296,11 +14516,12 @@ function decorate(walls, o) {
 			});
 		}
 	}
-	if (random() < .6) {
+	if (random() < GENERATION.decoration.veinChance) {
 		const c = take(null);
 		if (c) sp.set(key(c.x, c.y), { type: "rune" });
 	}
-	const wantLight = 1 + randInt(2), wantDark = 1 + randInt(2);
+	const { min: minFood, max: maxFood } = GENERATION.decoration.foodPerColour;
+	const wantLight = minFood + randInt(maxFood - minFood + 1), wantDark = minFood + randInt(maxFood - minFood + 1);
 	let gotL = 0, gotD = 0;
 	for (let i = 0; i < 12 && (gotL < wantLight || gotD < wantDark); i++) {
 		const needLight = gotL < wantLight;
@@ -13310,7 +14531,8 @@ function decorate(walls, o) {
 		if (needLight) gotL++;
 		else gotD++;
 	}
-	const nScroll = 1 + randInt(2);
+	const { min: minScrolls, max: maxScrolls } = GENERATION.decoration.scrolls;
+	const nScroll = minScrolls + randInt(maxScrolls - minScrolls + 1);
 	for (let s = 0; s < nScroll; s++) {
 		const c = take((cc) => kReach.has(key(cc.x, cc.y)));
 		if (c) sp.set(key(c.x, c.y), { type: "scroll" });
@@ -13764,20 +14986,79 @@ function generateRoomCompat(biomeId) {
 	};
 }
 //#endregion
+//#region src/run-seed.ts
+/**
+* Seed creation for a whole run. A run must not depend on how quickly the
+* player presses Restart: timestamps alone can repeat within one millisecond.
+*/
+var issuedSeeds = /* @__PURE__ */ new Set();
+var sequence = 0;
+function mix32(value) {
+	let x = value >>> 0;
+	x ^= x >>> 16;
+	x = Math.imul(x, 2146121005);
+	x ^= x >>> 15;
+	x = Math.imul(x, 2221713035);
+	x ^= x >>> 16;
+	return x >>> 0;
+}
+function browserEntropy() {
+	try {
+		const values = /* @__PURE__ */ new Uint32Array(1);
+		globalThis.crypto?.getRandomValues(values);
+		return values[0] || null;
+	} catch {
+		return null;
+	}
+}
+/** Creates a unique-in-process 32-bit seed, using browser cryptographic entropy when available. */
+function createRunSeed(now = Date.now(), entropy = browserEntropy()) {
+	sequence = sequence + 1 >>> 0;
+	let seed = mix32(Math.trunc(now) >>> 0 ^ Math.floor(Math.trunc(now) / 4294967296) >>> 0 ^ Math.imul(sequence, 2654435769) ^ (entropy ?? 0));
+	while (issuedSeeds.has(seed)) seed = seed + 2654435769 >>> 0;
+	issuedSeeds.add(seed);
+	return seed;
+}
+//#endregion
 //#region src/board.js
 /**
 * src/board.js — генерация этажа: 6 стилей биомов, спавн врагов, босс-комнаты, комнаты.
 * Основные экспорты: generateRoom(), generateBossRoom(), spawnEnemiesForFloor(), newFloor(), reset().
 */
+/**
+* Совместимый вход для журнала генерации уровня.
+*
+* Генератор и комнаты босса исторически передавали цветовой тон `ui.log`.
+* Адаптер сохраняет это поведение до инициализации интерфейса и в тестах, а
+* в запущенной игре направляет запись в единый API сообщений.
+*
+* @param {string} text Текст записи журнала (поддерживается существующая HTML-разметка).
+* @param {string} [tone=''] Старый визуальный тон: `r` — опасность, `g` — награда.
+*/
+function log(text, tone = "") {
+	reportLegacyLog(text, tone, log$3);
+}
+/** Передаёт реплику комнаты в единый UI-канал, сохраняя ранний fallback. */
+function speech(x, y, text, kind = "system") {
+	if (!notify$1({
+		channel: "speech",
+		text,
+		anchor: {
+			x,
+			y
+		},
+		speechKind: kind
+	})) addSpeech(x, y, text, kind);
+}
 /** Генерация комнаты — делегирована модулю gen/. */
 function generateRoom() {
-	return generateRoomCompat(S$1.biome && S$1.biome.id);
+	return generateRoomCompat(S$7.biome && S$7.biome.id);
 }
 function buildFloorEnemies(flr, share = 1) {
 	const D = CFG.DIFF;
-	const maxEnemies = Math.max(2, Math.round(Math.min(5 + Math.floor(flr / 4), 10) * share));
-	let budget = (D.budgetBase + D.budgetGrow * (flr - 1)) * Math.sqrt(CFG.W * CFG.H / 99) * share;
-	if (flr === 1 && META.upgrades.headstart) budget -= 2;
+	const maxEnemies = enemyCountLimit(flr, share);
+	let budget = enemyThreatBudget(flr, CFG.W, CFG.H, share);
+	if (flr === 1 && META.upgrades.headstart) budget -= BALANCE.enemies.headstartBudgetReduction;
 	const qcap = flr >= D.queenCapDeepFloor ? D.queenCapDeep : D.queenCap;
 	const avail = Object.keys(D.cost).filter((t) => flr >= D.unlockFloor[t]);
 	const bag = [];
@@ -13788,8 +15069,8 @@ function buildFloorEnemies(flr, share = 1) {
 		let aff = avail.filter((t) => D.cost[t] <= budget && !(t === "queen" && qc >= qcap));
 		if (eliteCount >= D.maxElite) aff = aff.filter((t) => (D.cost[t] || 1) < 5);
 		if (!aff.length) break;
-		const fav = (S$1.biome && S$1.biome.favorEnemies || []).filter((t) => aff.includes(t));
-		const t = fav.length && random() < .5 ? pick(fav) : pick(aff);
+		const fav = (S$7.biome && S$7.biome.favorEnemies || []).filter((t) => aff.includes(t));
+		const t = fav.length && random() < BALANCE.enemies.favoriteBiomeChance ? pick(fav) : pick(aff);
 		bag.push(t);
 		if ((D.cost[t] || 1) >= 5) eliteCount++;
 		budget -= D.cost[t];
@@ -13805,15 +15086,15 @@ function enemyRangeBonus(flr) {
 	return b;
 }
 function spawnEnemiesForFloor(f, reach, share = 1) {
-	S$1.enemies = [];
+	S$7.enemies = [];
 	const bag = buildFloorEnemies(f, share);
 	const rb = enemyRangeBonus(f);
-	const pk = key(S$1.player.x, S$1.player.y);
+	const pk = key(S$7.player.x, S$7.player.y);
 	const cand = [];
-	for (let y = 0; y < Math.ceil(CFG.H * .62); y++) for (let x = 0; x < CFG.W; x++) {
+	for (let y = 0; y < Math.ceil(CFG.H * BALANCE.enemies.spawnTopBoardFraction); y++) for (let x = 0; x < CFG.W; x++) {
 		if (!reach.has(key(x, y))) continue;
-		if (S$1.special.get(key(x, y))?.type === "trap" || S$1.special.get(key(x, y))?.type === "lava") continue;
-		if (Math.abs(y - S$1.player.y) < 2 && Math.abs(x - S$1.player.x) < 2) continue;
+		if (S$7.special.get(key(x, y))?.type === "trap" || S$7.special.get(key(x, y))?.type === "lava") continue;
+		if (Math.abs(y - S$7.player.y) < 2 && Math.abs(x - S$7.player.x) < 2) continue;
 		cand.push({
 			x,
 			y
@@ -13843,190 +15124,16 @@ function spawnEnemiesForFloor(f, reach, share = 1) {
 		if (idx === -1) idx = cand.findIndex((c) => !enemyAt(c.x, c.y) && isSpawnable(t, c.x, c.y));
 		if (idx === -1) idx = cand.findIndex((c) => !enemyAt(c.x, c.y));
 		if (idx === -1) break;
-		S$1.enemies.push(mk(t, cand[idx]));
+		S$7.enemies.push(mk(t, cand[idx]));
 		codexSeeEnemy(t);
 		cand.splice(idx, 1);
 	}
 }
-/** Авторская комната босса. */
-function generateBossRoom(bossId) {
-	if (bossId === "tormentor") {
-		CFG.W = 15;
-		CFG.H = 13;
-		const w = /* @__PURE__ */ new Set();
-		[
-			[4, 4],
-			[7, 6],
-			[10, 8]
-		].forEach(([cx, cy]) => {
-			for (let dx = 0; dx < 2; dx++) for (let dy = 0; dy < 2; dy++) w.add(key(cx + dx, cy + dy));
-		});
-		const sp = /* @__PURE__ */ new Map();
-		return {
-			walls: w,
-			enemies: [{
-				type: "bishop",
-				x: Math.floor(CFG.W / 2),
-				y: 3,
-				status: {},
-				armor: BOSS_CFG.tormentor.armor,
-				r: BOSS_CFG.tormentor.range,
-				phase: 1,
-				stunCd: BOSS_CFG.tormentor.stunEvery,
-				bossId: "tormentor"
-			}],
-			specials: sp
-		};
-	}
-	if (bossId === "spawnedRooks") {
-		CFG.W = 13;
-		CFG.H = 11;
-		const w = /* @__PURE__ */ new Set();
-		const sp = /* @__PURE__ */ new Map();
-		[
-			[4, 5],
-			[5, 5],
-			[8, 5],
-			[9, 5],
-			[3, 7],
-			[10, 7]
-		].forEach(([x, y]) => sp.set(key(x, y), { type: "pillar" }));
-		return {
-			walls: w,
-			enemies: [{
-				type: "rook",
-				x: 5,
-				y: 2,
-				r: BOSS_CFG.linkedRooks.range,
-				linkedTo: "rookPair",
-				status: {}
-			}, {
-				type: "rook",
-				x: 6,
-				y: 2,
-				r: BOSS_CFG.linkedRooks.range,
-				linkedTo: "rookPair",
-				status: {}
-			}],
-			specials: sp
-		};
-	}
-	if (bossId === "redKing") {
-		CFG.W = 17;
-		CFG.H = 15;
-		const w = /* @__PURE__ */ new Set();
-		const sp = /* @__PURE__ */ new Map();
-		[
-			[2, 2],
-			[CFG.W - 3, 2],
-			[2, CFG.H - 3],
-			[CFG.W - 3, CFG.H - 3]
-		].forEach(([cx, cy]) => {
-			sp.set(key(cx, cy), {
-				type: "plate",
-				chain: true,
-				broken: false
-			});
-		});
-		return {
-			walls: w,
-			enemies: [
-				{
-					type: "king",
-					x: Math.floor(CFG.W / 2),
-					y: Math.floor(CFG.H / 2),
-					status: {},
-					r: 1,
-					armor: 99,
-					bossId: "redKing",
-					king: true
-				},
-				{
-					type: "queen",
-					x: Math.floor(CFG.W / 2) - 4,
-					y: Math.floor(CFG.H / 2) - 2,
-					status: { shield: 1 },
-					r: 8,
-					bossId: "redKing",
-					retinue: "queen"
-				},
-				{
-					type: "rook",
-					x: 3,
-					y: Math.floor(CFG.H / 2),
-					status: {},
-					r: 8,
-					bossId: "redKing",
-					retinue: "rook",
-					passive: true
-				},
-				{
-					type: "rook",
-					x: CFG.W - 4,
-					y: Math.floor(CFG.H / 2),
-					status: {},
-					r: 8,
-					bossId: "redKing",
-					retinue: "rook",
-					passive: true
-				},
-				{
-					type: "knight",
-					x: Math.floor(CFG.W / 2) + 3,
-					y: Math.floor(CFG.H / 2) - 4,
-					status: {},
-					r: 1,
-					bossId: "redKing",
-					retinue: "knight",
-					noAttackCd: true,
-					attackReady: true
-				},
-				{
-					type: "knight",
-					x: Math.floor(CFG.W / 2) - 3,
-					y: Math.floor(CFG.H / 2) - 4,
-					status: {},
-					r: 1,
-					bossId: "redKing",
-					retinue: "knight",
-					noAttackCd: true,
-					attackReady: true
-				}
-			],
-			specials: sp
-		};
-	}
-	if (bossId === "millstone") {
-		CFG.W = 15;
-		CFG.H = 13;
-		const w = /* @__PURE__ */ new Set();
-		for (let x = 0; x < CFG.W; x++) for (let y = 0; y < CFG.H; y++) {
-			if (x < 3 || x > 7) w.add(key(x, y));
-			if (y === 0 || y === CFG.H - 1) w.delete(key(x, y));
-		}
-		for (let y = 0; y < CFG.H; y++) for (let x = 3; x <= 7; x++) w.delete(key(x, y));
-		w.delete(key(Math.floor(CFG.W / 2), CFG.H - 1));
-		const sp = /* @__PURE__ */ new Map();
-		sp.set(key(Math.floor(CFG.W / 2), 2), {
-			type: "millstone",
-			dir: [0, 1]
-		});
-		for (let x = 3; x <= 7; x++) sp.set(key(x, 0), { type: "pillar" });
-		S$1.party = {
-			dropCd: 0,
-			pullCd: BOSS_CFG.puppeteer.pullEvery,
-			reserve: BOSS_CFG.puppeteer.reserve
-		};
-		S$1.millFed = 0;
-		return {
-			walls: w,
-			enemies: [],
-			specials: sp
-		};
-	}
-	return generateRoom();
-}
 /** Построить граф смежности комнат по дверям. */
+/** Public compatibility entry point; boss maps now live in src/bosses/rooms.ts. */
+function generateBossRoom(bossId, endless) {
+	return createBossRoom(bossId, endless);
+}
 function buildRoomGraph(rooms, n) {
 	const adj = Array.from({ length: n }, () => []);
 	for (let r = 0; r < n; r++) {
@@ -14054,117 +15161,120 @@ function checkRoomConnectivity(rooms, n) {
 }
 /** Обновить индикатор «Шах» после смены карты или комнаты. */
 function syncCheckIndicator() {
-	const onThreat = allThreats().has(key(S$1.player.x, S$1.player.y));
+	const onThreat = allThreats().has(key(S$7.player.x, S$7.player.y));
 	dom.shahEl?.classList.toggle("on", onThreat);
 }
 function newFloor() {
 	invalidateThreats();
-	if (S$1.runMode === "campaign") seedRNG(CFG.CAMPAIGN_SEED + S$1.floor * 1e6 + S$1.turn);
-	else seedRNG(Math.floor(Math.random() * 2147483647));
-	screenFade("#000", 350);
-	S$1.floor++;
-	if (S$1.floor <= 2) {
-		CFG.W = 11;
-		CFG.H = 9;
-	} else if (S$1.floor <= 4) {
-		CFG.W = 13;
-		CFG.H = 11;
-	} else if (S$1.floor <= 6) {
-		CFG.W = 15;
-		CFG.H = 13;
-	} else {
-		CFG.W = 17;
-		CFG.H = 15;
-	}
-	S$1.biome = biomeFor(S$1.floor);
-	S$1.currentRoom = 0;
-	S$1.rooms = [];
-	S$1.keys.clear();
-	S$1.player.x = Math.floor(CFG.W / 2);
-	S$1.player.y = CFG.H - 1;
-	S$1.player.facing = [0, -1];
-	if (S$1.runMode === "campaign" && isBossFloor(S$1.floor)) {
-		const bossId = bossOnFloor(S$1.floor);
-		if (bossId) {
-			const room = generateBossRoom(bossId);
-			S$1.walls = room.walls;
-			S$1.special = room.specials;
-			S$1.enemies = room.enemies;
-			S$1.rooms = [{
-				walls: room.walls,
-				enemies: S$1.enemies,
-				special: room.specials,
-				cleared: false
-			}];
-			loadRoom(0);
-			S$1.player.x = Math.floor(CFG.W / 2);
-			S$1.player.y = CFG.H - 1;
-			S$1.player.facing = [0, -1];
-			S$1.player.active = 0;
-			S$1.promotionUsed = false;
-			S$1.hoverEnemy = null;
-			S$1.selectedEnemy = null;
-			S$1.turn = 1;
-			S$1.player.freeSwapUsed = false;
-			S$1.player.capturedThisFloor = 0;
-			S$1.player.hunger = CFG.HUNGER.start;
-			S$1.bossPhase = 1;
-			S$1.chainsBroken = 0;
-			S$1.millTick = 0;
-			if (bossId === "millstone") {
-				S$1.party = S$1.party || {
-					dropCd: 0,
-					pullCd: BOSS_CFG.puppeteer.pullEvery,
-					reserve: BOSS_CFG.puppeteer.reserve
-				};
-				S$1.millFed = S$1.millFed ?? 0;
-			}
-			clearSpeech();
-			clearPending();
-			cleanse(S$1.player);
-			S$1.player.lostFormThisFloor = false;
-			const bossNames = isEnglish() ? {
-				tormentor: "Tormentor Bishop",
-				spawnedRooks: "Linked Rooks",
-				millstone: "Millstone",
-				redKing: "Red King"
-			} : {
-				tormentor: "Слон-Мучитель",
-				spawnedRooks: "Спаянные Ладьи",
-				millstone: "Жернов",
-				redKing: "Красный Король"
+	seedRNG(S$7.runSeed + S$7.floor * 1e6 + S$7.turn);
+	emitVisual({
+		type: "transition",
+		style: "fade",
+		durationMs: 350
+	});
+	S$7.floor++;
+	const size = boardSizeForFloor(S$7.floor);
+	CFG.W = size.width;
+	CFG.H = size.height;
+	S$7.biome = biomeFor(S$7.floor);
+	S$7.currentRoom = 0;
+	S$7.rooms = [];
+	S$7.keys.clear();
+	S$7.player.x = Math.floor(CFG.W / 2);
+	S$7.player.y = CFG.H - 1;
+	S$7.player.facing = [0, -1];
+	const campaignBossId = S$7.runMode === "campaign" && isBossFloor(S$7.floor) ? bossOnFloor(S$7.floor) : null;
+	const endlessBoss = S$7.runMode === "infinite" ? chooseEndlessBoss(S$7, random) : null;
+	const bossId = campaignBossId || endlessBoss?.id;
+	if (bossId) {
+		const room = generateBossRoom(bossId, endlessBoss || void 0);
+		S$7.walls = room.walls;
+		S$7.special = room.specials;
+		S$7.enemies = room.enemies;
+		S$7.roomRules = room.rules;
+		S$7.specialRoom = endlessBoss || {
+			id: bossId,
+			difficulty: room.rules.difficulty,
+			reward: null
+		};
+		if (endlessBoss) S$7.lastSpecialRoom = {
+			floor: S$7.floor,
+			id: bossId
+		};
+		S$7.rooms = [{
+			walls: room.walls,
+			enemies: S$7.enemies,
+			special: room.specials,
+			cleared: false
+		}];
+		loadRoom(0);
+		S$7.player.x = Math.floor(CFG.W / 2);
+		S$7.player.y = CFG.H - 1;
+		S$7.player.facing = [0, -1];
+		S$7.player.active = 0;
+		S$7.promotionUsed = false;
+		S$7.hoverEnemy = null;
+		S$7.selectedEnemy = null;
+		S$7.turn = 1;
+		S$7.player.freeSwapUsed = false;
+		S$7.player.capturedThisFloor = 0;
+		S$7.player.hunger = CFG.HUNGER.start;
+		S$7.bossPhase = 1;
+		S$7.chainsBroken = 0;
+		S$7.millTick = 0;
+		if (bossId === "millstone") {
+			S$7.party = room.initialState?.party || S$7.party || {
+				dropCd: 0,
+				pullCd: BOSS_CONFIG.puppeteer.pullEvery,
+				reserve: BOSS_CONFIG.puppeteer.reserve
 			};
-			const bossScript = getScript().bosses[bossId];
-			const appear = bossScript && bossScript.appear;
-			if (appear) dispatchBossEvents(appear, {
-				log: (t) => log(t),
-				addSpeech: (x, y, t, kind) => addSpeech(x, y, t, kind)
-			});
-			else log(isEnglish() ? `-- Floor ${S$1.floor} · Boss: ${bossNames[bossId] || bossId} ──` : `── Ярус ${S$1.floor} · Босс: ${bossNames[bossId] || bossId} ──`, "e");
-			syncCheckIndicator();
-			render();
-			syncUI();
-			return;
+			S$7.millFed = room.initialState?.millFed ?? S$7.millFed ?? 0;
 		}
+		clearSpeech();
+		clearPending();
+		cleanse(S$7.player);
+		S$7.player.lostFormThisFloor = false;
+		const bossNames = isEnglish() ? {
+			tormentor: "Tormentor Bishop",
+			spawnedRooks: "Linked Rooks",
+			millstone: "Millstone",
+			redKing: "Red King"
+		} : {
+			tormentor: "Слон-Мучитель",
+			spawnedRooks: "Спаянные Ладьи",
+			millstone: "Жернов",
+			redKing: "Красный Король"
+		};
+		const bossScript = getScript().bosses[bossId];
+		const appear = bossScript && bossScript.appear;
+		if (appear) dispatchBossEvents(appear, {
+			log: (t) => log(t),
+			addSpeech: (x, y, t, kind) => speech(x, y, t, kind)
+		});
+		else log(isEnglish() ? `-- Floor ${S$7.floor} · Boss: ${bossNames[bossId] || bossId} ──` : `── Ярус ${S$7.floor} · Босс: ${bossNames[bossId] || bossId} ──`, "e");
+		syncCheckIndicator();
+		render();
+		syncUI();
+		return;
 	}
-	S$1.bossPhase = 0;
-	S$1.chainsBroken = 0;
-	S$1.millTick = 0;
-	S$1.millFed = 0;
-	S$1.party = null;
-	const C = CFG.ROOMS;
-	const maxRooms = Math.min(C.startMax + Math.floor(S$1.floor / C.growEvery), C.cap);
-	const minRooms = Math.min(C.startMin + Math.floor(S$1.floor / C.growEvery), maxRooms);
-	const nRooms = minRooms + randInt(Math.max(1, maxRooms - minRooms + 1));
-	const share = Math.pow(nRooms, -(C.budgetExp ?? .65));
+	S$7.roomRules = { ...DEFAULT_ROOM_RULES };
+	S$7.specialRoom = null;
+	S$7.bossPhase = 0;
+	S$7.chainsBroken = 0;
+	S$7.millTick = 0;
+	S$7.millFed = 0;
+	S$7.party = null;
+	const rooms = roomCountBounds(S$7.floor);
+	const nRooms = rooms.min + randInt(Math.max(1, rooms.max - rooms.min + 1));
+	const share = Math.pow(nRooms, -BALANCE.rooms.budgetExp);
 	for (let r = 0; r < nRooms; r++) {
 		const room = generateRoom();
-		S$1.walls = room.walls;
-		S$1.special = room.specials;
-		spawnEnemiesForFloor(S$1.floor, room.reach, share);
-		S$1.rooms.push({
+		S$7.walls = room.walls;
+		S$7.special = room.specials;
+		spawnEnemiesForFloor(S$7.floor, room.reach, share);
+		S$7.rooms.push({
 			walls: room.walls,
-			enemies: S$1.enemies,
+			enemies: S$7.enemies,
 			special: room.specials,
 			cleared: false
 		});
@@ -14181,14 +15291,14 @@ function newFloor() {
 				y: doorY
 			};
 			for (let sx = 2; sx <= 4; sx++) {
-				if (!S$1.rooms[next].walls.has(key(sx, Math.floor(CFG.H / 2))) && S$1.rooms[next].special.get(key(sx, Math.floor(CFG.H / 2)))?.type !== "trap") {
+				if (!S$7.rooms[next].walls.has(key(sx, Math.floor(CFG.H / 2))) && S$7.rooms[next].special.get(key(sx, Math.floor(CFG.H / 2)))?.type !== "trap") {
 					safeB = {
 						x: sx,
 						y: Math.floor(CFG.H / 2)
 					};
 					break;
 				}
-				for (let sy = doorY - 2; sy <= doorY + 2; sy++) if (sy > 0 && sy < CFG.H - 1 && !S$1.rooms[next].walls.has(key(sx, sy)) && S$1.rooms[next].special.get(key(sx, sy))?.type !== "trap") {
+				for (let sy = doorY - 2; sy <= doorY + 2; sy++) if (sy > 0 && sy < CFG.H - 1 && !S$7.rooms[next].walls.has(key(sx, sy)) && S$7.rooms[next].special.get(key(sx, sy))?.type !== "trap") {
 					safeB = {
 						x: sx,
 						y: sy
@@ -14197,7 +15307,7 @@ function newFloor() {
 				}
 				if (safeB.x !== 2) break;
 			}
-			S$1.rooms[r].special.set(key(doorX, doorY), {
+			S$7.rooms[r].special.set(key(doorX, doorY), {
 				type: "door",
 				color: locked,
 				targetRoom: next,
@@ -14208,14 +15318,14 @@ function newFloor() {
 				y: doorY
 			};
 			for (let sx = CFG.W - 2; sx >= CFG.W - 4; sx--) {
-				if (!S$1.rooms[r].walls.has(key(sx, Math.floor(CFG.H / 2))) && S$1.rooms[r].special.get(key(sx, Math.floor(CFG.H / 2)))?.type !== "trap") {
+				if (!S$7.rooms[r].walls.has(key(sx, Math.floor(CFG.H / 2))) && S$7.rooms[r].special.get(key(sx, Math.floor(CFG.H / 2)))?.type !== "trap") {
 					safeB = {
 						x: sx,
 						y: Math.floor(CFG.H / 2)
 					};
 					break;
 				}
-				for (let sy = doorY - 2; sy <= doorY + 2; sy++) if (sy > 0 && sy < CFG.H - 1 && !S$1.rooms[r].walls.has(key(sx, sy)) && S$1.rooms[r].special.get(key(sx, sy))?.type !== "trap") {
+				for (let sy = doorY - 2; sy <= doorY + 2; sy++) if (sy > 0 && sy < CFG.H - 1 && !S$7.rooms[r].walls.has(key(sx, sy)) && S$7.rooms[r].special.get(key(sx, sy))?.type !== "trap") {
 					safeB = {
 						x: sx,
 						y: sy
@@ -14224,7 +15334,7 @@ function newFloor() {
 				}
 				if (safeB.x !== CFG.W - 2) break;
 			}
-			S$1.rooms[next].special.set(key(2, doorY), {
+			S$7.rooms[next].special.set(key(2, doorY), {
 				type: "door",
 				color: locked,
 				targetRoom: r,
@@ -14236,20 +15346,20 @@ function newFloor() {
 					kx = 1 + randInt(CFG.W - 2);
 					ky = 1 + randInt(CFG.H - 2);
 					tries++;
-				} while (tries < 50 && (S$1.rooms[r].walls.has(key(kx, ky)) || S$1.rooms[r].special.get(key(kx, ky)) || kx === doorX && ky === doorY));
-				if (tries < 50) S$1.rooms[r].special.set(key(kx, ky), {
+				} while (tries < 50 && (S$7.rooms[r].walls.has(key(kx, ky)) || S$7.rooms[r].special.get(key(kx, ky)) || kx === doorX && ky === doorY));
+				if (tries < 50) S$7.rooms[r].special.set(key(kx, ky), {
 					type: "key",
 					color: locked
 				});
 			}
 		}
-		for (const room of S$1.rooms) room.special.forEach((s, k) => {
+		for (const room of S$7.rooms) room.special.forEach((s, k) => {
 			if (s.type === "door") room.walls.delete(k);
 		});
 		let attempts = 0;
-		while (attempts < 10 && !checkRoomConnectivity(S$1.rooms, nRooms)) {
+		while (attempts < 10 && !checkRoomConnectivity(S$7.rooms, nRooms)) {
 			attempts++;
-			const adj = buildRoomGraph(S$1.rooms, nRooms);
+			const adj = buildRoomGraph(S$7.rooms, nRooms);
 			const unreachable = [];
 			const visited = /* @__PURE__ */ new Set([0]);
 			const q = [0];
@@ -14265,7 +15375,7 @@ function newFloor() {
 			const target = pick(unreachable);
 			const doorX2 = CFG.W - 1;
 			const doorY2 = Math.floor(CFG.H / 2);
-			S$1.rooms[0].special.set(key(doorX2, doorY2), {
+			S$7.rooms[0].special.set(key(doorX2, doorY2), {
 				type: "door",
 				color: null,
 				targetRoom: target,
@@ -14274,7 +15384,7 @@ function newFloor() {
 					y: doorY2
 				}
 			});
-			S$1.rooms[target].special.set(key(2, doorY2), {
+			S$7.rooms[target].special.set(key(2, doorY2), {
 				type: "door",
 				color: null,
 				targetRoom: 0,
@@ -14283,49 +15393,49 @@ function newFloor() {
 					y: doorY2
 				}
 			});
-			S$1.rooms[0].walls.delete(key(doorX2, doorY2));
-			S$1.rooms[target].walls.delete(key(2, doorY2));
+			S$7.rooms[0].walls.delete(key(doorX2, doorY2));
+			S$7.rooms[target].walls.delete(key(2, doorY2));
 		}
 	}
 	loadRoom(0);
-	S$1.player.x = Math.floor(CFG.W / 2);
-	S$1.player.y = CFG.H - 1;
-	S$1.player.facing = [0, -1];
-	S$1.player.active = 0;
-	S$1.promotionUsed = false;
-	S$1.hoverEnemy = null;
-	S$1.selectedEnemy = null;
-	S$1.turn = 1;
-	S$1.player.freeSwapUsed = false;
-	S$1.player.capturedThisFloor = 0;
-	S$1.player.hunger = CFG.HUNGER.start;
+	S$7.player.x = Math.floor(CFG.W / 2);
+	S$7.player.y = CFG.H - 1;
+	S$7.player.facing = [0, -1];
+	S$7.player.active = 0;
+	S$7.promotionUsed = false;
+	S$7.hoverEnemy = null;
+	S$7.selectedEnemy = null;
+	S$7.turn = 1;
+	S$7.player.freeSwapUsed = false;
+	S$7.player.capturedThisFloor = 0;
+	S$7.player.hunger = CFG.HUNGER.start;
 	clearSpeech();
 	clearPending();
 	clearToastQueue();
-	cleanse(S$1.player);
-	S$1.player.lostFormThisFloor = false;
-	updateMusic(S$1, bossOnFloor);
-	if (S$1.runMode === "campaign" && bossOnFloor(S$1.floor + 1)) preload(bossOnFloor(S$1.floor + 1) === "redKing" ? "redking" : "boss");
-	if (S$1.floor >= 5) unlockAch("deep");
-	if (S$1.floor >= 10) unlockAch("abyss");
-	if (has("smoke")) applyStatus(S$1.player, "shield", 1);
-	if (has("second_wind")) applyStatus(S$1.player, "haste", 2);
-	if (S$1.player.nextFloorStatus && S$1.player.nextFloorStatus.length) {
-		S$1.player.nextFloorStatus.forEach((s) => applyStatus(S$1.player, s.k, s.n));
-		S$1.player.nextFloorStatus = [];
+	cleanse(S$7.player);
+	S$7.player.lostFormThisFloor = false;
+	updateMusic(S$7, bossOnFloor);
+	if (S$7.runMode === "campaign" && bossOnFloor(S$7.floor + 1)) preload(bossOnFloor(S$7.floor + 1) === "redKing" ? "redking" : "boss");
+	if (S$7.floor >= 5) unlockAch("deep");
+	if (S$7.floor >= 10) unlockAch("abyss");
+	if (has("smoke")) applyStatus(S$7.player, "shield", 1);
+	if (has("second_wind")) applyStatus(S$7.player, "haste", 2);
+	if (S$7.player.nextFloorStatus && S$7.player.nextFloorStatus.length) {
+		S$7.player.nextFloorStatus.forEach((s) => applyStatus(S$7.player, s.k, s.n));
+		S$7.player.nextFloorStatus = [];
 	}
-	if (S$1.challenge === "escalation") for (const room of S$1.rooms) room.enemies.forEach((e) => {
-		e.r = (e.r || 1) + Math.min(3, Math.floor(S$1.floor / 3));
+	if (S$7.challenge === "escalation") for (const room of S$7.rooms) room.enemies.forEach((e) => {
+		e.r = (e.r || 1) + Math.min(3, Math.floor(S$7.floor / 3));
 		e.rb = (e.rb || 0) + 1;
-		if (S$1.floor >= 5 && !e.armor) e.armor = 1;
+		if (S$7.floor >= 5 && !e.armor) e.armor = 1;
 	});
-	const totalEnemies = S$1.rooms.reduce((sum, r) => sum + r.enemies.length, 0);
-	log(isEnglish() ? `-- Floor ${S$1.floor} · ${LContent(S$1.biome, "name")} · ${nRooms} rooms ── enemies: ${totalEnemies}` : `── Ярус ${S$1.floor} · ${LContent(S$1.biome, "name")} · ${nRooms} комн. ── врагов: ${totalEnemies}`, "e");
+	const totalEnemies = S$7.rooms.reduce((sum, r) => sum + r.enemies.length, 0);
+	log(isEnglish() ? `-- Floor ${S$7.floor} · ${LContent(S$7.biome, "name")} · ${nRooms} rooms ── enemies: ${totalEnemies}` : `── Ярус ${S$7.floor} · ${LContent(S$7.biome, "name")} · ${nRooms} комн. ── врагов: ${totalEnemies}`, "e");
 	log(isEnglish() ? `Board: ${CFG.W}×${CFG.H}` : `Поле: ${CFG.W}×${CFG.H}`, "");
-	if (getScript().floorIntro[S$1.floor]) log(getScript().floorIntro[S$1.floor], "");
+	if (getScript().floorIntro[S$7.floor]) log(getScript().floorIntro[S$7.floor], "");
 	recordSnapshot("floor_started", {
-		biome: S$1.biome?.id,
-		rooms: S$1.rooms.length
+		biome: S$7.biome?.id,
+		rooms: S$7.rooms.length
 	});
 	flushAnalytics();
 	syncCheckIndicator();
@@ -14334,21 +15444,22 @@ function newFloor() {
 }
 /** Сохранить текущую комнату в S.rooms. */
 function snapshotRoom() {
-	const id = S$1.currentRoom;
-	S$1.rooms[id] = {
-		walls: S$1.walls,
-		enemies: S$1.enemies,
-		special: S$1.special,
-		cleared: S$1.rooms[id].cleared
+	const id = S$7.currentRoom;
+	S$7.rooms[id] = {
+		walls: S$7.walls,
+		enemies: S$7.enemies,
+		special: S$7.special,
+		cleared: S$7.rooms[id].cleared
 	};
 }
 /** Загрузить комнату из S.rooms. */
 function loadRoom(id) {
-	S$1.currentRoom = id;
-	const r = S$1.rooms[id];
-	S$1.walls = r.walls;
-	S$1.enemies = r.enemies;
-	S$1.special = r.special;
+	S$7.currentRoom = id;
+	const r = S$7.rooms[id];
+	S$7.walls = r.walls;
+	S$7.enemies = r.enemies;
+	S$7.special = r.special;
+	S$7.roomRules = r.rules || { ...DEFAULT_ROOM_RULES };
 	invalidateThreats();
 }
 /**
@@ -14356,10 +15467,10 @@ function loadRoom(id) {
 * @param {object} data — распарсенный JSON
 */
 function loadLevel(data) {
-	S$1.floor = data.floor || 1;
-	S$1.biome = BIOMES.find((b) => b.id === data.biome) || BIOMES[0];
-	S$1.rooms = [];
-	S$1.currentRoom = 0;
+	S$7.floor = data.floor || 1;
+	S$7.biome = BIOMES.find((b) => b.id === data.biome) || BIOMES[0];
+	S$7.rooms = [];
+	S$7.currentRoom = 0;
 	if (data.rooms && Array.isArray(data.rooms)) {
 		data.rooms.forEach((r, idx) => {
 			const roomData = {
@@ -14374,16 +15485,27 @@ function loadLevel(data) {
 					status: {},
 					homeColor: tileColor(e.x, e.y),
 					r: CFG.BASE_R[e.type] || 1,
-					rb: enemyRangeBonus(S$1.floor)
+					rb: enemyRangeBonus(S$7.floor),
+					...e.bossId ? { bossId: e.bossId } : {},
+					...e.armor ? { armor: e.armor } : {},
+					...e.linkedTo ? { linkedTo: e.linkedTo } : {},
+					...e.passive ? { passive: true } : {},
+					...e.king ? { king: true } : {},
+					...e.retinue ? { retinue: e.retinue } : {},
+					...e.noAttackCd ? {
+						noAttackCd: true,
+						attackReady: true
+					} : {}
 				})),
+				rules: makeRoomRules(r.rules),
 				cleared: false
 			};
-			S$1.rooms.push(roomData);
+			S$7.rooms.push(roomData);
 			if (idx === 0) {
 				CFG.W = r.W || 11;
 				CFG.H = r.H || 9;
-				S$1.player.x = r.playerStart && r.playerStart.x || Math.floor(CFG.W / 2);
-				S$1.player.y = r.playerStart && r.playerStart.y || CFG.H - 1;
+				S$7.player.x = r.playerStart && r.playerStart.x || Math.floor(CFG.W / 2);
+				S$7.player.y = r.playerStart && r.playerStart.y || CFG.H - 1;
 			}
 		});
 		if (data.doors && Array.isArray(data.doors)) data.doors.forEach((d) => {
@@ -14405,10 +15527,10 @@ function loadLevel(data) {
 					y: d.fromY
 				}
 			};
-			S$1.rooms[d.fromRoom].special.set(key(d.fromX, d.fromY), doorFrom);
-			S$1.rooms[d.toRoom].special.set(key(d.toX, d.toY), doorTo);
-			S$1.rooms[d.fromRoom].walls.delete(key(d.fromX, d.fromY));
-			S$1.rooms[d.toRoom].walls.delete(key(d.toX, d.toY));
+			S$7.rooms[d.fromRoom].special.set(key(d.fromX, d.fromY), doorFrom);
+			S$7.rooms[d.toRoom].special.set(key(d.toX, d.toY), doorTo);
+			S$7.rooms[d.fromRoom].walls.delete(key(d.fromX, d.fromY));
+			S$7.rooms[d.toRoom].walls.delete(key(d.toX, d.toY));
 		});
 	} else {
 		CFG.W = data.W || 11;
@@ -14425,32 +15547,35 @@ function loadLevel(data) {
 				status: {},
 				homeColor: tileColor(e.x, e.y),
 				r: CFG.BASE_R[e.type] || 1,
-				rb: enemyRangeBonus(S$1.floor)
+				rb: enemyRangeBonus(S$7.floor)
 			})),
+			rules: makeRoomRules(data.rules),
 			cleared: false
 		};
-		S$1.rooms.push(roomData);
-		S$1.player.x = data.playerStart && data.playerStart.x || Math.floor(CFG.W / 2);
-		S$1.player.y = data.playerStart && data.playerStart.y || CFG.H - 1;
+		S$7.rooms.push(roomData);
+		S$7.player.x = data.playerStart && data.playerStart.x || Math.floor(CFG.W / 2);
+		S$7.player.y = data.playerStart && data.playerStart.y || CFG.H - 1;
 	}
 	loadRoom(0);
-	S$1.player.facing = [0, -1];
-	S$1.player.active = 0;
-	S$1.promotionUsed = false;
-	S$1.hoverEnemy = null;
-	S$1.selectedEnemy = null;
-	S$1.turn = 1;
-	S$1.player.freeSwapUsed = false;
-	S$1.player.capturedThisFloor = 0;
-	const totalEnemies = S$1.rooms.reduce((sum, r) => sum + r.enemies.length, 0);
-	log(isEnglish() ? "-- Level loaded: " + LContent(S$1.biome, "name") + " · " + S$1.rooms.length + " rooms ── enemies: " + totalEnemies : "── Загружен уровень · " + LContent(S$1.biome, "name") + " · " + S$1.rooms.length + " комн. ── врагов: " + totalEnemies, "e");
+	S$7.player.facing = [0, -1];
+	S$7.player.active = 0;
+	S$7.promotionUsed = false;
+	S$7.hoverEnemy = null;
+	S$7.selectedEnemy = null;
+	S$7.turn = 1;
+	S$7.player.freeSwapUsed = false;
+	S$7.player.capturedThisFloor = 0;
+	const totalEnemies = S$7.rooms.reduce((sum, r) => sum + r.enemies.length, 0);
+	log(isEnglish() ? "-- Level loaded: " + LContent(S$7.biome, "name") + " · " + S$7.rooms.length + " rooms ── enemies: " + totalEnemies : "── Загружен уровень · " + LContent(S$7.biome, "name") + " · " + S$7.rooms.length + " комн. ── врагов: " + totalEnemies, "e");
 	syncCheckIndicator();
 	render();
 	syncUI();
 }
 function reset() {
-	startAnalyticsRun({ mode: S$1.runMode || "campaign" });
-	S$1.player = {
+	S$7.runSeed = S$7.runMode === "campaign" ? CFG.CAMPAIGN_SEED : createRunSeed();
+	seedRNG(S$7.runSeed);
+	startAnalyticsRun({ mode: S$7.runMode || "campaign" });
+	S$7.player = {
 		x: 0,
 		y: 0,
 		facing: [0, -1],
@@ -14471,9 +15596,11 @@ function reset() {
 		nextFloorStatus: [],
 		hunger: CFG.HUNGER.start,
 		hungerMark: 1,
-		boneVoiceTimer: 0
+		boneVoiceTimer: 0,
+		temporaryEffects: [],
+		greenHungerTurns: 0
 	};
-	S$1.unlocked = /* @__PURE__ */ new Set(["pawn", "knight"]);
+	S$7.unlocked = /* @__PURE__ */ new Set(["pawn", "knight"]);
 	const exotic = [];
 	if (META.upgrades.archbishop) exotic.push("archbishop");
 	if (META.upgrades.chancellor) exotic.push("chancellor");
@@ -14481,20 +15608,25 @@ function reset() {
 	if (META.upgrades.infiltrator) exotic.push("infiltrator");
 	if (META.upgrades.bastion) exotic.push("bastion");
 	exotic.forEach((t) => {
-		S$1.unlocked.add(t);
-		const slot = S$1.player.wheel.findIndex((s, i) => i > 0 && s === null);
-		if (slot !== -1) S$1.player.wheel[slot] = makeForm(t, 0);
+		S$7.unlocked.add(t);
+		const slot = S$7.player.wheel.findIndex((s, i) => i > 0 && s === null);
+		if (slot !== -1) S$7.player.wheel[slot] = makeForm(t, 0);
 	});
-	S$1.gameOver = false;
-	S$1.floor = 0;
-	S$1.walls = /* @__PURE__ */ new Set();
-	S$1.special = /* @__PURE__ */ new Map();
+	S$7.gameOver = false;
+	S$7.floor = 0;
+	S$7.roomRules = { ...DEFAULT_ROOM_RULES };
+	S$7.specialRoom = null;
+	S$7.lastSpecialRoom = null;
+	S$7.scenario = null;
+	S$7.walls = /* @__PURE__ */ new Set();
+	S$7.special = /* @__PURE__ */ new Map();
 	if (dom.logEl) dom.logEl.innerHTML = "";
 	log(L("log.default"), "");
 	clearRunLog();
 	clearToastQueue();
+	log(L("summary.seed", S$7.runSeed), "");
 	const extraSlots = META.upgrades.startSlots || 0;
-	for (let i = 0; i < extraSlots; i++) if (S$1.player.wheel.length < 5) S$1.player.wheel.push(null);
+	for (let i = 0; i < extraSlots; i++) if (S$7.player.wheel.length < 5) S$7.player.wheel.push(null);
 	const startRelics = META.upgrades.startRelics || 0;
 	if (startRelics > 0) {
 		const pool = Object.keys(RELICS);
@@ -14509,14 +15641,14 @@ function reset() {
 		});
 		return;
 	}
-	if (S$1.runMode === "campaign" && META.runs === 0 && getScript().interludes.prologue) {
+	if (S$7.runMode === "campaign" && META.runs === 0 && getScript().interludes.prologue) {
 		openInterlude({
 			...getScript().interludes.prologue,
 			art: ART.prologue
 		}, () => newFloor());
 		return;
 	}
-	if (S$1.runMode === "campaign" && META.runs >= 1 && getScript().repeat && getScript().repeat.prologue) {
+	if (S$7.runMode === "campaign" && META.runs >= 1 && getScript().repeat && getScript().repeat.prologue) {
 		openInterlude({
 			...getScript().repeat.prologue,
 			art: ART.prologue,
@@ -14537,10 +15669,6 @@ function reset() {
 * Инструменты отладки — читы для тестирования.
 * Вызываются через модальное окно по секретному слову "debug".
 */
-var debug_exports = /* @__PURE__ */ __exportAll({
-	feedDebugChar: () => feedDebugChar,
-	openDebugMenu: () => openDebugMenu
-});
 /**
 * Слушатель ввода секретного слова. Вызывается из main.js.
 */
@@ -14555,7 +15683,7 @@ function feedDebugChar(ch) {
 	}
 }
 function openDebugMenu() {
-	S$1.modalOpen = true;
+	S$7.modalOpen = true;
 	dom.modalBox.classList.remove("death");
 	dom.mTitle.textContent = "🛠 Инструменты разработчика";
 	dom.mText.textContent = "Читы для тестирования — используй с умом.";
@@ -14580,7 +15708,7 @@ function openDebugMenu() {
 			fn: () => addShards(50)
 		},
 		{
-			label: "🛡 Неуязвимость: " + (S$1.godMode ? "ВЫКЛ" : "ВКЛ"),
+			label: "🛡 Неуязвимость: " + (S$7.godMode ? "ВЫКЛ" : "ВКЛ"),
 			fn: toggleGodMode
 		},
 		{
@@ -14595,7 +15723,7 @@ function openDebugMenu() {
 			label: "🗺 Редактор уровней",
 			fn: () => {
 				closeMenu();
-				__vitePreload(() => Promise.resolve().then(() => editor_exports).then((m) => m.openEditor()), void 0, import.meta.url);
+				openEditor();
 			}
 		},
 		{
@@ -14644,9 +15772,9 @@ function openDebugMenu() {
 			const data = await res.json();
 			closeMenu();
 			loadLevel(data);
-			log(`✅ Уровень "${name}" загружен.`, "g");
+			log$3(`✅ Уровень "${name}" загружен.`, "g");
 		} catch (err) {
-			log(`❌ Ошибка загрузки "${name}": ${err.message}`, "r");
+			log$3(`❌ Ошибка загрузки "${name}": ${err.message}`, "r");
 		}
 	};
 	loadRow.appendChild(input);
@@ -14658,7 +15786,7 @@ function openDebugMenu() {
 	resetBtn.onclick = () => {
 		localStorage.removeItem("chessrogue_meta_v1");
 		localStorage.removeItem("chessrogue_settings_v1");
-		log("🗑 Весь прогресс в localStorage сброшен. Перезапустите страницу.", "r");
+		log$3("🗑 Весь прогресс в localStorage сброшен. Перезапустите страницу.", "r");
 		closeMenu();
 	};
 	dom.mChoices.appendChild(resetBtn);
@@ -14674,136 +15802,136 @@ function closeMenu() {
 	syncUI();
 }
 function killAllEnemies() {
-	S$1.enemies = [];
-	log("☠ Все враги уничтожены.", "g");
+	S$7.enemies = [];
+	log$3("☠ Все враги уничтожены.", "g");
 }
 function skipFloor() {
-	S$1.enemies = [];
-	log("⬇ Этаж пропущен.", "g");
+	S$7.enemies = [];
+	log$3("⬇ Этаж пропущен.", "g");
 	newFloor();
 	render();
 	syncUI();
 }
 function addGold(n) {
-	S$1.player.gold = (S$1.player.gold || 0) + n;
-	log(`🪙 +${n} золота (всего: ${S$1.player.gold}).`, "g");
+	S$7.player.gold = (S$7.player.gold || 0) + n;
+	log$3(`🪙 +${n} золота (всего: ${S$7.player.gold}).`, "g");
 	syncUI();
 }
 function addShards(n) {
 	META.shards += n;
 	metaSave();
-	log(`✦ +${n} осколков (всего: ${META.shards}).`, "g");
+	log$3(`✦ +${n} осколков (всего: ${META.shards}).`, "g");
 	syncUI();
 }
 function toggleGodMode() {
-	S$1.godMode = !S$1.godMode;
-	log(`🛡 Неуязвимость: ${S$1.godMode ? "ВКЛ" : "ВЫКЛ"}.`, "g");
+	S$7.godMode = !S$7.godMode;
+	log$3(`🛡 Неуязвимость: ${S$7.godMode ? "ВКЛ" : "ВЫКЛ"}.`, "g");
 }
 function healAll() {
-	S$1.player.wheel.forEach((f) => {
+	S$7.player.wheel.forEach((f) => {
 		if (f) f.cooldown = 0;
 	});
-	cleanse(S$1.player);
-	S$1.enemies.forEach((e) => {
+	cleanse(S$7.player);
+	S$7.enemies.forEach((e) => {
 		e.cd = 0;
 		if (e.status) e.status = {};
 	});
-	log("💊 Все кулдауны и статусы сняты.", "g");
+	log$3("💊 Все кулдауны и статусы сняты.", "g");
 }
 function addAllKeys() {
-	KEY_COLORS.forEach((c) => S$1.keys.add(c));
-	log(`🔑 Все ключи получены: ${KEY_COLORS.map((c) => KEY_GLYPH[c]).join("")}`, "g");
+	KEY_COLORS.forEach((c) => S$7.keys.add(c));
+	log$3(`🔑 Все ключи получены: ${KEY_COLORS.map((c) => KEY_GLYPH[c]).join("")}`, "g");
 	syncUI();
 }
 function addRandomForm() {
-	const pool = [...S$1.unlocked].filter((t) => t !== "pawn" && S$1.player.wheel.every((f) => !f || f.type !== t));
+	const pool = [...S$7.unlocked].filter((t) => t !== "pawn" && S$7.player.wheel.every((f) => !f || f.type !== t));
 	if (!pool.length) {
-		log("Нет доступных форм для добавления.", "r");
+		log$3("Нет доступных форм для добавления.", "r");
 		return;
 	}
-	const slot = S$1.player.wheel.findIndex((s, i) => i > 0 && s === null);
+	const slot = S$7.player.wheel.findIndex((s, i) => i > 0 && s === null);
 	if (slot === -1) {
-		log("Нет свободных слотов в колесе.", "r");
+		log$3("Нет свободных слотов в колесе.", "r");
 		return;
 	}
 	const t = pick(pool);
-	S$1.player.wheel[slot] = makeForm(t, tileColor(S$1.player.x, S$1.player.y));
-	log(`♟ Форма «${t}» добавлена в слот ${slot}.`, "g");
+	S$7.player.wheel[slot] = makeForm(t, tileColor(S$7.player.x, S$7.player.y));
+	log$3(`♟ Форма «${t}» добавлена в слот ${slot}.`, "g");
 }
 function initBossArena(bossId) {
 	closeMenu();
 	const room = generateBossRoom(bossId);
-	S$1.walls = room.walls;
-	S$1.special = room.specials;
-	S$1.enemies = room.enemies;
-	S$1.rooms = [{
+	S$7.walls = room.walls;
+	S$7.special = room.specials;
+	S$7.enemies = room.enemies;
+	S$7.rooms = [{
 		walls: room.walls,
-		enemies: S$1.enemies,
+		enemies: S$7.enemies,
 		special: room.specials,
 		cleared: false
 	}];
-	S$1.currentRoom = 0;
+	S$7.currentRoom = 0;
 	loadRoom(0);
-	S$1.player.x = Math.floor(CFG.W / 2);
-	S$1.player.y = CFG.H - 1;
-	S$1.player.facing = [0, -1];
-	S$1.player.active = 0;
-	S$1.promotionUsed = false;
-	S$1.hoverEnemy = null;
-	S$1.selectedEnemy = null;
-	S$1.turn = 1;
-	S$1.player.freeSwapUsed = false;
-	S$1.player.capturedThisFloor = 0;
-	S$1.player.hunger = CFG.HUNGER.start;
-	S$1.bossPhase = 0;
-	S$1.chainsBroken = 0;
-	S$1.millTick = 0;
-	S$1.millFed = 0;
-	S$1.party = null;
-	S$1.keys = /* @__PURE__ */ new Set();
-	S$1.player.lostFormThisFloor = false;
+	S$7.player.x = Math.floor(CFG.W / 2);
+	S$7.player.y = CFG.H - 1;
+	S$7.player.facing = [0, -1];
+	S$7.player.active = 0;
+	S$7.promotionUsed = false;
+	S$7.hoverEnemy = null;
+	S$7.selectedEnemy = null;
+	S$7.turn = 1;
+	S$7.player.freeSwapUsed = false;
+	S$7.player.capturedThisFloor = 0;
+	S$7.player.hunger = CFG.HUNGER.start;
+	S$7.bossPhase = 0;
+	S$7.chainsBroken = 0;
+	S$7.millTick = 0;
+	S$7.millFed = 0;
+	S$7.party = null;
+	S$7.keys = /* @__PURE__ */ new Set();
+	S$7.player.lostFormThisFloor = false;
 	clearSpeech();
-	cleanse(S$1.player);
+	cleanse(S$7.player);
 }
 function startTormentor() {
 	initBossArena("tormentor");
-	const e = S$1.enemies[0];
+	const e = S$7.enemies[0];
 	if (e) {
 		e.phase = 1;
-		e.armor = BOSS_CFG.tormentor.armor;
-		e.stunCd = BOSS_CFG.tormentor.stunEvery;
+		e.armor = BOSS_CONFIG.tormentor.armor;
+		e.stunCd = BOSS_CONFIG.tormentor.stunEvery;
 	}
-	S$1.bossPhase = 1;
-	log("🧪 Босс: Слон-Мучитель (ярус 6).", "e");
+	S$7.bossPhase = 1;
+	log$3("🧪 Босс: Слон-Мучитель (ярус 6).", "e");
 	render();
 	syncUI();
 }
 function startRooks() {
 	initBossArena("spawnedRooks");
-	log("🧪 Босс: Спаянные Ладьи (ярус 8).", "e");
+	log$3("🧪 Босс: Спаянные Ладьи (ярус 8).", "e");
 	render();
 	syncUI();
 }
 function startMillstone() {
 	initBossArena("millstone");
-	S$1.party = {
+	S$7.party = {
 		dropCd: 0,
-		pullCd: BOSS_CFG.puppeteer.pullEvery,
-		reserve: BOSS_CFG.puppeteer.reserve
+		pullCd: BOSS_CONFIG.puppeteer.pullEvery,
+		reserve: BOSS_CONFIG.puppeteer.reserve
 	};
-	log("🧪 Босс: Жернов (ярус 11).", "e");
+	log$3("🧪 Босс: Жернов (ярус 11).", "e");
 	render();
 	syncUI();
 }
 function startRedKing() {
 	initBossArena("redKing");
-	S$1.chainsBroken = 0;
-	const king = S$1.enemies.find((e) => e.king);
+	S$7.chainsBroken = 0;
+	const king = S$7.enemies.find((e) => e.king);
 	if (king) {
 		king.armor = 99;
 		king.exposed = false;
 	}
-	log("🧪 Босс: Красный Король (ярус 18).", "e");
+	log$3("🧪 Босс: Красный Король (ярус 18).", "e");
 	render();
 	syncUI();
 }
@@ -14823,16 +15951,16 @@ function startRedKing() {
 */
 /** Враги, отсортированные от ближнего к игроку. */
 function ordered() {
-	return [...S$1.enemies].sort((a, b) => cheb(a, S$1.player) - cheb(b, S$1.player));
+	return [...S$7.enemies].sort((a, b) => cheb(a, S$7.player) - cheb(b, S$7.player));
 }
 function cycleEnemy(dir) {
 	const list = ordered();
 	if (!list.length) {
-		S$1.selectedEnemy = null;
+		S$7.selectedEnemy = null;
 		return;
 	}
-	const cur = list.indexOf(S$1.selectedEnemy);
-	S$1.selectedEnemy = list[cur === -1 ? dir > 0 ? 0 : list.length - 1 : (cur + dir + list.length) % list.length];
+	const cur = list.indexOf(S$7.selectedEnemy);
+	S$7.selectedEnemy = list[cur === -1 ? dir > 0 ? 0 : list.length - 1 : (cur + dir + list.length) % list.length];
 	setPreviewCell(null);
 }
 var attached = false;
@@ -14843,13 +15971,13 @@ function attachKeyNav() {
 		if (ev.ctrlKey || ev.metaKey || ev.altKey) return;
 		const t = ev.target;
 		if (t && (t.tagName === "INPUT" || t.tagName === "TEXTAREA" || t.isContentEditable)) return;
-		if (S$1.modalOpen || S$1.gameOver) return;
+		if (S$7.modalOpen || S$7.gameOver) return;
 		if (ev.key === "Tab") {
 			ev.preventDefault();
 			cycleEnemy(ev.shiftKey ? -1 : 1);
 		} else if (ev.key === "Escape") {
-			if (!S$1.selectedEnemy && !pendingMove()) return;
-			S$1.selectedEnemy = null;
+			if (!S$7.selectedEnemy && !pendingMove()) return;
+			S$7.selectedEnemy = null;
 			clearPending();
 		} else if (ev.key === "Enter") {
 			const p = pendingMove();
@@ -14864,6 +15992,24 @@ function attachKeyNav() {
 }
 //#endregion
 //#region src/main.js
+/** Подключает UI-адаптеры к независимым шинам сообщений и визуальных эффектов. */
+function configurePresentationServices() {
+	configureFeedback({
+		toast: (text) => toast(text),
+		log: (text, priority) => log$3(text, priority === "critical" ? "r" : priority === "high" ? "g" : ""),
+		speech: (x, y, text, kind) => addSpeech(x, y, text, kind || "system"),
+		hint: (text) => toast(text),
+		modal: (text, action) => openModal(L("app.title"), text, action ? [{
+			text: action.label,
+			onClick: action.run
+		}] : [{
+			text: "OK",
+			onClick: closeModal
+		}]),
+		translate: (key, params) => L(key, ...params)
+	});
+	configureVisualEffects(applyVisualEffect);
+}
 function loreArray() {
 	return [
 		0,
@@ -14942,7 +16088,7 @@ function showLoadingScreen() {
 }
 function applyPageTitle() {
 	var t = document.getElementById("gameTitle");
-	if (t) t.innerHTML = L("app.title") + " <span class=\"v\">v1.0</span>";
+	if (t) t.innerHTML = L("app.title") + ` <span class="v">v${APP_VERSION}</span>`;
 	var s = document.getElementById("gameSub");
 	if (s) s.textContent = L("app.sub");
 	var pt = document.getElementById("pageTitle");
@@ -14998,7 +16144,7 @@ function renderLegend() {
 	el.innerHTML = html;
 }
 function startGame() {
-	seedRNG(Math.floor(Date.now()));
+	configurePresentationServices();
 	applyPageTitle();
 	renderLegend();
 	metaLoad();
@@ -15041,20 +16187,20 @@ function handleTap(ev) {
 		return;
 	}
 	const { x, y } = cellFromEvent(ev);
-	if (!inB$1(x, y) || S$1.gameOver || S$1.modalOpen) return;
+	if (!inB$1(x, y) || S$7.gameOver || S$7.modalOpen) return;
 	const { moves, captures } = playerOptions();
 	if (moves.some((c) => c.x === x && c.y === y) || captures.some((c) => c.x === x && c.y === y)) {
-		S$1.selectedEnemy = null;
-		S$1.hoverEnemy = null;
+		S$7.selectedEnemy = null;
+		S$7.hoverEnemy = null;
 		tryMoveTo(x, y);
 		return;
 	}
 	const e = enemyAt(x, y);
-	S$1.selectedEnemy = e && e !== S$1.selectedEnemy ? e : null;
+	S$7.selectedEnemy = e && e !== S$7.selectedEnemy ? e : null;
 	render();
 }
 document.addEventListener("keydown", (ev) => {
-	if (S$1.modalOpen && ev.key.toLowerCase() !== "r") return;
+	if (S$7.modalOpen && ev.key.toLowerCase() !== "r") return;
 	switch (ev.key.toLowerCase()) {
 		case "q":
 		case "й":
@@ -15090,7 +16236,6 @@ document.addEventListener("keydown", (ev) => {
 			break;
 		case "r":
 		case "к":
-			seedRNG(S$1.runMode === "campaign" ? CFG.CAMPAIGN_SEED : Date.now());
 			closeModal();
 			reset();
 			break;
@@ -15111,13 +16256,12 @@ document.getElementById("btnPass").onclick = () => {
 document.getElementById("btnSettings").onclick = () => openSettings();
 document.getElementById("btnHelp").onclick = () => openHelp();
 document.getElementById("btnDebug").onclick = () => {
-	__vitePreload(() => Promise.resolve().then(() => debug_exports).then((m) => m.openDebugMenu()), void 0, import.meta.url);
+	openDebugMenu();
 };
 document.getElementById("btnEditor").onclick = () => {
 	openEditor();
 };
 document.getElementById("btnRestart").onclick = () => {
-	seedRNG(S$1.runMode === "campaign" ? CFG.CAMPAIGN_SEED : Date.now());
 	closeModal();
 	reset();
 };
@@ -15159,7 +16303,7 @@ function startInertia() {
 	inertiaRAF = requestAnimationFrame(step);
 }
 dom.cv.addEventListener("pointerdown", (ev) => {
-	if (S$1.gameOver || S$1.modalOpen) return;
+	if (S$7.gameOver || S$7.modalOpen) return;
 	initAudio();
 	const r = dom.cv.getBoundingClientRect();
 	const cx = ev.clientX - r.left;
@@ -15198,7 +16342,7 @@ dom.cv.addEventListener("pointerdown", (ev) => {
 	ev.preventDefault();
 });
 dom.cv.addEventListener("pointermove", (ev) => {
-	if (!dragState || S$1.gameOver || S$1.modalOpen) return;
+	if (!dragState || S$7.gameOver || S$7.modalOpen) return;
 	ev.preventDefault();
 	const r = dom.cv.getBoundingClientRect();
 	const cx = ev.clientX - r.left;
@@ -15260,7 +16404,7 @@ dom.cv.addEventListener("pointerup", (ev) => {
 	}
 });
 document.addEventListener("keydown", (ev) => {
-	if (S$1.gameOver || S$1.modalOpen || editorActive) return;
+	if (S$7.gameOver || S$7.modalOpen || editorActive) return;
 	const step = 1;
 	switch (ev.key) {
 		case "ArrowUp":
@@ -15290,25 +16434,25 @@ if (window.matchMedia && window.matchMedia("(hover:hover) and (pointer:fine)").m
 		const { x, y } = cellFromEvent(ev);
 		const e = inB$1(x, y) ? enemyAt(x, y) : null;
 		let changed = false;
-		if (e !== S$1.hoverEnemy) {
-			S$1.hoverEnemy = e;
+		if (e !== S$7.hoverEnemy) {
+			S$7.hoverEnemy = e;
 			changed = true;
 		}
 		const cell = inB$1(x, y) ? {
 			x,
 			y
 		} : null;
-		if (cell && !S$1.hoveredCell || !cell && S$1.hoveredCell || cell && S$1.hoveredCell && (cell.x !== S$1.hoveredCell.x || cell.y !== S$1.hoveredCell.y)) {
-			S$1.hoveredCell = cell;
-			setPreviewCell(S$1.hoveredCell);
+		if (cell && !S$7.hoveredCell || !cell && S$7.hoveredCell || cell && S$7.hoveredCell && (cell.x !== S$7.hoveredCell.x || cell.y !== S$7.hoveredCell.y)) {
+			S$7.hoveredCell = cell;
+			setPreviewCell(S$7.hoveredCell);
 			changed = true;
 		}
 		if (changed) render();
 	});
 	dom.cv.addEventListener("mouseleave", () => {
-		if (S$1.hoverEnemy || S$1.hoveredCell) {
-			S$1.hoverEnemy = null;
-			S$1.hoveredCell = null;
+		if (S$7.hoverEnemy || S$7.hoveredCell) {
+			S$7.hoverEnemy = null;
+			S$7.hoveredCell = null;
 			render();
 		}
 	});

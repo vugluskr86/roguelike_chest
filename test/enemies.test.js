@@ -5,6 +5,7 @@ import { enemyThreat, effectiveForm } from '../src/moves.js';
 import { enemiesTurn, frostTurn } from '../src/enemies.js';
 import { statusVal } from '../src/status.js';
 import { makeForm } from '../src/util.js';
+import { configureVisualEffects } from '../src/visual-effects.ts';
 
 // const K = (x, y) => x + ',' + y;
 const mkE = (o) =>
@@ -15,6 +16,7 @@ beforeEach(() => {
   S.special = new Map();
   S.gameOver = false;
   S.modalOpen = false;
+  configureVisualEffects(null);
 });
 
 describe('special enemies', () => {
@@ -65,5 +67,15 @@ describe('special enemies', () => {
     expect(enemyThreat(fr).size).toBe(0);
     frostTurn(fr);
     expect(statusVal(S.player, 'stun')).toBe(1);
+  });
+  it('reports a particle effect when poison kills an enemy', () => {
+    const effects = [];
+    configureVisualEffects((effect) => effects.push(effect));
+    S.player.x = 0;
+    S.player.y = 8;
+    S.enemies = [mkE({ type: 'pawn', x: 5, y: 5, status: { poison: 1 } })];
+    enemiesTurn();
+    expect(S.enemies).toHaveLength(0);
+    expect(effects).toContainEqual({ type: 'particles', x: 5, y: 5, color: '#d07a3f', count: 6 });
   });
 });

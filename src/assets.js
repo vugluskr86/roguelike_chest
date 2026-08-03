@@ -135,9 +135,7 @@ if (import.meta.env && import.meta.env.DEV) {
   const missing = missingArt();
   const unused = Object.keys(FILES).filter((p) => !USED.has(p));
   if (missing.length) {
-    console.warn(
-      `[assets] пусто ${missing.length} из ${slots.length}:\n  ` + missing.join('\n  '),
-    );
+    console.warn(`[assets] пусто ${missing.length} из ${slots.length}:\n  ` + missing.join('\n  '));
   }
   if (unused.length) {
     console.warn('[assets] файлы без слота:\n  ' + unused.join('\n  '));

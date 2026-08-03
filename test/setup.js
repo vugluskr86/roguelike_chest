@@ -108,6 +108,7 @@ globalThis.document = {
   querySelector: () => null,
   createElement: () => makeEl(),
   addEventListener: noop,
+  removeEventListener: noop,
   body: makeEl(),
 };
 globalThis.window = {

@@ -29,7 +29,8 @@ function cycleEnemy(dir) {
     return;
   }
   const cur = list.indexOf(S.selectedEnemy);
-  const next = cur === -1 ? (dir > 0 ? 0 : list.length - 1) : (cur + dir + list.length) % list.length;
+  const next =
+    cur === -1 ? (dir > 0 ? 0 : list.length - 1) : (cur + dir + list.length) % list.length;
   S.selectedEnemy = list[next];
   setPreviewCell(null);
 }

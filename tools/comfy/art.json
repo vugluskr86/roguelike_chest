@@ -1,0 +1,20 @@
+{
+  "workflow": "workflows/06_card_art_512x768.json",
+  "defaults": {
+    "ckpt": "PUT_YOUR_SDXL_CHECKPOINT.safetensors",
+    "upscale_model": "4x_foolhardy_Remacri.pth",
+    "seed": "random"
+  },
+  "jobs": [
+    { "name": "boss_bishop_torturer", "prompt": "a towering bishop chess piece stitched together from three corpses, inquisitor mitre, diagonal shadows, standing in an ossuary pit" },
+    { "name": "boss_linked_rooks",    "prompt": "two rook chess pieces fused back to back by rusted chains, cracked stone, cold teal light" },
+    { "name": "boss_puppeteer",       "prompt": "a marionette chess knight hanging from taut sinew strings above an iron millstone, crimson glow below" },
+    { "name": "boss_red_king",        "prompt": "a demonic red king on a throne built from his own bones, legs fused into the floor, vast dark cavern" },
+    { "name": "act1_moat",            "prompt": "a pit filled with discarded broken chess pieces and bones, a single pawn climbing out" },
+    { "name": "act2_millstones",      "prompt": "an endless conveyor of chess pawns marching into iron grinding wheels, chains overhead" },
+    { "name": "event_bonesetter",     "prompt": "a hunched bone-setter figure at a stone workbench grafting a knight bone onto a pawn" },
+    { "name": "event_unsoldering",    "prompt": "a chess piece being pried apart at a glowing seam, sparks and bone dust" },
+    { "name": "hunger_vignette",      "prompt": "a chess pawn crumbling from the feet upward as darkness beneath the board devours it" },
+    { "name": "ending_take_throne",   "prompt": "a pawn seated on the bone throne wearing a crown of fused vertebrae, silhouette against crimson" }
+  ]
+}

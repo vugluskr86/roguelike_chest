@@ -1,0 +1,30 @@
+{
+  "_note": "piece = имя файла, piece_desc = кусок промпта. Подставляется в workflows/05. Стиль и фон дописывает сам workflow.",
+  "playable": {
+    "pawn":        "gaunt undead chess pawn soldier, cracked bone armour, hollow eye sockets, tattered crimson tabard, chipped shortsword",
+    "knight":      "undead chess knight, skeletal horse skull fused to the shoulder, jagged mane of sinew, lance of femurs",
+    "bishop":      "undead chess bishop, tall mitre of split skull, blindfold of dried leather, censer swinging on a chain",
+    "rook":        "undead chess rook, walking tower of stacked vertebrae and rusted iron plates, arrow slits glowing crimson",
+    "queen":       "undead chess queen, crown of fused ribs, long torn veil, six clawed arms, cold teal glow inside the chest",
+    "archbishop":  "chimeric chess piece merging bishop mitre and horse skull, asymmetric, dripping wax and marrow",
+    "chancellor":  "chimeric chess piece merging rook tower and horse skull, siege-engine limbs, chains and pistons",
+    "fiend":       "abomination chess piece, every piece type grafted into one mass, crown and tower and skull and blades, crimson veins",
+    "king":        "crowned undead chess king, heavy mantle of hide, one leg fused into stone, slow and immense",
+    "infiltrator": "lean cloaked chess piece, bone dagger, low crouch, half-dissolved into shadow, thin teal rim light",
+    "bastion":     "squat fortified chess piece, tower shield of fused shields, hunched, iron braced, immovable"
+  },
+  "enemies": {
+    "guard":       "armoured skeletal chess guard with a bone halberd, standing at attention",
+    "necromancer": "hooded skeletal chess figure, floating bone shards orbiting the head, sickly teal light",
+    "double":      "mirror-image chess piece, glassy pale surface, faint duplicate outline offset behind it",
+    "assassin":    "thin chess piece wrapped in black rags, two curved bone blades, no face",
+    "priest":      "chess piece in mouldering vestments, holding a censer of burning marrow, kneeling posture",
+    "frost_mage":  "chess piece encased in pale teal ice, frost spikes bursting from the shoulders"
+  },
+  "bosses": {
+    "bishop_torturer": "colossal chess bishop stitched from three corpses, three faces on the mitre, inquisitor chains, dripping",
+    "linked_rooks":    "two chess rooks fused back to back by rusted chains, both facing outward, cracked stone bases",
+    "puppeteer":       "chess knight marionette hung from taut sinew strings, limbs slack, iron cross bar above",
+    "red_king":        "enormous demonic red chess king on a throne of his own bones, legs fused into the floor, crimson glow"
+  }
+}

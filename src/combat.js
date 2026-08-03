@@ -9,19 +9,12 @@ import { CFG, GLYPH, KEY_GLYPH, NAME, NAME_EN, STD_TYPES } from './config.js';
 import { RELICS, CURSES } from './content.js';
 import { actForFloor, pickLine, getScript } from './content/script.js';
 import { enemiesTurn } from './enemies.js';
-import { tormentorHit, dispatchBossEvents, BOSS_CFG, linkedRookRevenge } from './bosses.js';
+import { tormentorHit, dispatchBossEvents, BOSS_CFG, linkedRookRevenge } from './bosses/index.ts';
 import { snapshotRoom, loadRoom, syncCheckIndicator } from './board.js';
 import { offerLoot } from './loot.js';
-import { endRunMeta, recordKill, unlockAch } from './meta.js';
+import { endRunMeta, META, recordKill, unlockAch } from './meta.js';
 import { activeForm, allThreats, playerOptions } from './moves.js';
-import {
-  addSpeech,
-  render,
-  screenFade,
-  startMoveAnim,
-  startCaptureFlash,
-  spawnParticles,
-} from './render.js';
+import { addSpeech, render } from './render.js';
 import { curse, enemyAt, has } from './state.js';
 import { applyStatus, cleanse, statusVal } from './status.js';
 import { applyCurse as applyCurseLoot, applyRelic as applyRelicLoot } from './loot.js';
@@ -35,7 +28,14 @@ import {
   playLoot,
 } from './audio.js';
 import { ART } from './assets.js';
-import { closeModal, log, openInterlude, openModal, openRunSummary, syncUI } from './ui.js';
+import {
+  closeModal,
+  log as uiLog,
+  openInterlude,
+  openModal,
+  openRunSummary,
+  syncUI,
+} from './ui.js';
 import { setHungerLayer, sting, playTrack } from './music.js';
 import { isEnglish, L } from './lang.js';
 import { isEditorRunning, stopEditorRun } from './editor.js';
@@ -54,17 +54,47 @@ import {
   ORTHO,
   cheb,
   inB,
-  isBossFloor,
   isFinalFloor,
   key,
   makeForm,
   moveNotation,
   pick,
+  random,
   tileColor,
   bossOnFloor,
 } from './util.js';
 import { clearPending, confirmMove } from './preview.js';
 import { finishAnalyticsRun, recordEvent, recordSnapshot } from './analytics.js';
+import {
+  addTemporaryEffect,
+  consumeTemporaryArmor,
+  hungerDrainMultiplier,
+  removeEffectsOnFormLoss,
+  tickTemporaryEffects,
+} from './temporary-effects.ts';
+import { BOSS_DEFINITIONS } from './bosses/index.ts';
+import { advanceScenario } from './scenarios.ts';
+import { emitVisual } from './visual-effects.ts';
+import { notify } from './feedback.ts';
+import { reportLegacyLog } from './feedback-legacy.ts';
+
+/** Единый путь старых боевых записей в журнал через typed API сообщений. */
+function log(text, tone = '') {
+  reportLegacyLog(text, tone, uiLog);
+}
+
+/**
+ * Показывает реплику на поле через единый API, сохраняя legacy fallback.
+ *
+ * @param {number} x Координата клетки по X.
+ * @param {number} y Координата клетки по Y.
+ * @param {string} text Текст реплики.
+ * @param {string} [kind='system'] Визуальная роль реплики в renderer.
+ */
+function speech(x, y, text, kind = 'system') {
+  if (!notify({ channel: 'speech', text, anchor: { x, y }, speechKind: kind }))
+    addSpeech(x, y, text, kind);
+}
 
 export function tryMoveTo(x, y) {
   if (S.gameOver || S.modalOpen) return;
@@ -87,7 +117,7 @@ export function tryMoveTo(x, y) {
   tutorialSnapshot();
   // если ход (не взятие) — клетка должна быть свободна от врагов
   if (isMove && enemyAt(x, y)) {
-    addSpeech(x, y, isEnglish() ? 'Occupied.' : 'Занято.', 'enemy');
+    speech(x, y, isEnglish() ? 'Occupied.' : 'Занято.', 'enemy');
     return;
   }
   // двухступенчатое подтверждение: первый тап показывает последствия,
@@ -124,7 +154,7 @@ export function tryMoveTo(x, y) {
       if (has('guard_pierce')) e.armor = 1; // Бронебой — сразу последняя фаза (распад)
       dispatchBossEvents(tormentorHit(e), {
         log: (t) => log(t),
-        addSpeech: (x, y, t, kind) => addSpeech(x, y, t, kind),
+        addSpeech: (x, y, t, kind) => speech(x, y, t, kind),
       });
       if (e.armor > 0) triggerBossPhase('tormentor', e.phase); // текст из content/script.js
       endPlayerTurn();
@@ -144,8 +174,8 @@ export function tryMoveTo(x, y) {
       return;
     }
     S.enemies = S.enemies.filter((v) => v !== e);
-    spawnParticles(x, y, '#d07a3f', 8);
-    startCaptureFlash(x, y);
+    emitVisual({ type: 'particles', x, y, color: '#d07a3f', count: 8 });
+    emitVisual({ type: 'capture', x, y });
     playCapture();
     S.player.capturedThisFloor++;
     S.player.totalCaptures++;
@@ -154,14 +184,14 @@ export function tryMoveTo(x, y) {
     {
       const act = actForFloor(S.floor);
       const line = pickLine(getScript().deathLines[act] || []);
-      if (line && Math.random() < 0.35) addSpeech(x, y, line, 'enemy');
+      if (line && random() < 0.35) speech(x, y, line, 'enemy');
     }
     // Месть Ладьи: если убитая ладья была в связке, выжившая бьёт вне очереди
     if (e.linkedTo) {
       const revengeEvents = linkedRookRevenge(e);
       if (revengeEvents.some((ev) => ev && ev.ch === 'capture')) {
         // Выжившая ладья бьёт игрока немедленно
-        degradePlayer(null);
+        degradePlayer(null, 'linked_rook_revenge');
         if (S.gameOver) {
           render();
           syncUI();
@@ -169,7 +199,7 @@ export function tryMoveTo(x, y) {
         }
       } else {
         revengeEvents.forEach((ev) => {
-          if (ev && ev.ch === 'speech') addSpeech(ev.x, ev.y, ev.text, ev.kind || 'boss');
+          if (ev && ev.ch === 'speech') speech(ev.x, ev.y, ev.text, ev.kind || 'boss');
           if (ev && ev.ch === 'log') log(ev.text);
         });
       }
@@ -203,7 +233,8 @@ export function tryMoveTo(x, y) {
     fy = S.player.y;
   S.player.x = x;
   S.player.y = y;
-  startMoveAnim(S.player, fx, fy, x, y);
+  S.player.lastDir = [Math.sign(x - fx), Math.sign(y - fy)];
+  emitVisual({ type: 'move', unit: S.player, fromX: fx, fromY: fy, toX: x, toY: y });
   playMove();
   if (!isCap) log(moveNotation(fx, fy, x, y, GLYPH[activeForm().type]), '');
   triggerSpecialForPlayer();
@@ -228,7 +259,7 @@ export function triggerSpecialForPlayer() {
       'r',
     );
     playTrap();
-    degradePlayer(null);
+    degradePlayer(null, 'trap');
   } else if (s.type === 'rune') {
     S.special.delete(k);
     playRune();
@@ -255,6 +286,7 @@ export function triggerSpecialForPlayer() {
     if (p && !S.walls.has(key(p.x, p.y)) && !enemyAt(p.x, p.y)) {
       S.player.x = p.x;
       S.player.y = p.y;
+      emitVisual({ type: 'transition', style: 'lens', durationMs: 250 });
       log(isEnglish() ? 'The portal teleports you.' : 'Портал переносит тебя.', 'p');
       playPortal();
     }
@@ -303,7 +335,7 @@ export function triggerSpecialForPlayer() {
       if (king && getScript().bosses.redKing) {
         const line = getScript().bosses.redKing.chainBreak[S.chainsBroken];
         if (line) {
-          addSpeech(king.x, king.y, line.text, 'boss');
+          speech(king.x, king.y, line.text, 'boss');
           log(line.text);
         }
       }
@@ -313,7 +345,7 @@ export function triggerSpecialForPlayer() {
     }
   } else if (s.type === 'lava') {
     log(isEnglish() ? 'You are in lava! Form destroyed.' : 'Ты в лаве! Форма разрушена.', 'r');
-    degradePlayer(null);
+    degradePlayer(null, 'lava');
   } else if (s.type === 'door') {
     snapshotRoom();
     if (s.color && S.keys.has(s.color)) {
@@ -343,7 +375,8 @@ export function triggerSpecialForPlayer() {
     S.player.y = s.targetPos.y;
     syncCheckIndicator();
     recordSnapshot('room_entered', { room: s.targetRoom });
-    screenFade('#000', 250);
+    // Переход комнаты — команда представления, а не прямой вызов рендера.
+    emitVisual({ type: 'transition', style: 'tunnel', durationMs: 250 });
     log(
       isEnglish() ? `Entering room ${s.targetRoom + 1}.` : `Переход в комнату ${s.targetRoom + 1}.`,
       'p',
@@ -380,10 +413,10 @@ export function triggerSpecialForPlayer() {
   } else if (s.type === 'scroll') {
     S.special.delete(k);
     playLoot();
-    if (Math.random() < 0.5) {
+    if (random() < 0.5) {
       const pool = Object.keys(RELICS).filter((id) => !S.player.relics.has(id));
       if (pool.length) {
-        const id = pool[Math.floor(Math.random() * pool.length)];
+        const id = pick(pool);
         applyRelicLoot(id);
         log(
           isEnglish()
@@ -395,7 +428,7 @@ export function triggerSpecialForPlayer() {
     } else {
       const pool = Object.keys(CURSES).filter((id) => !S.player.curses.has(id));
       if (pool.length) {
-        const id = pool[Math.floor(Math.random() * pool.length)];
+        const id = pick(pool);
         applyCurseLoot(id);
         log(
           isEnglish()
@@ -418,7 +451,7 @@ export function triggerBossPhase(bossId, phase) {
     if (line.ch === 'log') log(line.text);
     else if (line.ch === 'speech') {
       const e = S.enemies.find((en) => en.bossId === bossId) || S.enemies[0];
-      if (e) addSpeech(e.x, e.y, line.text, line.kind || 'boss');
+      if (e) speech(e.x, e.y, line.text, line.kind || 'boss');
       log(line.text);
     }
   }
@@ -501,8 +534,8 @@ export function switchForm(i) {
     S.player.boneVoiceTimer = 3;
     const lines = getScript().boneVoices[formType];
     if (lines && lines.length) {
-      const line = lines[Math.floor(Math.random() * lines.length)];
-      addSpeech(S.player.x, S.player.y, line, 'bone');
+      const line = pick(lines);
+      speech(S.player.x, S.player.y, line, 'bone');
       log(line);
     }
   }
@@ -555,7 +588,7 @@ export function pass() {
       return;
     }
   }
-  S.player.hunger -= CFG.HUNGER.passExtra;
+  S.player.hunger -= CFG.HUNGER.passExtra * hungerDrainMultiplier(S.player);
   recordEvent('pass', { hunger: S.player.hunger });
   log(
     isEnglish()
@@ -571,8 +604,39 @@ export function endPlayerTurn() {
   if (S.player.status && S.player.status.haste > 0) S.player.status.haste--; // тик ускорения игрока
   // Голод: на босс-этажах не тратится
   // голод замирает только на реальном босс-бое, а не на любом «боссовом» номере
-  if (!(S.runMode === 'campaign' && isBossFloor(S.floor))) {
-    S.player.hunger -= CFG.HUNGER.perTurn;
+  if (!S.roomRules?.freezeHunger) {
+    const satiety = CFG.BALANCE.temporaryEffects.satiety;
+    const wasSatiety = hungerDrainMultiplier(S.player) < 1;
+    const expired = tickTemporaryEffects(S.player);
+    if (expired.includes('satiety')) {
+      S.player.hunger = Math.min(S.player.hunger, CFG.HUNGER.start * satiety.yellowRatio);
+      S.player.greenHungerTurns = 0;
+      log(
+        isEnglish()
+          ? 'Satiety fades — hunger falls to the yellow zone.'
+          : 'Сытость гаснет — голод падает в жёлтую зону.',
+        'p',
+      );
+    }
+    S.player.hunger -= CFG.HUNGER.perTurn * hungerDrainMultiplier(S.player);
+    if (!wasSatiety && S.player.hunger >= CFG.HUNGER.start * satiety.greenRatio) {
+      S.player.greenHungerTurns = (S.player.greenHungerTurns || 0) + 1;
+      if (S.player.greenHungerTurns >= satiety.consecutiveGreenTurns) {
+        addTemporaryEffect(S.player, {
+          id: 'satiety',
+          remainingTurns: satiety.durationTurns,
+          armor: satiety.armor,
+          expiresOnFormLoss: false,
+        });
+        S.player.greenHungerTurns = 0;
+        log(
+          isEnglish()
+            ? 'Satiety: hunger drains half as fast for 10 turns; gain 1 armor.'
+            : 'Сытость: голод убывает вдвое медленнее 10 ходов; +1 броня.',
+          'g',
+        );
+      }
+    } else if (!wasSatiety) S.player.greenHungerTurns = 0;
     // пороги голода — нарративные реплики
     {
       const ratio = S.player.hunger / CFG.HUNGER.start;
@@ -587,13 +651,15 @@ export function endPlayerTurn() {
     }
     if (S.player.hunger <= 0) {
       S.player.hunger = 0;
+      // Голодающий экран предупреждает о причине потери формы, не меняя правила.
+      emitVisual({ type: 'vignette', color: '#8b5a16', durationMs: 420 });
       log(
         isEnglish()
           ? 'Hunger devours you. Form destroyed.'
           : 'Голод пожирает тебя. Форма разрушена.',
         'r',
       );
-      degradePlayer(null);
+      degradePlayer(null, 'hunger');
       if (S.gameOver) {
         render();
         syncUI();
@@ -623,8 +689,7 @@ export function endPlayerTurn() {
       .map((f, idx) => (f ? idx : -1))
       .filter((idx) => idx >= 0 && idx !== S.player.active);
     if (alive.length > 0) {
-      const pick = alive[Math.floor(Math.random() * alive.length)];
-      S.player.active = pick;
+      S.player.active = pick(alive);
       log(
         isEnglish()
           ? `🌀 Chaos: form switched to <b>${NAME[activeForm().type]}</b>.`
@@ -651,8 +716,10 @@ export function startPlayerTurn() {
   if (statusVal(S.player, 'poison') > 0) {
     S.player.status.poison--;
     if (S.player.status.poison <= 0) {
+      // Яд и голод имеют разные цвета, чтобы причина была понятна без чтения журнала.
+      emitVisual({ type: 'vignette', color: '#496f3d', durationMs: 420 });
       log(isEnglish() ? 'Poison destroys your form.' : 'Яд разрушает твою форму.', 'r');
-      degradePlayer(null);
+      degradePlayer(null, 'poison');
       if (S.gameOver) return true;
     }
   }
@@ -665,22 +732,79 @@ export function startPlayerTurn() {
   return false;
 }
 
+function grantEndlessBossReward() {
+  const room = S.specialRoom;
+  if (S.runMode !== 'infinite' || !room || room.rewardGranted) return;
+  room.rewardGranted = true;
+  const definition = BOSS_DEFINITIONS[room.id];
+  if (!definition) return;
+  unlockAch(definition.achievement);
+  if (room.difficulty >= 2) unlockAch(`endless_${room.id}_hard`);
+  unlockAch(`endless_${room.id}_mastery`);
+  if (definition.reward === 'tormentor_guard') {
+    addTemporaryEffect(S.player, {
+      id: 'boss_guard',
+      remainingTurns: 5,
+      armor: 1,
+      expiresOnFormLoss: true,
+    });
+    log(
+      isEnglish()
+        ? 'Tormentor’s Guard: 1 armor for 5 turns.'
+        : 'Страж Мучителя: 1 броня на 5 ходов.',
+      'g',
+    );
+  } else if (definition.reward === 'rooks_momentum') {
+    S.player.wheel.forEach((form) => {
+      if (form) form.cooldown = 0;
+    });
+    log(
+      isEnglish()
+        ? 'Rooks’ Momentum: all forms are refreshed.'
+        : 'Импульс Ладей: усталость всех форм снята.',
+      'g',
+    );
+  } else if (definition.reward === 'millstone_feast') {
+    S.player.hunger = Math.min(CFG.HUNGER.cap, S.player.hunger + CFG.HUNGER.food);
+    log(
+      isEnglish() ? 'Millstone Feast: restore 10 hunger.' : 'Жерновая трапеза: +10 сытости.',
+      'g',
+    );
+  } else if (definition.reward === 'red_king_haste') {
+    applyStatus(S.player, 'haste', 2);
+    log(
+      isEnglish()
+        ? 'Red King’s Tempo: haste for 2 turns.'
+        : 'Темп Красного Короля: ускорение на 2 хода.',
+      'g',
+    );
+  }
+}
+
 export function afterEnemies() {
   if (isTutorial()) {
     render();
     syncUI();
     return; // обучение управляет переходами самостоятельно
   }
+  if (S.scenario) {
+    const step = advanceScenario();
+    if (step || S.scenario.completed) {
+      render();
+      syncUI();
+      return;
+    }
+  }
   S.turn++;
   // голоса костей: декремент и случайные реплики
   if (S.player.boneVoiceTimer > 0) {
     S.player.boneVoiceTimer--;
-    if (S.player.boneVoiceTimer > 0 && Math.random() < 0.4) {
+    if (S.player.boneVoiceTimer > 0 && random() < 0.4) {
       const ft = activeForm().type;
       const lines = getScript().boneVoices[ft];
       if (lines && lines.length) {
-        const line = lines[Math.floor(Math.random() * lines.length)];
-        addSpeech(S.player.x, S.player.y, line, 'bone');
+        const line = pick(lines);
+        speech(S.player.x, S.player.y, line, 'bone');
         log(line);
       }
     }
@@ -694,7 +818,11 @@ export function afterEnemies() {
   if (S.challenge === 'lone_figure') unlockAch('glass_cannon');
   // Жернов: победа по квоте bossDown (Кукловод), а не по пустому списку врагов
   const millQuota = BOSS_CFG.puppeteer.jamQuota;
-  if (bossOnFloor(S.floor) === 'millstone' && S.millFed >= millQuota && !S.gameOver) {
+  if (
+    (S.specialRoom?.id === 'millstone' || bossOnFloor(S.floor) === 'millstone') &&
+    S.millFed >= millQuota &&
+    !S.gameOver
+  ) {
     const room = S.rooms[S.currentRoom];
     if (room && !room.cleared) {
       room.cleared = true;
@@ -705,6 +833,7 @@ export function afterEnemies() {
       'g',
     );
     if (!S.player.lostFormThisFloor) unlockAch('flawless');
+    grantEndlessBossReward();
     render();
     syncUI();
     if (S.runMode === 'campaign' && getScript().interludes.act2to3) {
@@ -759,6 +888,7 @@ export function afterEnemies() {
     log(isEnglish() ? 'Floor cleared!' : 'Ярус зачищен!', 'g');
     if (!S.player.lostFormThisFloor) unlockAch('flawless');
     if (!S.player.capturedThisFloor) unlockAch('pacifist');
+    grantEndlessBossReward();
     render();
     syncUI();
     // интерлюдии после босс-ярусов
@@ -793,7 +923,7 @@ export function afterEnemies() {
 export function spreadLava() {
   if (!S.special) return;
   const lavas = [...S.special.entries()].filter(([_, s]) => s.type === 'lava');
-  if (!lavas.length || lavas.length >= 8 || Math.random() > 0.3) return;
+  if (!lavas.length || lavas.length >= 8 || random() > 0.3) return;
   const [lk] = pick(lavas);
   const [lx, ly] = lk.split(',').map(Number);
   const opts = ORTHO.map(([dx, dy]) => ({ x: lx + dx, y: ly + dy })).filter(
@@ -813,7 +943,13 @@ export function spreadLava() {
   }
 }
 
-export function degradePlayer(byEnemy) {
+/**
+ * Снимает активную форму либо завершает забег, если формы больше нет.
+ * @param byEnemy Враг, совершивший взятие; `null` для опасности окружения.
+ * @param reason Стабильный код причины для итогового события аналитики и replay.
+ */
+export function degradePlayer(byEnemy, reason = byEnemy ? 'enemy_capture' : 'hazard') {
+  emitVisual({ type: 'shake', strength: byEnemy ? 7 : 4, durationMs: 180 });
   if (S.godMode) return; // чит-режим — неуязвимость
   const f = activeForm();
   if (byEnemy && has('venom')) applyStatus(byEnemy, 'poison', 2); // «Ядовитый след» — месть атакующему
@@ -838,8 +974,16 @@ export function degradePlayer(byEnemy) {
     if (byEnemy) byEnemy.cd = CFG.ENEMY_CAPTURE_CD; // враг всё равно переводит дух
     return;
   }
+  if (consumeTemporaryArmor(S.player)) {
+    log(
+      isEnglish() ? 'Temporary armor absorbs the capture!' : 'Временная броня поглощает взятие!',
+      'g',
+    );
+    if (byEnemy) byEnemy.cd = CFG.ENEMY_CAPTURE_CD;
+    return;
+  }
   if (S.challenge === 'lone_figure') {
-    death();
+    death(reason);
     return;
   } // челлендж: взятие = конец, после щита/талисмана
   if (byEnemy)
@@ -856,10 +1000,11 @@ export function degradePlayer(byEnemy) {
     );
   if (byEnemy && curse('hex')) applyStatus(S.player, 'poison', 2);
   if (f.type === 'pawn' && S.challenge !== 'lone_figure') {
-    death();
+    death(reason);
     return;
   }
   S.player.wheel[S.player.active] = null;
+  removeEffectsOnFormLoss(S.player);
   S.player.lostFormThisFloor = true;
   // ступень ниже из имеющихся: сортируем по ценности
   const alive = S.player.wheel.map((s, i) => ({ s, i })).filter((v) => v.s);
@@ -875,18 +1020,30 @@ export function degradePlayer(byEnemy) {
   );
 }
 
-export function death() {
+/**
+ * Завершает забег единственным идемпотентным путём.
+ *
+ * В эту функцию сходятся взятие последней формы, голод, яд, мат и правила
+ * испытаний. Повторный вызов после `S.gameOver` ничего не делает: это не даёт
+ * дважды начислить пепел или отправить две записи аналитики, если несколько
+ * эффектов сработали в рамках одного хода.
+ * @param reason Машиночитаемая причина, добавляемая в событие аналитики.
+ * @returns `true`, если забег был завершён этим вызовом.
+ */
+export function death(reason = 'unknown') {
+  if (S.gameOver) return false;
   if (isEditorRunning()) {
     closeModal();
     log(isEnglish() ? 'Death in test simulation.' : 'Смерть в тестовой симуляции.', 'r');
     stopEditorRun();
-    return;
+    return true;
   }
   S.gameOver = true;
-  finishAnalyticsRun('death', { floor: S.floor, turn: S.turn });
+  finishAnalyticsRun('death', { floor: S.floor, turn: S.turn, reason });
   sting('death');
   const earned = endRunMeta();
   openRunSummary(L('summary.dead'), L('summary.deadSub'), earned);
+  return true;
 }
 
 export function checkMate() {
@@ -903,7 +1060,9 @@ export function checkMate() {
     isEnglish() ? 'No moves. You are taken on the spot.' : 'Ходов нет. Тебя вскрывают на месте.',
     'r',
   );
-  degradePlayer(null);
+  // Мат — отдельное критическое событие, поэтому ему соответствует красная виньетка.
+  emitVisual({ type: 'vignette', color: '#8d1e2f', durationMs: 480 });
+  degradePlayer(null, 'checkmate');
   if (S.gameOver) return;
   for (const e of S.enemies) {
     if (cheb(e, S.player) === 1) {
@@ -916,6 +1075,8 @@ export function checkMate() {
     }
   }
 }
+
+export const hasFallenBones = () => Object.keys(META.codex.relics).length >= 12;
 
 export function openVictory() {
   if (isEditorRunning()) {
@@ -940,14 +1101,20 @@ export function openVictory() {
       openRunSummary(L('app.title'), '', earned, { win: true });
     }
   };
+  const choices = [
+    { label: L('modal.victoryKill'), fn: () => finish('kill', ART.endingKill) },
+    { label: L('modal.victoryThrone'), fn: () => finish('throne', ART.endingThrone) },
+  ];
+  if (hasFallenBones()) {
+    choices.push({
+      label: L('modal.victoryBreak'),
+      fn: () => finish('breakBoard', ART.endingBreak),
+    });
+  }
   openModal(
     L('modal.victory'),
     L('modal.victoryText', S.floor, S.player.totalCaptures, earned),
-    [
-      { label: L('modal.victoryKill'), fn: () => finish('kill', ART.endingKill) },
-      { label: L('modal.victoryThrone'), fn: () => finish('throne', ART.endingThrone) },
-      { label: L('modal.victoryBreak'), fn: () => finish('breakBoard', ART.endingBreak) },
-    ],
+    choices,
     false,
   );
 }

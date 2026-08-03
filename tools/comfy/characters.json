@@ -1,0 +1,25 @@
+{
+  "_note": "ref_image — файл из input/ ComfyUI: болванка-разворот под это направление (depth/силуэт). См. README, раздел «Персонажи». Один seed на весь набор — обязателен.",
+  "workflow": "workflows/05_character_direction.json",
+  "defaults": {
+    "ckpt": "PUT_YOUR_SDXL_CHECKPOINT.safetensors",
+    "lora": "PUT_YOUR_PIXELART_LORA.safetensors",
+    "controlnet": "controlnet_depth_sdxl.safetensors",
+    "cn_strength": 0.75,
+    "sprite_px": 96,
+    "batch": 4,
+    "seed": 777001,
+    "piece": "pawn",
+    "piece_desc": "gaunt undead chess pawn soldier, cracked bone armour, hollow eye sockets, tattered crimson tabard, dragging a chipped blade"
+  },
+  "jobs": [
+    { "direction": "south",      "direction_hint": "facing the viewer, front view",              "ref_image": "endshpil_ref/pawn_south.png",      "_save": "pawn_south.png" },
+    { "direction": "south-east", "direction_hint": "facing front-right, three-quarter view",     "ref_image": "endshpil_ref/pawn_south-east.png", "_save": "pawn_south-east.png" },
+    { "direction": "east",       "direction_hint": "facing right, side profile view",            "ref_image": "endshpil_ref/pawn_east.png",       "_save": "pawn_east.png" },
+    { "direction": "north-east", "direction_hint": "facing back-right, three-quarter from behind","ref_image": "endshpil_ref/pawn_north-east.png", "_save": "pawn_north-east.png" },
+    { "direction": "north",      "direction_hint": "facing away from viewer, back view",         "ref_image": "endshpil_ref/pawn_north.png",      "_save": "pawn_north.png" },
+    { "direction": "north-west", "direction_hint": "facing back-left, three-quarter from behind", "ref_image": "endshpil_ref/pawn_north-west.png", "_save": "pawn_north-west.png" },
+    { "direction": "west",       "direction_hint": "facing left, side profile view",             "ref_image": "endshpil_ref/pawn_west.png",       "_save": "pawn_west.png" },
+    { "direction": "south-west", "direction_hint": "facing front-left, three-quarter view",       "ref_image": "endshpil_ref/pawn_south-west.png", "_save": "pawn_south-west.png" }
+  ]
+}

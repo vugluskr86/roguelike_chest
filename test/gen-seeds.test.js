@@ -18,7 +18,7 @@ describe('wall generation uniqueness', () => {
       CFG.H = 9;
 
       for (let i = 0; i < N; i++) {
-        seedRNG(Math.floor(Math.random() * 0x7fffffff));
+        seedRNG(0x9e3779b9 ^ (i + 1));
         const r = generate({ biome: biomeId, W: CFG.W, H: CFG.H });
         set.add(hashWalls(r.walls));
       }

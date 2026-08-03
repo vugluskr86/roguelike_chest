@@ -10,6 +10,7 @@ export const S = {
   promotionUsed: false,
   unlocked: null,
   gameOver: false,
+  runSeed: 0,
   floor: 0,
   hoverEnemy: null,
   selectedEnemy: null,
@@ -25,6 +26,10 @@ export const S = {
   millTick: 0, // счётчик ходов жернова
   millFed: 0, // тел, скормленных жернову
   party: null, // состояние Кукловода { dropCd, pullCd, reserve }
+  roomRules: null,
+  specialRoom: null,
+  lastSpecialRoom: null,
+  scenario: null,
   runMode: 'campaign', // 'campaign' | 'infinite'
   currentRoom: 0, // id активной комнаты на этаже
   rooms: [], // массив комнат [{ walls, enemies, special, cleared }]

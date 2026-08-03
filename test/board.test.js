@@ -3,6 +3,7 @@ import { S } from '../src/state.js';
 import { biomeFor, BIOMES, CFG } from '../src/config.js';
 import { generateRoom, floodReach, buildFloorEnemies, reset, newFloor } from '../src/board.js';
 import { cachedThreats } from '../src/moves.js';
+import { configureVisualEffects } from '../src/visual-effects.ts';
 
 const K = (x, y) => x + ',' + y;
 
@@ -68,13 +69,19 @@ describe('floor balance invariants', () => {
     reset();
     newFloor();
     S.walls = new Set();
-    S.enemies = [
-      { type: 'rook', x: S.player.x, y: 0, facing: [0, 1], status: {}, r: CFG.H },
-    ];
+    S.enemies = [{ type: 'rook', x: S.player.x, y: 0, facing: [0, 1], status: {}, r: CFG.H }];
     expect(cachedThreats().has(K(S.player.x, S.player.y))).toBe(true);
 
     newFloor();
 
     expect(cachedThreats().has(K(S.player.x, S.player.y))).toBe(false);
+  });
+  it('emits a declarative fade while changing floor', () => {
+    const effects = [];
+    configureVisualEffects((effect) => effects.push(effect));
+    reset();
+    newFloor();
+    expect(effects).toContainEqual({ type: 'transition', style: 'fade', durationMs: 350 });
+    configureVisualEffects(null);
   });
 });

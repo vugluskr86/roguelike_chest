@@ -1,4 +1,4 @@
-import { isEnglish } from './lang.js';
+import { isEnglish, L } from './lang.js';
 /**
  * src/editor.js — встроенный редактор уровней (canvas + DOM).
  * Основные экспорты: openEditor(), handleEditorClick(), isEditorRunning(), stopEditorRun().
@@ -10,10 +10,32 @@ import { S } from './state.js';
 import { CFG, GLYPH, NAME } from './config.js';
 import { loadLevel } from './board.js';
 import { render } from './render.js';
-import { closeModal, log, sanitize } from './ui.js';
+import { action, closeModal, log as uiLog, mkButton, sanitize, shell } from './ui.js';
+import { reportLegacyLog } from './feedback-legacy.ts';
 import { dom } from './dom.js';
 import { key, inB, makeForm, ORTHO } from './util.js';
 import { invalidateThreats } from './moves.js';
+import { normalizeEditableLevel, validateEditableLevel } from './editor-contract.ts';
+import { startScenarioDefinition, validateScenario } from './scenarios.ts';
+import {
+  createScenarioDraft,
+  createScenarioStep,
+  withScenarioStep,
+  withoutScenarioStep,
+} from './scenario-editor.ts';
+
+/**
+ * Сообщает результат действия редактора через единый журнал.
+ *
+ * Редактор доступен до полного запуска игрового интерфейса, поэтому fallback
+ * сохраняет видимость ошибки импорта в изолированном предпросмотре и тестах.
+ *
+ * @param {string} text Локализованный текст результата действия.
+ * @param {string} [tone=''] Прежний визуальный тон записи журнала.
+ */
+function log(text, tone = '') {
+  reportLegacyLog(text, tone, uiLog);
+}
 
 export function isEditorRunning() {
   return state.running;
@@ -43,6 +65,9 @@ let state = {
   pendingLink: null,
   running: false,
   runBtn: null,
+  /** Сценарий из импортированного JSON; сохраняется при повторном экспорте. */
+  scenario: null,
+  scenarioStepIndex: 0,
   doorIdCounter: 1,
   activeTab: 'enemies', // активная вкладка объектов
 };
@@ -75,6 +100,7 @@ async function loadLevelFromManifest(file) {
     const data = await res.json();
     snapshotEditorRoom();
     loadLevel(data);
+    state.scenario = data.scenario || null;
     editorActive = true;
     document.getElementById('editorBar').style.display = '';
     state.statusEl = document.getElementById('editorStatus');
@@ -210,6 +236,7 @@ const ACTIONS = [
   { id: 'save', label: '💾', title: isEnglish() ? 'Download JSON' : 'Скачать JSON' },
   { id: 'copy', label: '📋', title: isEnglish() ? 'Copy JSON' : 'Скопировать JSON' },
   { id: 'import', label: '📥', title: isEnglish() ? 'From Clipboard' : 'Из буфера' },
+  { id: 'scenario', label: '📜', title: isEnglish() ? 'Edit Scenario JSON' : 'Сценарий: JSON' },
   { id: 'addRoom', label: '+Комн', title: isEnglish() ? 'Add Room' : 'Добавить комнату' },
   { id: 'prevRoom', label: '◀', title: isEnglish() ? 'Prev Room' : 'Пред. комната' },
   { id: 'nextRoom', label: '▶', title: isEnglish() ? 'Next Room' : 'След. комната' },
@@ -230,6 +257,8 @@ const TOOLS = [
 
 export function openEditor() {
   editorActive = true;
+  // Новый пустой уровень не должен наследовать сценарий из предыдущего preview.
+  state.scenario = null;
   CFG.W = 11;
   CFG.H = 9;
   S.walls = new Set();
@@ -331,13 +360,14 @@ function runLevel() {
     H: CFG.H,
   };
   const data = buildLevelData();
-  loadLevel(data);
+  const scenarioStep = data.scenario ? startScenarioDefinition(data.scenario) : null;
+  if (!scenarioStep) loadLevel(data);
   S.gameOver = false;
   if (!S.player.wheel || S.player.wheel.every((s) => !s)) {
     S.player.wheel = [makeForm('pawn'), null, null];
     S.player.active = 0;
   }
-  S.player.hunger = CFG.HUNGER.start;
+  if (!scenarioStep) S.player.hunger = CFG.HUNGER.start;
   S.player.status = {};
   S.player.boneVoiceTimer = 0;
   editorActive = false;
@@ -347,9 +377,14 @@ function runLevel() {
     state.runBtn.classList.add('running');
   }
   log(
-    isEnglish()
-      ? 'Level started. Press ⏹ to return to editor.'
-      : 'Уровень запущен. Нажмите ⏹ для возврата в редактор.',
+    scenarioStep
+      ? L(
+          'editor.scenario.preview',
+          isEnglish() ? scenarioStep.message.en : scenarioStep.message.ru,
+        )
+      : isEnglish()
+        ? 'Level started. Press ⏹ to return to editor.'
+        : 'Уровень запущен. Нажмите ⏹ для возврата в редактор.',
     'g',
   );
 }
@@ -362,6 +397,7 @@ function stopRun() {
   S.player.y = editorBackup.playerY;
   CFG.W = editorBackup.W;
   CFG.H = editorBackup.H;
+  S.scenario = null;
   syncEditorRoom();
   editorActive = true;
   state.running = false;
@@ -430,6 +466,10 @@ function selectTool(id) {
   }
   if (id === 'import') {
     importJSON();
+    return;
+  }
+  if (id === 'scenario') {
+    openScenarioForm();
     return;
   }
   if (id === 'run') {
@@ -1168,15 +1208,234 @@ function importJSON() {
   if (!text) return;
   try {
     const data = JSON.parse(text);
+    const errors = validateEditableLevel(data);
+    if (errors.length) throw new Error(errors.join(' '));
     closeEditor();
     loadLevel(data);
+    state.scenario = data.scenario || null;
     editorActive = true;
     document.getElementById('editorBar').style.display = '';
     state.statusEl = document.getElementById('editorStatus');
     buildToolbar();
+    if (state.scenario)
+      state.statusEl.textContent = L('editor.scenario.ready', state.scenario.steps.length);
     log(isEnglish() ? 'Level loaded from clipboard.' : 'Уровень загружен из буфера обмена.', 'g');
   } catch (e) {
     log((isEnglish() ? 'JSON parse error: ' : 'Ошибка парсинга JSON: ') + +e.message, 'r');
+  }
+}
+
+/**
+ * Создаёт стартовый сценарий из текущей комнаты или редактирует уже прикреплённый.
+ * Поле остаётся JSON намеренно: это промежуточный интерфейс до визуального
+ * редактора шагов, но пользователь получает шаблон, валидацию и предпросмотр.
+ */
+/**
+ * Открывает визуальную форму шага сценария.
+ *
+ * Форма всегда берёт карту, врагов и правила из текущей комнаты, поэтому
+ * автор редактирует поле обычными инструментами и задаёт здесь только текст,
+ * условие и порядок шагов. JSON остаётся импортным форматом, но не нужен для
+ * создания или изменения сценария.
+ */
+export function openScenarioForm() {
+  snapshotEditorRoom();
+  const roomSnapshot = () => ({
+    width: CFG.W,
+    height: CFG.H,
+    walls: S.walls,
+    specials: S.special,
+    enemies: S.enemies,
+    player: { x: S.player.x, y: S.player.y, hunger: S.player.hunger },
+    rules: S.roomRules,
+  });
+  const scenario =
+    state.scenario ||
+    createScenarioDraft(
+      roomSnapshot(),
+      'editor-scenario',
+      { ru: 'Сценарий начинается.', en: 'Scenario begins.' },
+      {
+        id: 'step-1',
+        message: { ru: 'Завершите комнату.', en: 'Complete the room.' },
+        completeWhen: { type: 'clear' },
+      },
+    );
+  state.scenario = scenario;
+  state.scenarioStepIndex = Math.min(state.scenarioStepIndex, scenario.steps.length - 1);
+
+  shell('lg');
+  // shell() подготавливает модалку, но видимость оверлея включает вызывающий
+  // интерфейс. Без этого форма существует в DOM, однако остаётся невидимой.
+  dom.overlay.classList.add('on');
+  dom.mTitle.textContent = L('editor.scenario.formTitle');
+  dom.mText.textContent = L('editor.scenario.formHelp');
+  const form = document.createElement('div');
+  form.className = 'scenario-editor-form';
+  dom.mChoices.appendChild(form);
+
+  const label = (text, control) => {
+    const row = document.createElement('label');
+    row.className = 'scenario-editor-field';
+    const title = document.createElement('span');
+    title.textContent = text;
+    row.appendChild(title);
+    row.appendChild(control);
+    form.appendChild(row);
+  };
+  const input = (value = '', type = 'text') => {
+    const control = document.createElement('input');
+    control.type = type;
+    control.value = value;
+    return control;
+  };
+  const scenarioId = input(scenario.id);
+  const messageRu = input('');
+  const messageEn = input('');
+  const condition = document.createElement('select');
+  [
+    ['clear', L('editor.scenario.clear')],
+    ['reach', L('editor.scenario.reach')],
+  ].forEach(([value, text]) => {
+    const option = document.createElement('option');
+    option.value = value;
+    option.textContent = text;
+    condition.appendChild(option);
+  });
+  const targetX = input('0', 'number');
+  const targetY = input('0', 'number');
+  label(L('editor.scenario.id'), scenarioId);
+  label(L('editor.scenario.messageRu'), messageRu);
+  label(L('editor.scenario.messageEn'), messageEn);
+  label(L('editor.scenario.completion'), condition);
+  label(L('editor.scenario.targetX'), targetX);
+  label(L('editor.scenario.targetY'), targetY);
+
+  const steps = document.createElement('div');
+  steps.className = 'scenario-editor-steps';
+  // appendChild поддерживается и браузером, и DOM-stub тестов; порядок блоков
+  // не влияет на логику, а CSS удерживает список шагов отдельной секцией.
+  form.appendChild(steps);
+  const loadStep = (index) => {
+    state.scenarioStepIndex = index;
+    const step = state.scenario.steps[index];
+    messageRu.value = step.message.ru;
+    messageEn.value = step.message.en;
+    condition.value = step.completeWhen.type;
+    targetX.value = step.completeWhen.type === 'reach' ? String(step.completeWhen.x) : '';
+    targetY.value = step.completeWhen.type === 'reach' ? String(step.completeWhen.y) : '';
+    steps.innerHTML = '';
+    state.scenario.steps.forEach((value, stepIndex) => {
+      const button = mkButton(`${stepIndex + 1}. ${value.id}`, () => loadStep(stepIndex));
+      if (stepIndex === index) button.classList.add('active');
+      steps.appendChild(button);
+    });
+  };
+  loadStep(state.scenarioStepIndex);
+
+  action(
+    mkButton(L('editor.scenario.addStep'), () => {
+      const index = state.scenario.steps.length;
+      state.scenario = withScenarioStep(
+        state.scenario,
+        createScenarioStep(roomSnapshot(), {
+          id: `step-${index + 1}`,
+          message: { ru: 'Завершите комнату.', en: 'Complete the room.' },
+          completeWhen: { type: 'clear' },
+        }),
+        index,
+      );
+      loadStep(index);
+    }),
+  );
+  action(
+    mkButton(
+      L('editor.scenario.saveStep'),
+      () => {
+        const oldStep = state.scenario.steps[state.scenarioStepIndex];
+        const completeWhen =
+          condition.value === 'reach'
+            ? { type: 'reach', x: Number(targetX.value), y: Number(targetY.value) }
+            : { type: 'clear' };
+        const step = createScenarioStep(roomSnapshot(), {
+          id: oldStep.id,
+          message: { ru: messageRu.value.trim(), en: messageEn.value.trim() },
+          completeWhen,
+        });
+        state.scenario = withScenarioStep(
+          { ...state.scenario, id: scenarioId.value.trim() },
+          step,
+          state.scenarioStepIndex,
+        );
+        const errors = validateScenario(state.scenario);
+        if (errors.length) {
+          log(errors.join(' '), 'r');
+          return;
+        }
+        state.statusEl.textContent = L('editor.scenario.saved', state.scenario.steps.length);
+        closeModal();
+      },
+      'again',
+    ),
+  );
+  action(
+    mkButton(L('editor.scenario.deleteStep'), () => {
+      const nextScenario = withoutScenarioStep(state.scenario, state.scenarioStepIndex);
+      if (nextScenario === state.scenario) {
+        log(L('editor.scenario.deleteOnlyStep'), 'r');
+        return;
+      }
+      state.scenario = nextScenario;
+      state.scenarioStepIndex = Math.min(state.scenarioStepIndex, state.scenario.steps.length - 1);
+      loadStep(state.scenarioStepIndex);
+    }),
+  );
+  action(mkButton(L('editor.scenario.advanced'), editScenario));
+  action(mkButton(L('editor.scenario.cancel'), closeModal));
+}
+
+/** Временный JSON-редактор сохранён для диагностики импортированных форматов. */
+function editScenario() {
+  snapshotEditorRoom();
+  const current = state.scenario || {
+    id: 'editor-scenario',
+    entry: { ru: 'Сценарий начинается.', en: 'Scenario begins.' },
+    steps: [
+      {
+        id: 'step-1',
+        board: {
+          width: CFG.W,
+          height: CFG.H,
+          walls: [...S.walls].map((value) => value.split(',').map(Number)),
+          specials: [...S.special.entries()].map(([value, special]) => {
+            const [x, y] = value.split(',').map(Number);
+            return [x, y, special];
+          }),
+        },
+        player: { x: S.player.x, y: S.player.y, hunger: S.player.hunger },
+        enemies: S.enemies.map((enemy) => ({
+          type: enemy.type,
+          x: enemy.x,
+          y: enemy.y,
+          r: enemy.r,
+        })),
+        message: { ru: 'Завершите комнату.', en: 'Complete the room.' },
+        completeWhen: { type: 'clear' },
+        rules: S.roomRules || undefined,
+      },
+    ],
+    onComplete: { ru: 'Сценарий завершён.', en: 'Scenario complete.' },
+  };
+  const text = prompt(L('editor.scenario.prompt'), JSON.stringify(current, null, 2));
+  if (!text) return;
+  try {
+    const scenario = JSON.parse(text);
+    const errors = validateScenario(scenario);
+    if (errors.length) throw new Error(errors.join(' '));
+    state.scenario = scenario;
+    state.statusEl.textContent = L('editor.scenario.saved', scenario.steps.length);
+  } catch (error) {
+    log(L('editor.scenario.error', error.message || String(error)), 'r');
   }
 }
 
@@ -1209,6 +1468,7 @@ function buildLevelData() {
       ...(e.r !== 1 ? { r: e.r } : {}),
     })),
     special: Object.fromEntries(r.special),
+    rules: S.roomRules || undefined,
   }));
   rooms[0].playerStart = { x: S.player.x, y: S.player.y };
   const doors = [];
@@ -1241,5 +1501,12 @@ function buildLevelData() {
       }
     });
   });
-  return { floor: S.floor || 1, biome: S.biome?.id || 'halls', rooms, doors };
+  return normalizeEditableLevel({
+    version: 1,
+    floor: S.floor || 1,
+    biome: S.biome?.id || 'halls',
+    rooms,
+    doors,
+    ...(state.scenario ? { scenario: state.scenario } : {}),
+  });
 }

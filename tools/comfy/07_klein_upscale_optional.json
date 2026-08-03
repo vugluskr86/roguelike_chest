@@ -1,0 +1,150 @@
+{
+  "_meta_note": "ОПЦИОНАЛЬНО. Требует Flux2.Klein (unet+clip+vae) и ноды Klein Tiled Upscaler. Лицензия ноды — Non-Commercial: для коммерческого релиза используйте 06. Промпт держите коротким ('upscale this image').",
+  "unet": {
+    "class_type": "UNETLoader",
+    "inputs": {
+      "unet_name": "{{klein_unet}}",
+      "weight_dtype": "default"
+    }
+  },
+  "clip": {
+    "class_type": "CLIPLoader",
+    "inputs": {
+      "clip_name": "{{klein_clip}}",
+      "type": "flux",
+      "device": "default"
+    }
+  },
+  "vae": {
+    "class_type": "VAELoader",
+    "inputs": {
+      "vae_name": "{{klein_vae}}"
+    }
+  },
+  "pos": {
+    "class_type": "CLIPTextEncode",
+    "inputs": {
+      "text": "{{prompt}}",
+      "clip": [
+        "clip",
+        0
+      ]
+    }
+  },
+  "neg": {
+    "class_type": "CLIPTextEncode",
+    "inputs": {
+      "text": "",
+      "clip": [
+        "clip",
+        0
+      ]
+    }
+  },
+  "guider": {
+    "class_type": "BasicGuider",
+    "inputs": {
+      "model": [
+        "unet",
+        0
+      ],
+      "conditioning": [
+        "pos",
+        0
+      ]
+    }
+  },
+  "sampler": {
+    "class_type": "KSamplerSelect",
+    "inputs": {
+      "sampler_name": "euler"
+    }
+  },
+  "sigmas": {
+    "class_type": "BasicScheduler",
+    "inputs": {
+      "model": [
+        "unet",
+        0
+      ],
+      "scheduler": "simple",
+      "steps": 4,
+      "denoise": 1.0
+    }
+  },
+  "src": {
+    "class_type": "LoadImage",
+    "inputs": {
+      "image": "{{image}}"
+    }
+  },
+  "klein": {
+    "class_type": "KleinTiledUpscaler",
+    "inputs": {
+      "guider": [
+        "guider",
+        0
+      ],
+      "positive": [
+        "pos",
+        0
+      ],
+      "negative": [
+        "neg",
+        0
+      ],
+      "sampler": [
+        "sampler",
+        0
+      ],
+      "sigmas": [
+        "sigmas",
+        0
+      ],
+      "vae": [
+        "vae",
+        0
+      ],
+      "image": [
+        "src",
+        0
+      ],
+      "seed": "{{seed}}",
+      "scale_factor": 2.0,
+      "tiling_strategy": "Detail-First",
+      "tile_size_mode": "Auto",
+      "tile_width": 1024,
+      "tile_height": 1024,
+      "padding": 128,
+      "color_match": true,
+      "mask_blur": 48,
+      "adaptive_tiling": false,
+      "skip_threshold": 0.0,
+      "core_anchor": 0.95,
+      "consistent_noise": true
+    }
+  },
+  "down": {
+    "class_type": "ImageScale",
+    "inputs": {
+      "image": [
+        "klein",
+        0
+      ],
+      "upscale_method": "nearest-exact",
+      "width": 512,
+      "height": 768,
+      "crop": "center"
+    }
+  },
+  "save": {
+    "class_type": "SaveImage",
+    "inputs": {
+      "images": [
+        "down",
+        0
+      ],
+      "filename_prefix": "endshpil/art/{{name}}"
+    }
+  }
+}

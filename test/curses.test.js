@@ -190,6 +190,11 @@ describe('curse: glass', () => {
     applyStatus(S.player, 'shield', 1);
     expect(statusVal(S.player, 'shield')).toBe(0);
   });
+  it('removes a shield that was received before the curse', () => {
+    applyStatus(S.player, 'shield', 2);
+    applyCurse('glass');
+    expect(statusVal(S.player, 'shield')).toBe(0);
+  });
   it('smoke and bulwark excluded from relicPool', () => {
     applyCurse('glass');
     const pool = relicPool();

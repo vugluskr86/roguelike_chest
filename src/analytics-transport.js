@@ -7,7 +7,10 @@ export function createAnalyticsTransport(endpoint, adminToken = '') {
     try {
       const response = await fetch(base + path, {
         method: 'POST',
-        headers: { 'content-type': 'application/json', ...(token ? { authorization: `Bearer ${token}` } : {}) },
+        headers: {
+          'content-type': 'application/json',
+          ...(token ? { authorization: `Bearer ${token}` } : {}),
+        },
         body: JSON.stringify(body),
         keepalive: true,
       });

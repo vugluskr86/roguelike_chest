@@ -871,6 +871,57 @@ button.again {
   background: #2a1a1b;
   color: #e6b3ae;
 }
+.scenario-editor-form {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 9px;
+  text-align: left;
+}
+.scenario-editor-steps {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid #353a45;
+}
+.scenario-editor-steps button {
+  min-height: 30px;
+  padding: 4px 9px;
+}
+.scenario-editor-steps button.active {
+  border-color: var(--teal);
+  background: #1d2a28;
+  color: var(--ivory);
+}
+.scenario-editor-field {
+  display: grid;
+  gap: 4px;
+  color: var(--muted);
+  font-size: 12px;
+}
+.scenario-editor-field input,
+.scenario-editor-field select {
+  width: 100%;
+  min-height: 34px;
+  box-sizing: border-box;
+  border: 1px solid #3a3e49;
+  border-radius: 5px;
+  background: #161a20;
+  color: var(--txt);
+  padding: 6px 8px;
+  font: inherit;
+}
+.scenario-editor-field input:focus,
+.scenario-editor-field select:focus {
+  outline: 2px solid rgba(91, 182, 214, 0.45);
+  border-color: var(--teal);
+}
+@media (max-width: 520px) {
+  .scenario-editor-form {
+    grid-template-columns: 1fr;
+  }
+}
 .editor-status {
   font-size: 11px;
   color: var(--muted);
@@ -1018,6 +1069,28 @@ button.again {
     font-size: 15px;
     padding: 12px 10px;
   }
+}
+/** Визуальная тряска: применяется только рендер-слоем, не меняет игровое состояние. */
+@keyframes screen-shake {
+  0%,
+  100% {
+    transform: translate(0, 0);
+  }
+  25% {
+    transform: translate(var(--shake-strength, 4px), calc(var(--shake-strength, 4px) * -0.5));
+  }
+  50% {
+    transform: translate(calc(var(--shake-strength, 4px) * -1), var(--shake-strength, 4px));
+  }
+  75% {
+    transform: translate(
+      calc(var(--shake-strength, 4px) * 0.5),
+      calc(var(--shake-strength, 4px) * -1)
+    );
+  }
+}
+.screen-shake {
+  animation: screen-shake 180ms linear;
 }
 /* ============================================================
    src/hud.css — стили новых элементов HUD.

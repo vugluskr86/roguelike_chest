@@ -1,7 +1,13 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { CFG } from '../src/config.js';
 import { S } from '../src/state.js';
-import { flushAnalytics, recordEvent, startAnalyticsRun } from '../src/analytics.js';
+import {
+  currentReplay,
+  finishAnalyticsRun,
+  flushAnalytics,
+  recordEvent,
+  startAnalyticsRun,
+} from '../src/analytics.js';
 
 const oldFetch = globalThis.fetch;
 
@@ -38,5 +44,23 @@ describe('analytics client delivery', () => {
     expect(fetchMock.mock.calls[1][0]).toMatch(/\/events$/);
     const sent = JSON.parse(fetchMock.mock.calls[1][1].body);
     expect(sent.events.map((event) => event.type)).toEqual(['run_started', 'move']);
+  });
+
+  it('keeps the structured death reason in the replay finish event', () => {
+    CFG.ANALYTICS_ENABLED = true;
+    CFG.ANALYTICS_ENDPOINT = '';
+    S.floor = 4;
+    S.turn = 18;
+    S.currentRoom = 1;
+    S.player = { x: 1, y: 2, wheel: [], relics: new Set(), curses: new Set() };
+    S.walls = new Set();
+    S.special = new Map();
+    S.enemies = [];
+    S.rooms = [];
+    startAnalyticsRun();
+    finishAnalyticsRun('death', { floor: S.floor, turn: S.turn, reason: 'poison' });
+
+    const finished = currentReplay().events.find((event) => event.type === 'run_finished');
+    expect(finished.data).toMatchObject({ outcome: 'death', reason: 'poison', floor: 4, turn: 18 });
   });
 });

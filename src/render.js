@@ -14,8 +14,33 @@ import { statusVal } from './status.js';
 import { key, tileColor } from './util.js';
 import { drawWall, wallMask } from './autotile.js';
 import { drawSprite, onSpriteLoad } from './sprites.js';
-import { initAtlas, specialSprite, warmAtlas } from './atlas.js';
+import { initAtlas, specialSprite } from './atlas.js';
 import { floorTile } from './floor.js';
+
+/**
+ * Исполняет декларативную команду визуального эффекта.
+ * Функция не читает и не меняет игровую логику: только DOM/canvas-анимации.
+ * @param {{type:string,color?:string,durationMs?:number,strength?:number,x?:number,y?:number,count?:number}} effect команда из visual-effects.ts
+ */
+export function applyVisualEffect(effect) {
+  if (!CFG.ANIM_ENABLED || !effect) return;
+  if (effect.type === 'vignette') screenFade(effect.color || '#000', effect.durationMs || 220);
+  else if (effect.type === 'transition')
+    screenFade(effect.style === 'lens' ? '#5b4a81' : '#000', effect.durationMs || 350);
+  else if (effect.type === 'particles')
+    spawnParticles(effect.x || 0, effect.y || 0, effect.color || '#fff', effect.count || 8);
+  else if (effect.type === 'move')
+    startMoveAnim(effect.unit, effect.fromX, effect.fromY, effect.toX, effect.toY);
+  else if (effect.type === 'capture') startCaptureFlash(effect.x || 0, effect.y || 0);
+  else if (effect.type === 'shake' && dom.canvas) {
+    const strength = Math.max(1, Math.min(12, effect.strength || 4));
+    dom.canvas.style.setProperty('--shake-strength', `${strength}px`);
+    dom.canvas.classList.remove('screen-shake');
+    void dom.canvas.offsetWidth;
+    dom.canvas.classList.add('screen-shake');
+    setTimeout(() => dom.canvas?.classList.remove('screen-shake'), effect.durationMs || 180);
+  }
+}
 
 export let T = CFG.TILE; // логический размер тайла (CSS-пиксели); пересчитывается в resizeBoard()
 
@@ -69,7 +94,6 @@ const animState = {
  * @param {number} ty
  */
 export function startMoveAnim(unit, fx, fy, tx, ty) {
-  unit.lastDir = [Math.sign(tx - fx), Math.sign(ty - fy)];
   if (!CFG.ANIM_ENABLED || typeof requestAnimationFrame === 'undefined') return;
   const entry = { fromX: fx, fromY: fy, toX: tx, toY: ty, startTs: null };
   if (unit === S.player) {

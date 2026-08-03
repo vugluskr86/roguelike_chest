@@ -89,7 +89,8 @@ export function bsp(ctx) {
   const cw = P.corridorW;
   const carve = (x, y) => {
     for (let dy = 0; dy < cw; dy++)
-      for (let dx = 0; dx < cw; dx++) if (inRect(x + dx, y + dy, W, H)) w.delete(key(x + dx, y + dy));
+      for (let dx = 0; dx < cw; dx++)
+        if (inRect(x + dx, y + dy, W, H)) w.delete(key(x + dx, y + dy));
   };
   for (let i = 1; i < rooms.length; i++) {
     const a = rooms[i - 1],
@@ -305,7 +306,13 @@ export const STAMPS = [
 export function stamps(ctx) {
   const { W, H, P, canWall } = ctx;
   const w = new Set();
-  const rot = (m) => m[0].split('').map((_, i) => m.map((r) => r[i]).reverse().join(''));
+  const rot = (m) =>
+    m[0].split('').map((_, i) =>
+      m
+        .map((r) => r[i])
+        .reverse()
+        .join(''),
+    );
 
   for (let i = 0; i < P.pieces; i++) {
     let m = pick(STAMPS);

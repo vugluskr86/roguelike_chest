@@ -1,0 +1,162 @@
+{
+  "_meta_note": "Один персонаж × одно направление. Гоняется циклом из tools/queue.py по 8 файлам (east/north/.../south-west). Плейсхолдеры: ckpt, lora, piece, direction, direction_hint, piece_desc, ref_image, controlnet, cn_strength, seed, batch, sprite_px.",
+  "m_ckpt": {
+    "class_type": "CheckpointLoaderSimple",
+    "inputs": {
+      "ckpt_name": "{{ckpt}}"
+    }
+  },
+  "m_lora": {
+    "class_type": "LoraLoader",
+    "inputs": {
+      "model": [
+        "m_ckpt",
+        0
+      ],
+      "clip": [
+        "m_ckpt",
+        1
+      ],
+      "lora_name": "{{lora}}",
+      "strength_model": 0.85,
+      "strength_clip": 0.85
+    }
+  },
+  "p_pos": {
+    "class_type": "CLIPTextEncode",
+    "inputs": {
+      "text": "{{piece_desc}}, {{direction_hint}}, pixel art, 16-bit, limited palette, bone white and rust iron and deep teal and crimson, dark dungeon under a chessboard, grim, hand-crafted tileset, crisp pixels, no antialiasing, single game sprite, full body, centered, three-quarter top-down view, solid flat magenta background, #FF00FF background, sharp silhouette, strong rim light",
+      "clip": [
+        "m_lora",
+        1
+      ]
+    }
+  },
+  "p_neg": {
+    "class_type": "CLIPTextEncode",
+    "inputs": {
+      "text": "blurry, jpeg artifacts, photo, 3d render, smooth gradient, antialiasing, text, watermark, signature, logo, frame, border, vignette, depth of field, bokeh, human hands, modern, background scenery, floor, ground shadow, multiple characters, cropped",
+      "clip": [
+        "m_lora",
+        1
+      ]
+    }
+  },
+  "ref": {
+    "class_type": "LoadImage",
+    "inputs": {
+      "image": "{{ref_image}}"
+    }
+  },
+  "cn": {
+    "class_type": "ControlNetLoader",
+    "inputs": {
+      "control_net_name": "{{controlnet}}"
+    }
+  },
+  "cn_apply": {
+    "class_type": "ControlNetApplyAdvanced",
+    "inputs": {
+      "positive": [
+        "p_pos",
+        0
+      ],
+      "negative": [
+        "p_neg",
+        0
+      ],
+      "control_net": [
+        "cn",
+        0
+      ],
+      "image": [
+        "ref",
+        0
+      ],
+      "strength": "{{cn_strength}}",
+      "start_percent": 0.0,
+      "end_percent": 0.85
+    }
+  },
+  "lat": {
+    "class_type": "EmptyLatentImage",
+    "inputs": {
+      "width": 768,
+      "height": 768,
+      "batch_size": "{{batch}}"
+    }
+  },
+  "ks": {
+    "class_type": "KSampler",
+    "inputs": {
+      "model": [
+        "m_lora",
+        0
+      ],
+      "seed": "{{seed}}",
+      "steps": 30,
+      "cfg": 6.5,
+      "sampler_name": "dpmpp_2m",
+      "scheduler": "karras",
+      "positive": [
+        "cn_apply",
+        0
+      ],
+      "negative": [
+        "cn_apply",
+        1
+      ],
+      "latent_image": [
+        "lat",
+        0
+      ],
+      "denoise": 1.0
+    }
+  },
+  "dec": {
+    "class_type": "VAEDecode",
+    "inputs": {
+      "samples": [
+        "ks",
+        0
+      ],
+      "vae": [
+        "m_ckpt",
+        2
+      ]
+    }
+  },
+  "save_hires": {
+    "class_type": "SaveImage",
+    "inputs": {
+      "images": [
+        "dec",
+        0
+      ],
+      "filename_prefix": "endshpil/chars_src/{{piece}}_{{direction}}"
+    }
+  },
+  "px": {
+    "class_type": "ImageScale",
+    "inputs": {
+      "image": [
+        "dec",
+        0
+      ],
+      "upscale_method": "nearest-exact",
+      "width": "{{sprite_px}}",
+      "height": "{{sprite_px}}",
+      "crop": "disabled"
+    }
+  },
+  "save": {
+    "class_type": "SaveImage",
+    "inputs": {
+      "images": [
+        "px",
+        0
+      ],
+      "filename_prefix": "endshpil/chars/{{piece}}_{{direction}}"
+    }
+  }
+}

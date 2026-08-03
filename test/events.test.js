@@ -5,8 +5,11 @@ import { reset } from '../src/board.js';
 import { META, defaultMeta, recordKill } from '../src/meta.js';
 import { openShop, openPurify, openSanctuary, openGamble, openBlessing } from '../src/events.js';
 import { makeForm } from '../src/util.js';
+import { configureFeedback, resetFeedback } from '../src/feedback.ts';
 
 beforeEach(() => {
+  resetFeedback();
+  configureFeedback(null);
   reset();
   Object.assign(META, defaultMeta());
   S.player.relics.clear();
@@ -17,6 +20,18 @@ beforeEach(() => {
 });
 
 describe('gold + event rooms', () => {
+  it('routes event-room journal entries through the shared feedback API', () => {
+    const seen = [];
+    configureFeedback({
+      toast: () => {},
+      log: (text) => seen.push(text),
+      speech: () => {},
+      hint: () => {},
+      modal: () => {},
+    });
+    openShop();
+    expect(seen.length).toBeGreaterThan(0);
+  });
   it('enemies drop gold', () => {
     S.player.gold = 0;
     recordKill('queen', false);
